@@ -43,6 +43,8 @@ docs = [
 pytest = "^7.0"
 pytest-cov = "^3.0"
 black = {version = "^22.6.0", allow-prereleases = true}
+mypy = "^0.971"
+pylint = "^2.14.5"
 
 [tool.semantic_release]
 branch = "main"

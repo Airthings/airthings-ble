@@ -1,3 +1,5 @@
+"""Parser for Airthings BLE devices"""
+
 from __future__ import annotations
 
 import asyncio
@@ -31,7 +33,6 @@ from .const import (
     COMMAND_UUID,
     HIGH,
     LOW,
-    MFCT_ID,
     MODERATE,
     VERY_LOW,
 )
@@ -62,16 +63,21 @@ sensors_characteristics_uuid = [
     CHAR_UUID_WAVEMINI_DATA,
     COMMAND_UUID,
 ]
-sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
+sensors_characteristics_uuid_str = [
+    str(x) for x in sensors_characteristics_uuid
+]
 
-
+# pylint: disable=too-few-public-methods
 class BaseDecode:
-    def __init__(self, name, format_type, scale):
+    """Base class for decoding sensordata"""
+
+    def __init__(self, name, format_type, scale) -> None:
         self.name = name
         self.format_type = format_type
         self.scale = scale
 
-    def decode_data(self, raw_data) -> dict[str, any]:
+    def decode_data(self, raw_data) -> dict[str, int]:
+        """Base decoder"""
         val = struct.unpack(self.format_type, raw_data)
         if len(val) == 1:
             res = val[0] * self.scale
@@ -80,7 +86,10 @@ class BaseDecode:
         return {self.name: res}
 
 
+# pylint: disable=too-few-public-methods
 class WavePlussDecode(BaseDecode):
+    """Decoder for Wave Plus devices"""
+
     def decode_data(self, raw_data):
         val = super().decode_data(raw_data)
         val = val[self.name]
@@ -96,7 +105,10 @@ class WavePlussDecode(BaseDecode):
         return data
 
 
+# pylint: disable=too-few-public-methods
 class Wave2Decode(BaseDecode):
+    """Decoder for Wave 2 devices"""
+
     def decode_data(self, raw_data):
         val = super().decode_data(raw_data)
         val = val[self.name]
@@ -109,7 +121,10 @@ class Wave2Decode(BaseDecode):
         return data
 
 
+# pylint: disable=too-few-public-methods
 class WaveMiniDecode(BaseDecode):
+    """Decoder for Wave mini devices"""
+
     def decode_data(self, raw_data):
         val = super().decode_data(raw_data)
         val = val[self.name]
@@ -121,18 +136,26 @@ class WaveMiniDecode(BaseDecode):
         return data
 
 
+# pylint: disable=too-few-public-methods
 class WaveDecodeDate(BaseDecode):
+    """Decoder for just Wave"""
+
     def decode_data(self, raw_data):
         val = super().decode_data(raw_data)[self.name]
         data = {
             self.name: str(
-                datetime(val[0], val[1], val[2], val[3], val[4], val[5]).isoformat()
+                datetime(
+                    val[0], val[1], val[2], val[3], val[4], val[5]
+                ).isoformat()
             )
         }
         return data
 
 
+# pylint: disable=too-few-public-methods
 class WaveDecodeIluminAccel(BaseDecode):
+    """Decoder for illuminance and accelerometer"""
+
     def decode_data(self, raw_data):
         val = super().decode_data(raw_data)[self.name]
         data = {}
@@ -141,22 +164,29 @@ class WaveDecodeIluminAccel(BaseDecode):
         return data
 
 
+# pylint: disable=too-few-public-methods
 class CommandDecode:
+    """Decoder for the command response"""
+
     def __init__(self, name, format_type, cmd):
         self.name = name
         self.format_type = format_type
         self.cmd = cmd
 
     def decode_data(self, raw_data):
+        """Decoder returns dict with illuminance and battery"""
         if raw_data is None:
             return {}
         cmd = raw_data[0:1]
         if cmd != self.cmd:
-            # _LOGGER.warning("Result for Wrong command received, expected {} got {}".format(self.cmd.hex(), cmd.hex()))
+            # _LOGGER.warning("Result for Wrong command received,
+            # expected {} got {}".format(self.cmd.hex(), cmd.hex()))
             return {}
 
         if len(raw_data[2:]) != struct.calcsize(self.format_type):
-            # _LOGGER.debug("Wrong length data received ({}) verses expected ({})".format(len(cmd), struct.calcsize(self.format_type)))
+            # _LOGGER.debug("Wrong length data received ({}) verses
+            # expected ({})".format(len(cmd),
+            # struct.calcsize(self.format_type)))
             return {}
         val = struct.unpack(self.format_type, raw_data[2:])
         res = {}
@@ -168,6 +198,7 @@ class CommandDecode:
 
 
 def get_radon_level(data) -> str:
+    """Returns the applicable radon level"""
     if float(data) <= VERY_LOW[1]:
         radon_level = VERY_LOW[2]
     elif float(data) <= LOW[1]:
@@ -179,7 +210,9 @@ def get_radon_level(data) -> str:
     return radon_level
 
 
+# pylint: disable=invalid-name
 def get_absolute_pressure(elevation: int, data) -> int:
+    """Returns an absolute pressure calculated from the given elevation"""
     p0 = 101325  # Pa
     g = 9.80665  # m/s^2
     M = 0.02896968  # kg/mol
@@ -228,6 +261,8 @@ command_decoders = {
 
 
 class AirthingsDevice:
+    """Response data with information about the Airthings device"""
+
     hw_version: str
     sw_version: str
     name: str
@@ -247,96 +282,104 @@ class AirthingsBluetoothDeviceData:
         self._event = None
 
     def notification_handler(self, _, data):
+        """Helper for command events"""
         self._command_data = data
         self._event.set()
 
+    async def _get_device_characteristics(
+        self, client: BleakClient, device=AirthingsDevice
+    ) -> AirthingsDevice:
+        for characteristic in device_info_characteristics:
+            data = await client.read_gatt_char(characteristic.uuid)
+            if characteristic.name == "hardware_rev":
+                device.hw_version = data.decode(characteristic.format)
+                continue
+            if characteristic.name == "firmware_rev":
+                device.sw_version = data.decode(characteristic.format)
+                continue
+            if characteristic.name == "device_name":
+                device.name = data.decode(characteristic.format)
+        return device
+
+    async def _get_service_characteristics(
+        self, client: BleakClient, device=AirthingsDevice
+    ) -> AirthingsDevice:
+        svcs = await client.get_services()
+        for service in svcs:
+            for characteristic in service.characteristics:
+                if (
+                    characteristic.uuid in sensors_characteristics_uuid_str
+                    and str(characteristic.uuid) in sensor_decoders
+                ):
+                    data = await client.read_gatt_char(characteristic.uuid)
+                    sensor_data = sensor_decoders[
+                        str(characteristic.uuid)
+                    ].decode_data(data)
+
+                    device.sensors = sensor_data
+
+                    # manage radon values
+                    if d := sensor_data.get("radon_1day_avg"):
+                        device.sensors["radon_1day_level"] = get_radon_level(d)
+                        if not self.is_metric:
+                            device.sensors["radon_1day_avg"] = (
+                                d * BQ_TO_PCI_MULTIPLIER
+                            )
+                    if d := sensor_data.get("radon_longterm_avg"):
+                        device.sensors[
+                            "radon_longterm_level"
+                        ] = get_radon_level(d)
+                        if not self.is_metric:
+                            device.sensors["radon_longterm_avg"] = (
+                                d * BQ_TO_PCI_MULTIPLIER
+                            )
+
+                    # rel to abs pressure
+                    if p := sensor_data["rel_atm_pressure"]:
+                        device.sensors["pressure"] = get_absolute_pressure(
+                            self.elevation, p
+                        )
+                        sensor_data.pop("rel_atm_pressure")
+
+                if str(characteristic.uuid) in command_decoders:
+                    self._event = asyncio.Event()
+                    # Set up the notification handlers
+                    await client.start_notify(
+                        characteristic.uuid, self.notification_handler
+                    )
+                    # send command to this 'indicate' characteristic
+                    await client.write_gatt_char(
+                        characteristic.uuid,
+                        command_decoders[str(characteristic.uuid)].cmd,
+                    )
+                    # Wait for up to one second to see if a
+                    # callblack comes in.
+                    try:
+                        await asyncio.wait_for(self._event.wait(), 1)
+                    except asyncio.TimeoutError:
+                        self.logger.warn("Timeout getting command data.")
+                    if self._command_data is not None:
+                        sensor_data = command_decoders[
+                            str(characteristic.uuid)
+                        ].decode_data(self._command_data)
+                        self._command_data = None
+
+                        device.sensors["illuminance"] = sensor_data[
+                            "illuminance"
+                        ]
+
+                    # Stop notification handler
+                    await client.stop_notify(characteristic.uuid)
+
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
-        """
-        Poll the device to retrieve any values we can't get from passive listening.
-        """
-        client = await establish_connection(BleakClient, ble_device, ble_device.address)
+        """Connects to the device through BLE and retrieves relevant data"""
+        client = await establish_connection(
+            BleakClient, ble_device, ble_device.address
+        )
 
         device = AirthingsDevice
-        try:
-            for characteristic in device_info_characteristics:
-                try:
-                    data = await client.read_gatt_char(characteristic.uuid)
-                    # self.logger.debug("attr: %s %s", characteristic.name, data)
-                    if characteristic.name == "hardware_rev":
-                        device.hw_version = data.decode(characteristic.format)
-                    elif characteristic.name == "firmware_rev":
-                        device.sw_version = data.decode(characteristic.format)
-                    elif characteristic.name == "device_name":
-                        device.name = data.decode(characteristic.format)
-                except Exception as exec:
-                    raise Exception("failed getting info") from exec
+        device = await self._get_device_characteristics(client, device)
+        device = await self._get_service_characteristics(client, device)
+        await client.disconnect()
 
-            svcs = await client.get_services()
-            for service in svcs:
-                for characteristic in service.characteristics:
-                    if (
-                        characteristic.uuid in sensors_characteristics_uuid_str
-                        and str(characteristic.uuid) in sensor_decoders
-                    ):
-                        data = await client.read_gatt_char(characteristic.uuid)
-                        sensor_data = sensor_decoders[
-                            str(characteristic.uuid)
-                        ].decode_data(data)
-
-                        device.sensors = sensor_data
-
-                        # manage radon values
-                        if d := sensor_data.get("radon_1day_avg"):
-                            device.sensors["radon_1day_level"] = get_radon_level(d)
-                            if not self.is_metric:
-                                device.sensors["radon_1day_avg"] = (
-                                    d * BQ_TO_PCI_MULTIPLIER
-                                )
-                        if d := sensor_data.get("radon_longterm_avg"):
-                            device.sensors["radon_longterm_level"] = get_radon_level(d)
-                            if not self.is_metric:
-                                device.sensors["radon_longterm_avg"] = (
-                                    d * BQ_TO_PCI_MULTIPLIER
-                                )
-
-                        # rel to abs pressure
-                        if p := sensor_data["rel_atm_pressure"]:
-                            device.sensors["pressure"] = get_absolute_pressure(
-                                self.elevation, p
-                            )
-                            sensor_data.pop("rel_atm_pressure")
-
-                    if str(characteristic.uuid) in command_decoders:
-                        self._event = asyncio.Event()
-                        # Set up the notification handlers
-                        await client.start_notify(
-                            characteristic.uuid, self.notification_handler
-                        )
-                        # send command to this 'indicate' characteristic
-                        await client.write_gatt_char(
-                            characteristic.uuid,
-                            command_decoders[str(characteristic.uuid)].cmd,
-                        )
-                        # Wait for up to one second to see if a callblack comes in.
-                        try:
-                            await asyncio.wait_for(self._event.wait(), 1)
-                        except asyncio.TimeoutError:
-                            self.logger.warn("Timeout getting command data.")
-                        if self._command_data is not None:
-                            sensor_data = command_decoders[
-                                str(characteristic.uuid)
-                            ].decode_data(self._command_data)
-                            self._command_data = None
-                            # TODO: fix this, doesn't get added into return somehow.
-                            device.sensors["illuminance"] = sensor_data["illuminance"]
-
-                        # Stop notification handler
-                        await client.stop_notify(characteristic.uuid)
-        except Exception as exec:
-            self.logger.debug("failed: %s", exec)
-            raise exec
-        finally:
-            await client.disconnect()
-
-        self.logger.debug("update_device done, returning: %s", device.sensors)
         return device
