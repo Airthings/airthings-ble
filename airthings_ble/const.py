@@ -40,9 +40,9 @@ contact a professional radon mitigator.
 Keep measuring. If levels are maintained for more than 1 month,
 contact a professional radon mitigator.
 """
-VERY_LOW = [0, 49, "very low"]
-LOW = [50, 99, "low"]
-MODERATE = [100, 299, "moderate"]
-HIGH = [300, None, "high"]
+VERY_LOW = (0, 49, "very low")
+LOW = (50, 99, "low")
+MODERATE = (100, 299, "moderate")
+HIGH = (300, None, "high")
 
 BQ_TO_PCI_MULTIPLIER = 0.027

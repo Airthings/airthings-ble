@@ -8,7 +8,7 @@ from collections import namedtuple
 from datetime import datetime
 from logging import Logger
 from math import exp
-from typing import Tuple
+from typing import Any, Callable, Tuple
 
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
@@ -68,33 +68,44 @@ sensors_characteristics_uuid_str = [
     str(x) for x in sensors_characteristics_uuid
 ]
 
-# pylint: disable=too-few-public-methods
-class BaseDecode:
-    """Base class for decoding sensordata"""
 
-    def __init__(self, name, format_type, scale) -> None:
-        self.name = name
-        self.format_type = format_type
-        self.scale = scale
-
-    def decode_data(self, raw_data) -> dict[str, int]:
-        """Base decoder"""
-        val = struct.unpack(self.format_type, raw_data)
+def _decode_base(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, Tuple[float, ...]]]:
+    def handler(raw_data: bytearray) -> dict[str, Tuple[float, ...]]:
+        val = struct.unpack(format_type, raw_data)
         if len(val) == 1:
-            res = val[0] * self.scale
+            res = val[0] * scale
         else:
             res = val
-        return {self.name: res}
+        return {name: res}
+
+    return handler
 
 
-# pylint: disable=too-few-public-methods
-class WavePlussDecode(BaseDecode):
-    """Decoder for Wave Plus devices"""
+def _decode_attr(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, float | None | str]]:
+    """same as base decoder, but expects only one value.. for real"""
 
-    def decode_data(self, raw_data):
-        val = super().decode_data(raw_data)
-        val = val[self.name]
-        data = {}
+    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
+        val = struct.unpack(format_type, raw_data)
+        res: float | None = None
+        if len(val) == 1:
+            res = val[0] * scale
+        data: dict[str, float | None | str] = {name: res}
+        return data
+
+    return handler
+
+
+def __decode_wave_plus(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, float | None | str]]:
+    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
+        vals = _decode_base(name, format_type, scale)(raw_data)
+        val = vals[name]
+        data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["humidity"] = val[1] / 2.0
         data["radon_1day_avg"] = val[4] if 0 <= val[4] <= 16383 else None
@@ -105,15 +116,16 @@ class WavePlussDecode(BaseDecode):
         data["voc"] = val[9] * 1.0
         return data
 
+    return handler
 
-# pylint: disable=too-few-public-methods
-class Wave2Decode(BaseDecode):
-    """Decoder for Wave 2 devices"""
 
-    def decode_data(self, raw_data):
-        val = super().decode_data(raw_data)
-        val = val[self.name]
-        data = {}
+def __decode_wave_2(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, float | None | str]]:
+    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
+        vals = _decode_base(name, format_type, scale)(raw_data)
+        val = vals[name]
+        data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["humidity"] = val[1] / 2.0
         data["radon_1day_avg"] = val[4] if 0 <= val[4] <= 16383 else None
@@ -121,63 +133,81 @@ class Wave2Decode(BaseDecode):
         data["temperature"] = val[6] / 100.0
         return data
 
+    return handler
 
-# pylint: disable=too-few-public-methods
-class WaveMiniDecode(BaseDecode):
-    """Decoder for Wave mini devices"""
 
-    def decode_data(self, raw_data):
-        val = super().decode_data(raw_data)
-        val = val[self.name]
-        data = {}
+def _decode_wave_mini(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, float | None | str]]:
+    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
+        vals = _decode_base(name, format_type, scale)(raw_data)
+        val = vals[name]
+        data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["temperature"] = round(val[1] / 100.0 - 273.15, 2)
         data["humidity"] = val[3] / 100.0
         data["voc"] = val[4] * 1.0
         return data
 
+    return handler
 
-# pylint: disable=too-few-public-methods
-class WaveDecodeDate(BaseDecode):
-    """Decoder for just Wave"""
 
-    def decode_data(self, raw_data):
-        val = super().decode_data(raw_data)[self.name]
-        data = {
-            self.name: str(
+def _decode_wave(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, float | None | str]]:
+    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
+        vals = _decode_base(name, format_type, scale)(raw_data)
+        val = vals[name]
+        data: dict[str, float | None | str] = {
+            name: str(
                 datetime(
-                    val[0], val[1], val[2], val[3], val[4], val[5]
+                    int(val[0]),
+                    int(val[1]),
+                    int(val[2]),
+                    int(val[3]),
+                    int(val[4]),
+                    int(val[5]),
                 ).isoformat()
             )
         }
         return data
 
+    return handler
 
-# pylint: disable=too-few-public-methods
-class WaveDecodeIluminAccel(BaseDecode):
-    """Decoder for illuminance and accelerometer"""
 
-    def decode_data(self, raw_data):
-        val = super().decode_data(raw_data)[self.name]
-        data = {}
-        data["illuminance"] = str(val[0] * self.scale)
-        data["accelerometer"] = str(val[1] * self.scale)
+def _decode_wave_illum_accel(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, float | None | str]]:
+    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
+        vals = _decode_base(name, format_type, scale)(raw_data)
+        val = vals[name]
+        data: dict[str, float | None | str] = {}
+        data["illuminance"] = str(val[0] * scale)
+        data["accelerometer"] = str(val[1] * scale)
         return data
+
+    return handler
 
 
 # pylint: disable=too-few-public-methods
 class CommandDecode:
     """Decoder for the command response"""
 
-    def __init__(self, name, format_type, cmd):
+    cmd: bytes | bytearray
+
+    def __init__(self, name: str, format_type: str, cmd: bytes):
+        """Initialize command decoder"""
         self.name = name
         self.format_type = format_type
         self.cmd = cmd
 
-    def decode_data(self, raw_data):
+    def decode_data(
+        self, raw_data: bytearray | None
+    ) -> dict[str, float | str | None]:
         """Decoder returns dict with illuminance and battery"""
         if raw_data is None:
             return {}
+
         cmd = raw_data[0:1]
         if cmd != self.cmd:
             # _LOGGER.warning("Result for Wrong command received,
@@ -198,13 +228,13 @@ class CommandDecode:
         return res
 
 
-def get_radon_level(data) -> str:
+def get_radon_level(data: float) -> str:
     """Returns the applicable radon level"""
-    if float(data) <= VERY_LOW[1]:
+    if data <= VERY_LOW[1]:
         radon_level = VERY_LOW[2]
-    elif float(data) <= LOW[1]:
+    elif data <= LOW[1]:
         radon_level = LOW[2]
-    elif float(data) <= MODERATE[1]:
+    elif data <= MODERATE[1]:
         radon_level = MODERATE[2]
     else:
         radon_level = HIGH[2]
@@ -212,7 +242,7 @@ def get_radon_level(data) -> str:
 
 
 # pylint: disable=invalid-name
-def get_absolute_pressure(elevation: int, data) -> int:
+def get_absolute_pressure(elevation: int, data: float) -> float:
     """Returns an absolute pressure calculated from the given elevation"""
     p0 = 101325  # Pa
     g = 9.80665  # m/s^2
@@ -224,37 +254,40 @@ def get_absolute_pressure(elevation: int, data) -> int:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[str, BaseDecode] = {
-    str(CHAR_UUID_WAVE_PLUS_DATA): WavePlussDecode(
+sensor_decoders: dict[
+    str,
+    Callable[[bytearray], dict[str, float | None | str]],
+] = {
+    str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
         name="Pluss", format_type="BBBBHHHHHHHH", scale=0
     ),
-    str(CHAR_UUID_DATETIME): WaveDecodeDate(
+    str(CHAR_UUID_DATETIME): _decode_wave(
         name="date_time", format_type="HBBBBB", scale=0
     ),
-    str(CHAR_UUID_HUMIDITY): BaseDecode(
+    str(CHAR_UUID_HUMIDITY): _decode_attr(
         name="humidity", format_type="H", scale=1.0 / 100.0
     ),
-    str(CHAR_UUID_RADON_1DAYAVG): BaseDecode(
+    str(CHAR_UUID_RADON_1DAYAVG): _decode_attr(
         name="radon_1day_avg", format_type="H", scale=1.0
     ),
-    str(CHAR_UUID_RADON_LONG_TERM_AVG): BaseDecode(
+    str(CHAR_UUID_RADON_LONG_TERM_AVG): _decode_attr(
         name="radon_longterm_avg", format_type="H", scale=1.0
     ),
-    str(CHAR_UUID_ILLUMINANCE_ACCELEROMETER): WaveDecodeIluminAccel(
+    str(CHAR_UUID_ILLUMINANCE_ACCELEROMETER): _decode_wave_illum_accel(
         name="illuminance_accelerometer", format_type="BB", scale=1.0
     ),
-    str(CHAR_UUID_TEMPERATURE): BaseDecode(
+    str(CHAR_UUID_TEMPERATURE): _decode_attr(
         name="temperature", format_type="h", scale=1.0 / 100.0
     ),
-    str(CHAR_UUID_WAVE_2_DATA): Wave2Decode(
+    str(CHAR_UUID_WAVE_2_DATA): __decode_wave_2(
         name="Wave2", format_type="<4B8H", scale=1.0
     ),
-    str(CHAR_UUID_WAVEMINI_DATA): WaveMiniDecode(
+    str(CHAR_UUID_WAVEMINI_DATA): _decode_wave_mini(
         name="WaveMini", format_type="<HHHHHHLL", scale=1.0
     ),
 }
 
-command_decoders = {
+command_decoders: dict[str, CommandDecode] = {
     str(COMMAND_UUID): CommandDecode(
         name="Battery", format_type="<L12B6H", cmd=struct.pack("<B", 0x6D)
     )
@@ -267,18 +300,21 @@ class AirthingsDevice:
     hw_version: str
     sw_version: str
     name: str
-    sensors: dict[str, str] = {}
+    sensors: dict[str, str | float | None] = {}
 
 
 class AirthingsBluetoothDeviceData:
     """Data for Airthings BLE sensors."""
+
+    _event: asyncio.Event | None
+    _command_data: bytearray | None
 
     def __init__(
         self,
         logger: Logger,
         elevation: int,
         is_metric: bool,
-        voltage: Tuple[float, float] = (2.4, 3.2),
+        voltage: tuple[float, float] = (2.4, 3.2),
     ):
         super().__init__()
         self.logger = logger
@@ -288,13 +324,15 @@ class AirthingsBluetoothDeviceData:
         self._command_data = None
         self._event = None
 
-    def notification_handler(self, _, data):
+    def notification_handler(self, _: Any, data: bytearray) -> None:
         """Helper for command events"""
         self._command_data = data
+        if self._event is None:
+            return
         self._event.set()
 
     async def _get_device_characteristics(
-        self, client: BleakClient, device=AirthingsDevice
+        self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
         for characteristic in device_info_characteristics:
             data = await client.read_gatt_char(characteristic.uuid)
@@ -309,7 +347,7 @@ class AirthingsBluetoothDeviceData:
         return device
 
     async def _get_service_characteristics(
-        self, client: BleakClient, device=AirthingsDevice
+        self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
         svcs = await client.get_services()
         for service in svcs:
@@ -319,32 +357,38 @@ class AirthingsBluetoothDeviceData:
                     and str(characteristic.uuid) in sensor_decoders
                 ):
                     data = await client.read_gatt_char(characteristic.uuid)
-                    sensor_data = sensor_decoders[
-                        str(characteristic.uuid)
-                    ].decode_data(data)
+
+                    sensor_data = sensor_decoders[str(characteristic.uuid)](
+                        data
+                    )
+                    # skip for now!
+
+                    sensor_data.pop("date_time")
 
                     device.sensors.update(sensor_data)
 
                     # manage radon values
                     if d := sensor_data.get("radon_1day_avg"):
-                        device.sensors["radon_1day_level"] = get_radon_level(d)
+                        device.sensors["radon_1day_level"] = get_radon_level(
+                            float(d)
+                        )
                         if not self.is_metric:
                             device.sensors["radon_1day_avg"] = (
-                                d * BQ_TO_PCI_MULTIPLIER
+                                float(d) * BQ_TO_PCI_MULTIPLIER
                             )
                     if d := sensor_data.get("radon_longterm_avg"):
                         device.sensors[
                             "radon_longterm_level"
-                        ] = get_radon_level(d)
+                        ] = get_radon_level(float(d))
                         if not self.is_metric:
                             device.sensors["radon_longterm_avg"] = (
-                                d * BQ_TO_PCI_MULTIPLIER
+                                float(d) * BQ_TO_PCI_MULTIPLIER
                             )
 
                     # rel to abs pressure
                     if p := sensor_data["rel_atm_pressure"]:
                         device.sensors["pressure"] = get_absolute_pressure(
-                            self.elevation, p
+                            self.elevation, float(p)
                         )
 
                         # remove rel atm
@@ -359,7 +403,9 @@ class AirthingsBluetoothDeviceData:
                     # send command to this 'indicate' characteristic
                     await client.write_gatt_char(
                         characteristic.uuid,
-                        command_decoders[str(characteristic.uuid)].cmd,
+                        bytearray(
+                            command_decoders[str(characteristic.uuid)].cmd
+                        ),
                     )
                     # Wait for up to one second to see if a
                     # callback comes in.
@@ -367,33 +413,42 @@ class AirthingsBluetoothDeviceData:
                         await asyncio.wait_for(self._event.wait(), 1)
                     except asyncio.TimeoutError:
                         self.logger.warn("Timeout getting command data.")
+
                     if self._command_data is not None:
-                        sensor_data = command_decoders[
+                        command_sensor_data = command_decoders[
                             str(characteristic.uuid)
                         ].decode_data(self._command_data)
                         self._command_data = None
 
                         # calculate battery percentage
                         v_min, v_max = self.voltage
-                        bat = sensor_data["battery"]
-                        bat_pct = (
-                            max(
-                                0,
-                                min(
-                                    100,
-                                    round(
-                                        (bat - v_min) / (v_max - v_min) * 100
+                        bat_pct: int | None
+                        if command_sensor_data["battery"] is not None:
+                            bat = float(command_sensor_data["battery"])
+                            # set as tuple during lint somehow..
+                            bat_pct = (
+                                max(
+                                    0,
+                                    min(
+                                        100,
+                                        round(
+                                            (bat - v_min)
+                                            / (v_max - v_min)
+                                            * 100
+                                        ),
                                     ),
                                 ),
-                            ),
-                        )
+                            )[0]
 
                         device.sensors.update(
                             {
-                                "illuminance": sensor_data["illuminance"],
+                                "illuminance": command_sensor_data[
+                                    "illuminance"
+                                ],
                                 "battery": bat_pct,
                             }
                         )
+
                     # Stop notification handler
                     await client.stop_notify(characteristic.uuid)
 
@@ -405,7 +460,8 @@ class AirthingsBluetoothDeviceData:
             BleakClient, ble_device, ble_device.address
         )
 
-        device = AirthingsDevice
+        device = AirthingsDevice()
+
         device = await self._get_device_characteristics(client, device)
         device = await self._get_service_characteristics(client, device)
         await client.disconnect()
