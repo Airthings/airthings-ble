@@ -22,6 +22,10 @@ wheels/
 *.egg
 MANIFEST
 
+# Cache
+.mypy_cache
+.pytest_cache
+
 # Installer logs
 pip-log.txt
 pip-delete-this-directory.txt

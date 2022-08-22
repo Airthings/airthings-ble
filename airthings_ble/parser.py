@@ -8,6 +8,7 @@ from collections import namedtuple
 from datetime import datetime
 from logging import Logger
 from math import exp
+from typing import Tuple
 
 from bleak import BleakClient
 from bleak.backends.device import BLEDevice
@@ -272,12 +273,18 @@ class AirthingsDevice:
 class AirthingsBluetoothDeviceData:
     """Data for Airthings BLE sensors."""
 
-    def __init__(self, logger: Logger, elevation: int, is_metric: bool):
+    def __init__(
+        self,
+        logger: Logger,
+        elevation: int,
+        is_metric: bool,
+        voltage: Tuple[float, float] = (2.4, 3.2),
+    ):
         super().__init__()
         self.logger = logger
         self.is_metric = is_metric
         self.elevation = elevation
-
+        self.voltage = voltage
         self._command_data = None
         self._event = None
 
@@ -316,7 +323,7 @@ class AirthingsBluetoothDeviceData:
                         str(characteristic.uuid)
                     ].decode_data(data)
 
-                    device.sensors = sensor_data
+                    device.sensors.update(sensor_data)
 
                     # manage radon values
                     if d := sensor_data.get("radon_1day_avg"):
@@ -339,7 +346,9 @@ class AirthingsBluetoothDeviceData:
                         device.sensors["pressure"] = get_absolute_pressure(
                             self.elevation, p
                         )
-                        sensor_data.pop("rel_atm_pressure")
+
+                        # remove rel atm
+                        device.sensors.pop("rel_atm_pressure")
 
                 if str(characteristic.uuid) in command_decoders:
                     self._event = asyncio.Event()
@@ -353,7 +362,7 @@ class AirthingsBluetoothDeviceData:
                         command_decoders[str(characteristic.uuid)].cmd,
                     )
                     # Wait for up to one second to see if a
-                    # callblack comes in.
+                    # callback comes in.
                     try:
                         await asyncio.wait_for(self._event.wait(), 1)
                     except asyncio.TimeoutError:
@@ -364,12 +373,31 @@ class AirthingsBluetoothDeviceData:
                         ].decode_data(self._command_data)
                         self._command_data = None
 
-                        device.sensors["illuminance"] = sensor_data[
-                            "illuminance"
-                        ]
+                        # calculate battery percentage
+                        v_min, v_max = self.voltage
+                        bat = sensor_data["battery"]
+                        bat_pct = (
+                            max(
+                                0,
+                                min(
+                                    100,
+                                    round(
+                                        (bat - v_min) / (v_max - v_min) * 100
+                                    ),
+                                ),
+                            ),
+                        )
 
+                        device.sensors.update(
+                            {
+                                "illuminance": sensor_data["illuminance"],
+                                "battery": bat_pct,
+                            }
+                        )
                     # Stop notification handler
                     await client.stop_notify(characteristic.uuid)
+
+        return device
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
