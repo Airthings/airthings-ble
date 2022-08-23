@@ -294,13 +294,20 @@ command_decoders: dict[str, CommandDecode] = {
 }
 
 
+def short_address(address: str) -> str:
+    """Convert a Bluetooth address to a short address."""
+    return address.replace("-", "").replace(":", "")[-6:].upper()
+
+
 class AirthingsDevice:
     """Response data with information about the Airthings device"""
 
     hw_version: str
     sw_version: str
     name: str
+    identifier: str
     sensors: dict[str, str | float | None] = {}
+    address: str
 
 
 class AirthingsBluetoothDeviceData:
@@ -312,8 +319,8 @@ class AirthingsBluetoothDeviceData:
     def __init__(
         self,
         logger: Logger,
-        elevation: int,
-        is_metric: bool,
+        elevation: int | None = None,
+        is_metric: bool = True,
         voltage: tuple[float, float] = (2.4, 3.2),
     ):
         super().__init__()
@@ -334,6 +341,9 @@ class AirthingsBluetoothDeviceData:
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
+        device.identifier = short_address(client.address)
+        device.address = client.address
+
         for characteristic in device_info_characteristics:
             data = await client.read_gatt_char(characteristic.uuid)
             if characteristic.name == "hardware_rev":
@@ -386,9 +396,11 @@ class AirthingsBluetoothDeviceData:
                             )
 
                     # rel to abs pressure
-                    if p := sensor_data["rel_atm_pressure"]:
-                        device.sensors["pressure"] = get_absolute_pressure(
-                            self.elevation, float(p)
+                    if p := sensor_data["rel_atm_pressure"] and self.elevation:
+                        device.sensors["pressure"] = (
+                            get_absolute_pressure(self.elevation, float(p))
+                            if self.elevation is not None
+                            else p
                         )
 
                         # remove rel atm
