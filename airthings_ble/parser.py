@@ -400,15 +400,17 @@ class AirthingsBluetoothDeviceData:
                             )
 
                     # rel to abs pressure
-                    if p := sensor_data["rel_atm_pressure"] and self.elevation:
+                    if pressure := sensor_data.get("rel_atm_pressure"):
                         device.sensors["pressure"] = (
-                            get_absolute_pressure(self.elevation, float(p))
+                            get_absolute_pressure(
+                                self.elevation, float(pressure)
+                            )
                             if self.elevation is not None
-                            else p
+                            else pressure
                         )
 
-                        # remove rel atm
-                        device.sensors.pop("rel_atm_pressure")
+                    # remove rel atm
+                    device.sensors.pop("rel_atm_pressure", None)
 
                 if str(characteristic.uuid) in command_decoders:
                     self._event = asyncio.Event()
