@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import dataclasses
 import struct
 from collections import namedtuple
 from datetime import datetime
@@ -299,15 +300,18 @@ def short_address(address: str) -> str:
     return address.replace("-", "").replace(":", "")[-6:].upper()
 
 
+@dataclasses.dataclass
 class AirthingsDevice:
     """Response data with information about the Airthings device"""
 
-    hw_version: str
-    sw_version: str
-    name: str
-    identifier: str
-    sensors: dict[str, str | float | None] = {}
-    address: str
+    hw_version: str = ""
+    sw_version: str = ""
+    name: str = ""
+    identifier: str = ""
+    address: str = ""
+    sensors: dict[str, str | float | None] = dataclasses.field(
+        default_factory=lambda: {}
+    )
 
 
 class AirthingsBluetoothDeviceData:
