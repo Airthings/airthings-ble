@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.0 (2022-08-28)
+### Feature
+* Change identifier to be serial number ([`13fd0bd`](https://github.com/vincegio/airthings-ble/commit/13fd0bda1bd544b8a3c7d39baa187d5b7127599a))
+
 ## v0.4.0 (2022-08-28)
 ### Feature
 * Gracefully pass bleak exceptions during characteristics readings ([`29d38a7`](https://github.com/vincegio/airthings-ble/commit/29d38a754b0ad8a2390d7d17b626061e29f135ba))
