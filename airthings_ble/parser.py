@@ -11,7 +11,7 @@ from logging import Logger
 from math import exp
 from typing import Any, Callable, Tuple
 
-from bleak import BleakClient
+from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak_retry_connector import establish_connection
 
@@ -314,6 +314,8 @@ class AirthingsDevice:
     )
 
 
+# pylint: disable=too-many-locals
+# pylint: disable=too-many-branches
 class AirthingsBluetoothDeviceData:
     """Data for Airthings BLE sensors."""
 
@@ -349,7 +351,13 @@ class AirthingsBluetoothDeviceData:
         device.address = client.address
 
         for characteristic in device_info_characteristics:
-            data = await client.read_gatt_char(characteristic.uuid)
+            try:
+                data = await client.read_gatt_char(characteristic.uuid)
+            except BleakError as err:
+                self.logger.debug(
+                    "Get device characteristics exception: %s", err
+                )
+                continue
             if characteristic.name == "hardware_rev":
                 device.hw_version = data.decode(characteristic.format)
                 continue
@@ -370,6 +378,13 @@ class AirthingsBluetoothDeviceData:
                     characteristic.uuid in sensors_characteristics_uuid_str
                     and str(characteristic.uuid) in sensor_decoders
                 ):
+                    try:
+                        data = await client.read_gatt_char(characteristic.uuid)
+                    except BleakError as err:
+                        self.logger.debug(
+                            "Get service characteristics exception: %s", err
+                        )
+                        continue
                     data = await client.read_gatt_char(characteristic.uuid)
 
                     sensor_data = sensor_decoders[str(characteristic.uuid)](
