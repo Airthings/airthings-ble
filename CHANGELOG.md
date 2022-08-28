@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.4.0 (2022-08-28)
+### Feature
+* Gracefully pass bleak exceptions during characteristics readings ([`29d38a7`](https://github.com/vincegio/airthings-ble/commit/29d38a754b0ad8a2390d7d17b626061e29f135ba))
+
 ## v0.3.0 (2022-08-24)
 ### Feature
 * Add dataclass to AirthingsDevice ([`88e525a`](https://github.com/vincegio/airthings-ble/commit/88e525ae9e00ce707f316785538aedc0d7b9dcaa))
