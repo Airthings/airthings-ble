@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.1 (2022-09-10)
+### Fix
+* Fix incompability with home assistant package versionings ([`0949bd2`](https://github.com/vincegio/airthings-ble/commit/0949bd28c7495264be55da4b9f1997cae2b391e5))
+
 ## v0.5.0 (2022-08-28)
 ### Feature
 * Change identifier to be serial number ([`13fd0bd`](https://github.com/vincegio/airthings-ble/commit/13fd0bda1bd544b8a3c7d39baa187d5b7127599a))
