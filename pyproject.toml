@@ -29,7 +29,7 @@ python = "^3.9"
 Sphinx = {version = "^5.0", optional = true}
 sphinx-rtd-theme = {version = "^1.0", optional = true}
 myst-parser = {version = "^0.18", optional = true}
-bleak = "^0.15.1"
+bleak = ">=0.15.1"
 bleak-retry-connector = "^1.8.0"
 
 [tool.poetry.extras]
