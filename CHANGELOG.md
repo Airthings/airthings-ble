@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.2 (2022-09-29)
+### Fix
+* Fix version pinning for bleak-retry-connector ([`6a8982c`](https://github.com/vincegio/airthings-ble/commit/6a8982c87cfcfb37b8ea1f9bad878444cc025c0a))
+
 ## v0.5.1 (2022-09-10)
 ### Fix
 * Fix incompability with home assistant package versionings ([`0949bd2`](https://github.com/vincegio/airthings-ble/commit/0949bd28c7495264be55da4b9f1997cae2b391e5))
