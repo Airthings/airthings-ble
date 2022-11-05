@@ -382,7 +382,8 @@ class AirthingsBluetoothDeviceData:
                     sensor_data = sensor_decoders[str(characteristic.uuid)](data)
                     # skip for now!
 
-                    sensor_data.pop("date_time")
+                    if "date_time" in sensor_data:
+                        sensor_data.pop("date_time")
 
                     device.sensors.update(sensor_data)
 
