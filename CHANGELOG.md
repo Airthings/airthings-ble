@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.3 (2022-11-13)
+### Fix
+* Gracefully delete date_time ([#3](https://github.com/vincegio/airthings-ble/issues/3)) ([`e5ca63f`](https://github.com/vincegio/airthings-ble/commit/e5ca63f75044e4cb6f31d6b1ed55d2154f9acaa2))
+
 ## v0.5.2 (2022-09-29)
 ### Fix
 * Fix version pinning for bleak-retry-connector ([`6a8982c`](https://github.com/vincegio/airthings-ble/commit/6a8982c87cfcfb37b8ea1f9bad878444cc025c0a))
