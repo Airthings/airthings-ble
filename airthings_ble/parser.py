@@ -440,8 +440,8 @@ class AirthingsBluetoothDeviceData:
 
                         # calculate battery percentage
                         v_min, v_max = self.voltage
-                        bat_pct: int | None
-                        if command_sensor_data["battery"] is not None:
+                        bat_pct: int | None = None
+                        if command_sensor_data.get("battery") is not None:
                             bat = float(command_sensor_data["battery"])
                             # set as tuple during lint somehow..
                             bat_pct = (
@@ -456,7 +456,7 @@ class AirthingsBluetoothDeviceData:
 
                         device.sensors.update(
                             {
-                                "illuminance": command_sensor_data["illuminance"],
+                                "illuminance": command_sensor_data.get("illuminance"),
                                 "battery": bat_pct,
                             }
                         )
