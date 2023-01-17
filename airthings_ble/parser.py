@@ -200,22 +200,29 @@ class CommandDecode:
         self.format_type = format_type
         self.cmd = cmd
 
-    def decode_data(self, raw_data: bytearray | None) -> dict[str, float | str | None]:
+    def decode_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with illuminance and battery"""
         if raw_data is None:
-            return {}
+            return None
 
         cmd = raw_data[0:1]
         if cmd != self.cmd:
-            # _LOGGER.warning("Result for Wrong command received,
-            # expected {} got {}".format(self.cmd.hex(), cmd.hex()))
-            return {}
+            logger.debug(
+                "Result for wrong command received, expected %s got %s",
+                self.cmd.hex(),
+                cmd.hex(),
+            )
+            return None
 
         if len(raw_data[2:]) != struct.calcsize(self.format_type):
-            # _LOGGER.debug("Wrong length data received ({}) verses
-            # expected ({})".format(len(cmd),
-            # struct.calcsize(self.format_type)))
-            return {}
+            logger.debug(
+                "Wrong length data received (%s) versus expected (%s)",
+                len(cmd),
+                struct.calcsize(self.format_type),
+            )
+            return None
         val = struct.unpack(self.format_type, raw_data[2:])
         res = {}
         res["illuminance"] = val[2]
@@ -223,6 +230,43 @@ class CommandDecode:
         res["battery"] = val[17] / 1000.0
 
         return res
+
+    def make_data_receiver(self) -> _NotificationReceiver:
+        """Creates a notification receiver for the command."""
+        return _NotificationReceiver(struct.calcsize(self.format_type))
+
+
+class _NotificationReceiver:
+    """Receiver for a single notification message.
+
+    A notification message that is larger than the MTU can get sent over multiple packets. This
+    receiver knows how to reconstruct it.
+    """
+
+    message: bytearray | None
+
+    def __init__(self, message_size: int):
+        self.message = None
+        self._message_size = message_size
+        self._event = asyncio.Event()
+
+    def _full_message_received(self) -> bool:
+        return self.message is not None and len(self.message) >= self._message_size
+
+    def __call__(self, _: Any, data: bytearray) -> None:
+        if self.message is None:
+            self.message = data
+        elif not self._full_message_received():
+            self.message += data
+        if self._full_message_received():
+            self._event.set()
+
+    async def wait_for_message(self) -> None:
+        """Waits until the full message is received.
+
+        If the full message has already been received, this method returns immediately."""
+        if not self._full_message_received():
+            await self._event.wait()
 
 
 def get_radon_level(data: float) -> str:
@@ -312,9 +356,6 @@ class AirthingsDevice:
 class AirthingsBluetoothDeviceData:
     """Data for Airthings BLE sensors."""
 
-    _event: asyncio.Event | None
-    _command_data: bytearray | None
-
     def __init__(
         self,
         logger: Logger,
@@ -327,15 +368,6 @@ class AirthingsBluetoothDeviceData:
         self.is_metric = is_metric
         self.elevation = elevation
         self.voltage = voltage
-        self._command_data = None
-        self._event = None
-
-    def notification_handler(self, _: Any, data: bytearray) -> None:
-        """Helper for command events"""
-        self._command_data = data
-        if self._event is None:
-            return
-        self._event.set()
 
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
@@ -415,34 +447,34 @@ class AirthingsBluetoothDeviceData:
                     device.sensors.pop("rel_atm_pressure", None)
 
                 if str(characteristic.uuid) in command_decoders:
-                    self._event = asyncio.Event()
+                    decoder = command_decoders[str(characteristic.uuid)]
+                    command_data_receiver = decoder.make_data_receiver()
                     # Set up the notification handlers
                     await client.start_notify(
-                        characteristic.uuid, self.notification_handler
+                        characteristic.uuid, command_data_receiver
                     )
                     # send command to this 'indicate' characteristic
                     await client.write_gatt_char(
-                        characteristic.uuid,
-                        bytearray(command_decoders[str(characteristic.uuid)].cmd),
+                        characteristic.uuid, bytearray(decoder.cmd)
                     )
-                    # Wait for up to one second to see if a
-                    # callback comes in.
+                    # Wait for up to one second to see if a callback comes in.
                     try:
-                        await asyncio.wait_for(self._event.wait(), 1)
+                        await asyncio.wait_for(
+                            command_data_receiver.wait_for_message(), 1
+                        )
                     except asyncio.TimeoutError:
-                        self.logger.warn("Timeout getting command data.")
+                        self.logger.warning("Timeout getting command data.")
 
-                    if self._command_data is not None:
-                        command_sensor_data = command_decoders[
-                            str(characteristic.uuid)
-                        ].decode_data(self._command_data)
-                        self._command_data = None
-
+                    command_sensor_data = decoder.decode_data(
+                        self.logger, command_data_receiver.message
+                    )
+                    if command_sensor_data is not None:
                         # calculate battery percentage
                         v_min, v_max = self.voltage
-                        bat_pct: int | None
-                        if command_sensor_data["battery"] is not None:
-                            bat = float(command_sensor_data["battery"])
+                        bat_pct: int | None = None
+                        bat_data = command_sensor_data.get("battery")
+                        if bat_data is not None:
+                            bat = float(bat_data)
                             # set as tuple during lint somehow..
                             bat_pct = (
                                 max(
@@ -456,7 +488,7 @@ class AirthingsBluetoothDeviceData:
 
                         device.sensors.update(
                             {
-                                "illuminance": command_sensor_data["illuminance"],
+                                "illuminance": command_sensor_data.get("illuminance"),
                                 "battery": bat_pct,
                             }
                         )
