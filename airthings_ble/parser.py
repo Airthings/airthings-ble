@@ -468,12 +468,12 @@ class AirthingsBluetoothDeviceData:
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
-        client = await establish_connection(BleakClient, ble_device, ble_device.address)
-
         device = AirthingsDevice()
-
-        device = await self._get_device_characteristics(client, device)
-        device = await self._get_service_characteristics(client, device)
-        await client.disconnect()
+        client = await establish_connection(BleakClient, ble_device, ble_device.address)
+        try:
+            device = await self._get_device_characteristics(client, device)
+            device = await self._get_service_characteristics(client, device)
+        finally:
+            await client.disconnect()
 
         return device
