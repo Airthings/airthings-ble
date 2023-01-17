@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.4 (2023-01-17)
+### Fix
+* Properly disconnect when there is an exception reading device state ([#7](https://github.com/vincegio/airthings-ble/issues/7)) ([`3b8de60`](https://github.com/vincegio/airthings-ble/commit/3b8de60b7a13a5a174819404b9b51f66674847a5))
+
 ## v0.5.3 (2022-11-13)
 ### Fix
 * Gracefully delete date_time ([#3](https://github.com/vincegio/airthings-ble/issues/3)) ([`e5ca63f`](https://github.com/vincegio/airthings-ble/commit/e5ca63f75044e4cb6f31d6b1ed55d2154f9acaa2))
