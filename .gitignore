@@ -39,3 +39,4 @@ pip-delete-this-directory.txt
 
 # Misc
 .vscode
+.idea
