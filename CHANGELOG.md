@@ -2,6 +2,10 @@
 
 <!--next-version-placeholder-->
 
+## v0.5.5 (2023-01-22)
+### Fix
+* Update the notification receiver to wait until the full message is received before return ([#8](https://github.com/vincegio/airthings-ble/issues/8)) ([`67e3ff7`](https://github.com/vincegio/airthings-ble/commit/67e3ff743adcfed6494d79354f252d056d1d21d7))
+
 ## v0.5.4 (2023-01-17)
 ### Fix
 * Properly disconnect when there is an exception reading device state ([#7](https://github.com/vincegio/airthings-ble/issues/7)) ([`3b8de60`](https://github.com/vincegio/airthings-ble/commit/3b8de60b7a13a5a174819404b9b51f66674847a5))
