@@ -395,7 +395,7 @@ class AirthingsBluetoothDeviceData:
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
-        svcs = await client.get_services()
+        svcs = client.services
         for service in svcs:
             for characteristic in service.characteristics:
                 if (
