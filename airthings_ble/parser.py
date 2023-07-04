@@ -370,7 +370,7 @@ class AirthingsBluetoothDeviceData:
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
         device.address = client.address
-        svcs = await client.get_services()
+        svcs = client.services
         for service in svcs:
             for characteristic in service.characteristics:
                 if characteristic.uuid in device_info_characteristics_str:
