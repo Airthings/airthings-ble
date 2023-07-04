@@ -386,31 +386,17 @@ class AirthingsBluetoothDeviceData:
 
                     if characteristic.uuid == str(CHAR_UUID_HARDWARE_REV):
                         device.hw_version = data.decode("utf-8")
-                        self.logger.warning("SW version: %s", device.hw_version)
-                        continue
-
                     elif characteristic.uuid == str(CHAR_UUID_FIRMWARE_REV):
                         device.sw_version = data.decode("utf-8")
-                        self.logger.warning("SW version: %s", device.sw_version)
-                        continue
-
                     elif characteristic.uuid == str(CHAR_UUID_DEVICE_NAME):
                         device.name = data.decode("utf-8")
-                        self.logger.warning("Device name: %s", device.name)
-                        continue
-
                     elif characteristic.uuid == str(CHAR_UUID_SERIAL_NUMBER_STRING):
                         serial_number = data.decode("utf-8")
                         if serial_number != "Serial Number":
                             device.identifier = data.decode("utf-8")
-                        self.logger.warning("Identifier: %s", device.identifier)
-                        continue
-
                     elif characteristic.uuid == str(CHAR_UUID_MODEL_NUMBER_STRING):
                         device.model_raw = data.decode("utf-8")
                         device.model = DEVICE_TYPE.get(device.model_raw)
-                        self.logger.warning("Mode: %s (raw: %s)", device.model, device.model_raw)
-                        continue
                     else:
                         self.logger.warning("Unknown UUID: %s", characteristic)
         return device
