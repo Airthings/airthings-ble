@@ -338,7 +338,6 @@ class AirthingsDevice:
 
     hw_version: str = ""
     sw_version: str = ""
-    manufacturer: str = ""
     model: str = ""
     model_raw: str = ""
     name: str = ""
