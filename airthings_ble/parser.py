@@ -37,21 +37,20 @@ from .const import (
     LOW,
     MODERATE,
     VERY_LOW,
+    DEVICE_TYPE,
 )
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
-manufacturer_characteristics = Characteristic(
-    CHAR_UUID_MANUFACTURER_NAME, "manufacturer", "utf-8"
-)
 device_info_characteristics = [
-    manufacturer_characteristics,
-    Characteristic(CHAR_UUID_SERIAL_NUMBER_STRING, "serial_nr", "utf-8"),
-    Characteristic(CHAR_UUID_MODEL_NUMBER_STRING, "model_nr", "utf-8"),
-    Characteristic(CHAR_UUID_DEVICE_NAME, "device_name", "utf-8"),
-    Characteristic(CHAR_UUID_FIRMWARE_REV, "firmware_rev", "utf-8"),
-    Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
+    CHAR_UUID_MANUFACTURER_NAME,
+    CHAR_UUID_SERIAL_NUMBER_STRING,
+    CHAR_UUID_MODEL_NUMBER_STRING,
+    CHAR_UUID_DEVICE_NAME,
+    CHAR_UUID_FIRMWARE_REV,
+    CHAR_UUID_HARDWARE_REV,
 ]
+device_info_characteristics_str = [str(x) for x in device_info_characteristics]
 
 sensors_characteristics_uuid = [
     CHAR_UUID_DATETIME,
@@ -343,6 +342,8 @@ class AirthingsDevice:
 
     hw_version: str = ""
     sw_version: str = ""
+    model: str = ""
+    model_raw: str = ""
     name: str = ""
     identifier: str = ""
     address: str = ""
@@ -372,24 +373,46 @@ class AirthingsBluetoothDeviceData:
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
-        # device.identifier = short_address(client.address)
         device.address = client.address
-        for characteristic in device_info_characteristics:
-            try:
-                data = await client.read_gatt_char(characteristic.uuid)
-            except BleakError as err:
-                self.logger.debug("Get device characteristics exception: %s", err)
-                continue
-            if characteristic.name == "hardware_rev":
-                device.hw_version = data.decode(characteristic.format)
-                continue
-            if characteristic.name == "firmware_rev":
-                device.sw_version = data.decode(characteristic.format)
-                continue
-            if characteristic.name == "device_name":
-                device.name = data.decode(characteristic.format)
-            if characteristic.name == "serial_nr":
-                device.identifier = data.decode(characteristic.format)
+        svcs = await client.get_services()
+        for service in svcs:
+            for characteristic in service.characteristics:
+                if characteristic.uuid in device_info_characteristics_str:
+                    try:
+                        data = await client.read_gatt_char(characteristic.uuid)
+                    except BleakError as err:
+                        self.logger.warning("Get device characteristics exception: %s", err)
+                        continue
+
+                    if characteristic.uuid == str(CHAR_UUID_HARDWARE_REV):
+                        device.hw_version = data.decode("utf-8")
+                        self.logger.warning("SW version: %s", device.hw_version)
+                        continue
+
+                    elif characteristic.uuid == str(CHAR_UUID_FIRMWARE_REV):
+                        device.sw_version = data.decode("utf-8")
+                        self.logger.warning("SW version: %s", device.sw_version)
+                        continue
+
+                    elif characteristic.uuid == str(CHAR_UUID_DEVICE_NAME):
+                        device.name = data.decode("utf-8")
+                        self.logger.warning("Device name: %s", device.name)
+                        continue
+
+                    elif characteristic.uuid == str(CHAR_UUID_SERIAL_NUMBER_STRING):
+                        serial_number = data.decode("utf-8")
+                        if serial_number != "Serial Number":
+                            device.identifier = data.decode("utf-8")
+                        self.logger.warning("Identifier: %s", device.identifier)
+                        continue
+
+                    elif characteristic.uuid == str(CHAR_UUID_MODEL_NUMBER_STRING):
+                        device.model_raw = data.decode("utf-8")
+                        device.model = DEVICE_TYPE.get(device.model_raw)
+                        self.logger.warning("Mode: %s (raw: %s)", device.model, device.model_raw)
+                        continue
+                    else:
+                        self.logger.warning("Unknown UUID: %s", characteristic)
         return device
 
     async def _get_service_characteristics(
