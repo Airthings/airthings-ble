@@ -18,12 +18,10 @@ from bleak_retry_connector import establish_connection
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
-    CHAR_UUID_DEVICE_NAME,
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_HARDWARE_REV,
     CHAR_UUID_HUMIDITY,
     CHAR_UUID_ILLUMINANCE_ACCELEROMETER,
-    CHAR_UUID_MANUFACTURER_NAME,
     CHAR_UUID_MODEL_NUMBER_STRING,
     CHAR_UUID_RADON_1DAYAVG,
     CHAR_UUID_RADON_LONG_TERM_AVG,
@@ -43,10 +41,8 @@ from .const import (
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
 device_info_characteristics = [
-    CHAR_UUID_MANUFACTURER_NAME,
     CHAR_UUID_SERIAL_NUMBER_STRING,
     CHAR_UUID_MODEL_NUMBER_STRING,
-    CHAR_UUID_DEVICE_NAME,
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_HARDWARE_REV,
 ]
@@ -342,6 +338,7 @@ class AirthingsDevice:
 
     hw_version: str = ""
     sw_version: str = ""
+    manufacturer: str = ""
     model: str = ""
     model_raw: str = ""
     name: str = ""
@@ -388,17 +385,13 @@ class AirthingsBluetoothDeviceData:
                         device.hw_version = data.decode("utf-8")
                     elif characteristic.uuid == str(CHAR_UUID_FIRMWARE_REV):
                         device.sw_version = data.decode("utf-8")
-                    elif characteristic.uuid == str(CHAR_UUID_DEVICE_NAME):
-                        device.name = data.decode("utf-8")
                     elif characteristic.uuid == str(CHAR_UUID_SERIAL_NUMBER_STRING):
-                        serial_number = data.decode("utf-8")
-                        if serial_number != "Serial Number":
-                            device.identifier = data.decode("utf-8")
+                        identifier = data.decode("utf-8")
+                        if identifier != "Serial Number":
+                            device.identifier = identifier
                     elif characteristic.uuid == str(CHAR_UUID_MODEL_NUMBER_STRING):
                         device.model_raw = data.decode("utf-8")
                         device.model = DEVICE_TYPE.get(device.model_raw)
-                    else:
-                        self.logger.warning("Unknown UUID: %s", characteristic)
         return device
 
     async def _get_service_characteristics(
