@@ -321,7 +321,7 @@ sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],
         name="illuminance_accelerometer", format_type="BB", scale=1.0
     ),
     str(CHAR_UUID_TEMPERATURE): _decode_attr(
-        name="temperature", format_type="h", scale=1.0 / 100.0,
+        name="temperature", format_type="h", scale=1.0 / 100.0
     ),
     str(CHAR_UUID_WAVE_2_DATA): __decode_wave_2(
         name="Wave2", format_type="<4B8H", scale=1.0
