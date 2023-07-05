@@ -48,7 +48,6 @@ device_info_characteristics = [
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_HARDWARE_REV,
 ]
-device_info_characteristics_str = [str(x) for x in device_info_characteristics]
 
 sensors_characteristics_uuid = [
     CHAR_UUID_DATETIME,
@@ -372,36 +371,32 @@ class AirthingsBluetoothDeviceData:
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
         device.address = client.address
-        svcs = client.services
-        for service in svcs:
-            for characteristic in service.characteristics:
-                if characteristic.uuid in device_info_characteristics_str:
-                    try:
-                        data = await client.read_gatt_char(characteristic.uuid)
-                    except BleakError as err:
-                        self.logger.warning(
-                            "Get device characteristics exception: %s", err
-                        )
-                        continue
-
-                    if characteristic.uuid == str(CHAR_UUID_HARDWARE_REV):
-                        device.hw_version = data.decode("utf-8")
-                    elif characteristic.uuid == str(CHAR_UUID_FIRMWARE_REV):
-                        device.sw_version = data.decode("utf-8")
-                    elif characteristic.uuid == str(CHAR_UUID_DEVICE_NAME):
-                        device.name = data.decode("utf-8")
-                    elif characteristic.uuid == str(CHAR_UUID_SERIAL_NUMBER_STRING):
-                        identifier = data.decode("utf-8")
-                        if identifier != "Serial Number":
-                            device.identifier = identifier
-                    elif characteristic.uuid == str(CHAR_UUID_MODEL_NUMBER_STRING):
-                        device.model_raw = data.decode("utf-8")
-                        device.model = DEVICE_TYPE.get(device.model_raw)
+        for characteristic in device_info_characteristics:
+            try:
+                data = await client.read_gatt_char(characteristic.uuid)
+            except BleakError as err:
+                self.logger.debug("Get device characteristics exception: %s", err)
+                continue
+            if characteristic.name == "model":
+                device.model_raw = data.decode(characteristic.format)
+                device.model = DEVICE_TYPE.get(device.model_raw)
+            elif characteristic.name == "hardware_rev":
+                device.hw_version = data.decode(characteristic.format)
+            elif characteristic.name == "firmware_rev":
+                device.sw_version = data.decode(characteristic.format)
+            elif characteristic.name == "device_name":
+                device.name = data.decode(characteristic.format)
+            elif characteristic.name == "serial_nr":
+                identifier = data.decode(characteristic.format)
+                if identifier != "Serial Number":
+                    device.identifier = identifier
         if device.name == "":
             name = f"Airthings {device.model}"
             if device.identifier != "":
                 name += f" ({device.identifier})"
             device.name = name
+            self.logger.debug("Generating name: %s", device.name)
+
         return device
 
     async def _get_service_characteristics(
