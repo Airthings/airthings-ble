@@ -32,15 +32,15 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
+    CO2_MAX,
     COMMAND_UUID,
     HIGH,
+    HUMIDITY_MAX,
     LOW,
     MODERATE,
-    VERY_LOW,
-    CO2_MAX,
-    VOC_MAX,
-    HUMIDITY_MAX,
     RADON_MAX,
+    VERY_LOW,
+    VOC_MAX,
 )
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
@@ -150,7 +150,9 @@ def _decode_wave_mini(
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["temperature"] = round(val[1] / 100.0 - 273.15, 2)
-        data["humidity"] = val[3] / 100.0 if 0 <= val[3] / 100.0 < HUMIDITY_MAX else None
+        data["humidity"] = (
+            val[3] / 100.0 if 0 <= val[3] / 100.0 < HUMIDITY_MAX else None
+        )
         data["voc"] = val[4] * 1.0 if 0 <= val[4] * 1.0 < VOC_MAX else None
         return data
 
@@ -309,7 +311,10 @@ sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],
         name="date_time", format_type="HBBBBB", scale=0
     ),
     str(CHAR_UUID_HUMIDITY): _decode_attr(
-        name="humidity", format_type="H", scale=1.0 / 100.0, max_value=HUMIDITY_MAX,
+        name="humidity",
+        format_type="H",
+        scale=1.0 / 100.0,
+        max_value=HUMIDITY_MAX,
     ),
     str(CHAR_UUID_RADON_1DAYAVG): _decode_attr(
         name="radon_1day_avg", format_type="H", scale=1.0
