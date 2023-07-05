@@ -397,10 +397,11 @@ class AirthingsBluetoothDeviceData:
             name = "Airthings"
             if device.model != "":
                 name += f" {device.model}"
-            if device.identifier != "":
-                name += f" ({device.identifier})"
             device.name = name
-            self.logger.debug("Generating name: %s", device.name)
+            self.logger.debug("Generating name 1: %s", device.name)
+        if device.identifier != "":
+            device.name += f" ({device.identifier})"
+            self.logger.debug("Generating name 2: %s", device.name)
 
         if device.model_raw == "":
             self.logger.warning("Missing `model_raw`")
