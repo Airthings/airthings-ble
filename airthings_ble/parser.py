@@ -42,11 +42,11 @@ from .const import (
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
 device_info_characteristics = [
-    CHAR_UUID_SERIAL_NUMBER_STRING,
-    CHAR_UUID_MODEL_NUMBER_STRING,
-    CHAR_UUID_DEVICE_NAME,
-    CHAR_UUID_FIRMWARE_REV,
-    CHAR_UUID_HARDWARE_REV,
+    Characteristic(CHAR_UUID_SERIAL_NUMBER_STRING, "serial_nr", "utf-8"),
+    Characteristic(CHAR_UUID_MODEL_NUMBER_STRING, "model_nr", "utf-8"),
+    Characteristic(CHAR_UUID_DEVICE_NAME, "device_name", "utf-8"),
+    Characteristic(CHAR_UUID_FIRMWARE_REV, "firmware_rev", "utf-8"),
+    Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
 ]
 
 sensors_characteristics_uuid = [
@@ -377,7 +377,7 @@ class AirthingsBluetoothDeviceData:
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
-            if characteristic.name == "model":
+            if characteristic.name == "model_nr":
                 device.model_raw = data.decode(characteristic.format)
                 device.model = DEVICE_TYPE.get(device.model_raw)
             elif characteristic.name == "hardware_rev":
@@ -390,13 +390,30 @@ class AirthingsBluetoothDeviceData:
                 identifier = data.decode(characteristic.format)
                 if identifier != "Serial Number":
                     device.identifier = identifier
+            else:
+                self.logger.debug("Characteristics not handled: %s", characteristic.uuid)
+
         if device.name == "":
-            name = f"Airthings {device.model}"
+            name = "Airthings"
+            if device.model != "":
+                name += f" {device.model}"
             if device.identifier != "":
                 name += f" ({device.identifier})"
             device.name = name
             self.logger.debug("Generating name: %s", device.name)
 
+        if device.model_raw == "":
+            self.logger.warning("Missing `model_raw`")
+        if device.model == "":
+            self.logger.warning("Missing `model`")
+        if device.hw_version == "":
+            self.logger.warning("Missing `hw_version`")
+        if device.sw_version == "":
+            self.logger.warning("Missing `sw_version`")
+        if device.name == "":
+            self.logger.warning("Missing `name`")
+        if device.identifier == "":
+            self.logger.warning("Missing `identifier`")
         return device
 
     async def _get_service_characteristics(
