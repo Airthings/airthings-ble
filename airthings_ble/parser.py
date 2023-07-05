@@ -44,6 +44,7 @@ Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 device_info_characteristics = [
     CHAR_UUID_SERIAL_NUMBER_STRING,
     CHAR_UUID_MODEL_NUMBER_STRING,
+    CHAR_UUID_DEVICE_NAME,
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_HARDWARE_REV,
 ]
