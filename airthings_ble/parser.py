@@ -112,13 +112,13 @@ def __decode_wave_plus(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2 < HUMIDITY_MAX else None
-        data["radon_1day_avg"] = val[4] if 0 <= val[4] < RADON_MAX else None
-        data["radon_longterm_avg"] = val[5] if 0 <= val[5] < RADON_MAX else None
+        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2 <= HUMIDITY_MAX else None
+        data["radon_1day_avg"] = val[4] if 0 <= val[4] <= RADON_MAX else None
+        data["radon_longterm_avg"] = val[5] if 0 <= val[5] <= RADON_MAX else None
         data["temperature"] = val[6] / 100.0
         data["rel_atm_pressure"] = val[7] / 50.0
-        data["co2"] = val[8] * 1.0 if 0 <= val[8] * 1.0 < CO2_MAX else None
-        data["voc"] = val[9] * 1.0 if 0 <= val[9] * 1.0 < VOC_MAX else None
+        data["co2"] = val[8] * 1.0 if 0 <= val[8] * 1.0 <= CO2_MAX else None
+        data["voc"] = val[9] * 1.0 if 0 <= val[9] * 1.0 <= VOC_MAX else None
         return data
 
     return handler
@@ -132,9 +132,9 @@ def __decode_wave_2(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2.0 < HUMIDITY_MAX else None
-        data["radon_1day_avg"] = val[4] if 0 <= val[4] < RADON_MAX else None
-        data["radon_longterm_avg"] = val[5] if 0 <= val[5] < RADON_MAX else None
+        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2.0 <= HUMIDITY_MAX else None
+        data["radon_1day_avg"] = val[4] if 0 <= val[4] <= RADON_MAX else None
+        data["radon_longterm_avg"] = val[5] if 0 <= val[5] <= RADON_MAX else None
         data["temperature"] = val[6] / 100.0
         return data
 
@@ -151,9 +151,9 @@ def _decode_wave_mini(
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["temperature"] = round(val[1] / 100.0 - 273.15, 2)
         data["humidity"] = (
-            val[3] / 100.0 if 0 <= val[3] / 100.0 < HUMIDITY_MAX else None
+            val[3] / 100.0 if 0 <= val[3] / 100.0 <= HUMIDITY_MAX else None
         )
-        data["voc"] = val[4] * 1.0 if 0 <= val[4] * 1.0 < VOC_MAX else None
+        data["voc"] = val[4] * 1.0 if 0 <= val[4] * 1.0 <= VOC_MAX else None
         return data
 
     return handler
