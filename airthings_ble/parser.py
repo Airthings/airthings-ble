@@ -112,7 +112,7 @@ def __decode_wave_plus(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2 <= HUMIDITY_MAX else None
+        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2.0 <= HUMIDITY_MAX else None
         data["radon_1day_avg"] = val[4] if 0 <= val[4] <= RADON_MAX else None
         data["radon_longterm_avg"] = val[5] if 0 <= val[5] <= RADON_MAX else None
         data["temperature"] = val[6] / 100.0
