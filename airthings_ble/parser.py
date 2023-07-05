@@ -18,6 +18,7 @@ from bleak_retry_connector import establish_connection
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
+    CHAR_UUID_DEVICE_NAME,
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_HARDWARE_REV,
     CHAR_UUID_HUMIDITY,
@@ -384,6 +385,8 @@ class AirthingsBluetoothDeviceData:
                         device.hw_version = data.decode("utf-8")
                     elif characteristic.uuid == str(CHAR_UUID_FIRMWARE_REV):
                         device.sw_version = data.decode("utf-8")
+                    elif characteristic.uuid == str(CHAR_UUID_DEVICE_NAME):
+                        device.name = data.decode(characteristic.format)
                     elif characteristic.uuid == str(CHAR_UUID_SERIAL_NUMBER_STRING):
                         identifier = data.decode("utf-8")
                         if identifier != "Serial Number":
@@ -391,6 +394,11 @@ class AirthingsBluetoothDeviceData:
                     elif characteristic.uuid == str(CHAR_UUID_MODEL_NUMBER_STRING):
                         device.model_raw = data.decode("utf-8")
                         device.model = DEVICE_TYPE.get(device.model_raw)
+        if device.name == "":
+            name = f"Airthings {device.model}"
+            if device.identifier != "":
+                name += f" ({device.identifier})"
+            device.name = name
         return device
 
     async def _get_service_characteristics(
