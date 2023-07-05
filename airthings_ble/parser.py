@@ -37,6 +37,9 @@ from .const import (
     LOW,
     MODERATE,
     VERY_LOW,
+    CO2_MAX,
+    VOC_MAX,
+    HUMIDITY_MAX,
 )
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
@@ -83,7 +86,7 @@ def _decode_base(
 
 
 def _decode_attr(
-    name: str, format_type: str, scale: float
+    name: str, format_type: str, scale: float, max_value: float = None
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     """same as base decoder, but expects only one value.. for real"""
 
@@ -92,6 +95,8 @@ def _decode_attr(
         res: float | None = None
         if len(val) == 1:
             res = val[0] * scale
+        if max_value is not None and res > max_value:
+            res = None
         data: dict[str, float | None | str] = {name: res}
         return data
 
@@ -106,13 +111,13 @@ def __decode_wave_plus(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = val[1] / 2.0
         data["radon_1day_avg"] = val[4] if 0 <= val[4] <= 16383 else None
         data["radon_longterm_avg"] = val[5] if 0 <= val[5] <= 16383 else None
+        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2 < HUMIDITY_MAX else None
         data["temperature"] = val[6] / 100.0
         data["rel_atm_pressure"] = val[7] / 50.0
-        data["co2"] = val[8] * 1.0
-        data["voc"] = val[9] * 1.0
+        data["co2"] = val[8] * 1.0 if 0 <= val[8] * 1.0 < CO2_MAX else None
+        data["voc"] = val[9] * 1.0 if 0 <= val[9] * 1.0 < VOC_MAX else None
         return data
 
     return handler
@@ -126,9 +131,9 @@ def __decode_wave_2(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = val[1] / 2.0
         data["radon_1day_avg"] = val[4] if 0 <= val[4] <= 16383 else None
         data["radon_longterm_avg"] = val[5] if 0 <= val[5] <= 16383 else None
+        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2.0 < HUMIDITY_MAX else None
         data["temperature"] = val[6] / 100.0
         return data
 
@@ -144,8 +149,8 @@ def _decode_wave_mini(
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["temperature"] = round(val[1] / 100.0 - 273.15, 2)
-        data["humidity"] = val[3] / 100.0
-        data["voc"] = val[4] * 1.0
+        data["humidity"] = val[3] / 100.0 if 0 <= val[3] / 100.0 < HUMIDITY_MAX else None
+        data["voc"] = val[4] * 1.0 if 0 <= val[4] * 1.0 < VOC_MAX else None
         return data
 
     return handler
@@ -303,7 +308,7 @@ sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],
         name="date_time", format_type="HBBBBB", scale=0
     ),
     str(CHAR_UUID_HUMIDITY): _decode_attr(
-        name="humidity", format_type="H", scale=1.0 / 100.0
+        name="humidity", format_type="H", scale=1.0 / 100.0, max_value=HUMIDITY_MAX,
     ),
     str(CHAR_UUID_RADON_1DAYAVG): _decode_attr(
         name="radon_1day_avg", format_type="H", scale=1.0
@@ -315,7 +320,7 @@ sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],
         name="illuminance_accelerometer", format_type="BB", scale=1.0
     ),
     str(CHAR_UUID_TEMPERATURE): _decode_attr(
-        name="temperature", format_type="h", scale=1.0 / 100.0
+        name="temperature", format_type="h", scale=1.0 / 100.0,
     ),
     str(CHAR_UUID_WAVE_2_DATA): __decode_wave_2(
         name="Wave2", format_type="<4B8H", scale=1.0
