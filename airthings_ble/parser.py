@@ -32,11 +32,11 @@ from .const import (
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
     COMMAND_UUID,
+    DEVICE_TYPE,
     HIGH,
     LOW,
     MODERATE,
     VERY_LOW,
-    DEVICE_TYPE,
 )
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
@@ -378,7 +378,9 @@ class AirthingsBluetoothDeviceData:
                     try:
                         data = await client.read_gatt_char(characteristic.uuid)
                     except BleakError as err:
-                        self.logger.warning("Get device characteristics exception: %s", err)
+                        self.logger.warning(
+                            "Get device characteristics exception: %s", err
+                        )
                         continue
 
                     if characteristic.uuid == str(CHAR_UUID_HARDWARE_REV):
