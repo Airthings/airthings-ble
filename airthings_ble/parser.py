@@ -388,7 +388,7 @@ class AirthingsBluetoothDeviceData:
                     elif characteristic.uuid == str(CHAR_UUID_FIRMWARE_REV):
                         device.sw_version = data.decode("utf-8")
                     elif characteristic.uuid == str(CHAR_UUID_DEVICE_NAME):
-                        device.name = data.decode(characteristic.format)
+                        device.name = data.decode("utf-8")
                     elif characteristic.uuid == str(CHAR_UUID_SERIAL_NUMBER_STRING):
                         identifier = data.decode("utf-8")
                         if identifier != "Serial Number":
