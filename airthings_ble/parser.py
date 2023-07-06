@@ -43,11 +43,13 @@ from .const import (
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
-device_info_characteristics = [
+wave_gen_1_device_info_characteristics = [
     Characteristic(CHAR_UUID_MANUFACTURER_NAME, "manufacturer", "utf-8"),
     Characteristic(CHAR_UUID_SERIAL_NUMBER_STRING, "serial_nr", "utf-8"),
     Characteristic(CHAR_UUID_DEVICE_NAME, "device_name", "utf-8"),
     Characteristic(CHAR_UUID_FIRMWARE_REV, "firmware_rev", "utf-8"),
+]
+device_info_characteristics = wave_gen_1_device_info_characteristics + [
     Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
 ]
 
@@ -395,7 +397,12 @@ class AirthingsBluetoothDeviceData:
                 device.model_raw,
             )
 
-        for characteristic in device_info_characteristics:
+        if device.model_raw == "2900":
+            characteristics = wave_gen_1_device_info_characteristics
+        else:
+            characteristics = device_info_characteristics
+
+        for characteristic in characteristics:
             try:
                 data = await client.read_gatt_char(characteristic.uuid)
             except BleakError as err:
@@ -432,7 +439,7 @@ class AirthingsBluetoothDeviceData:
 
         # In some cases the device name will be empty, for example when using a Mac.
         if device.name == "":
-            device.name = f"Airthings {device.model}"
+            device.name = device.friendly_name()
 
         return device
 
