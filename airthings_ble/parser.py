@@ -389,7 +389,7 @@ class AirthingsBluetoothDeviceData:
 
         for characteristic in device_info_characteristics:
             try:
-                data = await client.read_gatt_char(characteristic)
+                data = await client.read_gatt_char(characteristic.uuid)
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
