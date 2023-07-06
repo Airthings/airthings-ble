@@ -44,7 +44,6 @@ Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
 device_info_characteristics = [
     Characteristic(CHAR_UUID_SERIAL_NUMBER_STRING, "serial_nr", "utf-8"),
-    Characteristic(CHAR_UUID_MODEL_NUMBER_STRING, "model_nr", "utf-8"),
     Characteristic(CHAR_UUID_DEVICE_NAME, "device_name", "utf-8"),
     Characteristic(CHAR_UUID_FIRMWARE_REV, "firmware_rev", "utf-8"),
     Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
@@ -394,13 +393,13 @@ class AirthingsBluetoothDeviceData:
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
-            if characteristic == CHAR_UUID_HARDWARE_REV:
+            if characteristic.name == "hardware_rev":
                 device.hw_version = data.decode("utf-8")
-            elif characteristic == CHAR_UUID_FIRMWARE_REV:
+            elif characteristic.name == "firmware_rev":
                 device.sw_version = data.decode("utf-8")
-            elif characteristic == CHAR_UUID_DEVICE_NAME:
+            elif characteristic.name == "device_name":
                 device.name = data.decode("utf-8")
-            elif characteristic == CHAR_UUID_SERIAL_NUMBER_STRING:
+            elif characteristic.name == "serial_nr":
                 identifier = data.decode("utf-8")
                 # Some devices return `Serial Number` on Mac instead of the actual serial number.
                 if identifier != "Serial Number":
