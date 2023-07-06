@@ -351,6 +351,11 @@ class AirthingsDevice:
         default_factory=lambda: {}
     )
 
+    def friendly_name(self) -> str:
+        """Generate a name for the device."""
+
+        return f"Airthings {self.model}"
+
 
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-branches
@@ -375,7 +380,7 @@ class AirthingsBluetoothDeviceData:
     ) -> AirthingsDevice:
         device.address = client.address
 
-        # First we need to fetch model. With this we can determ what to fetch.
+        # We need to fetch model to determ what to fetch.
         try:
             data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
         except BleakError as err:
