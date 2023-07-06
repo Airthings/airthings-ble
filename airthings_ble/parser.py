@@ -391,21 +391,39 @@ class AirthingsBluetoothDeviceData:
                 continue
             if characteristic == CHAR_UUID_HARDWARE_REV:
                 device.hw_version = data.decode("utf-8")
-                self.logger.debug("Saved hw version: %s, model: %s", device.hw_version, device.model_raw)
+                self.logger.debug(
+                    "Saved hw version: %s, model: %s",
+                    device.hw_version,
+                    device.model_raw,
+                )
             elif characteristic == CHAR_UUID_FIRMWARE_REV:
                 device.sw_version = data.decode("utf-8")
-                self.logger.debug("Saved sw version: %s, model: %s", device.sw_version, device.model_raw)
+                self.logger.debug(
+                    "Saved sw version: %s, model: %s",
+                    device.sw_version,
+                    device.model_raw,
+                )
             elif characteristic == CHAR_UUID_DEVICE_NAME:
                 device.name = data.decode("utf-8")
-                self.logger.debug("Saved name: %s, model: %s", device.name, device.model_raw)
+                self.logger.debug(
+                    "Saved name: %s, model: %s", device.name, device.model_raw
+                )
             elif characteristic == CHAR_UUID_SERIAL_NUMBER_STRING:
                 identifier = data.decode("utf-8")
                 # Some devices return `Serial Number` on Mac instead of the actual serial number.
                 if identifier != "Serial Number":
                     device.identifier = identifier
-                    self.logger.debug("Saved identifier: %s, model: %s", device.identifier, device.model_raw)
+                    self.logger.debug(
+                        "Saved identifier: %s, model: %s",
+                        device.identifier,
+                        device.model_raw,
+                    )
                 else:
-                    self.logger.debug("Identifier not saved...: %s, model: %s", identifier, device.model_raw)
+                    self.logger.debug(
+                        "Identifier not saved...: %s, model: %s",
+                        identifier,
+                        device.model_raw,
+                    )
             else:
                 self.logger.debug(
                     "Characteristics not handled: %s", characteristic.uuid
@@ -413,15 +431,16 @@ class AirthingsBluetoothDeviceData:
 
         if (
             device.model_raw == "2900"
+            and device.name != ""
             and (device.identifier == "" or device.identifier is None)
         ):
             self.logger.warning("Current identifier for 2900: %s", device.identifier)
             self.logger.warning("Current name for 2900: %s", device.name)
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
-            identifier = re.search("(?<=\#)(.*?)(?=\-)", device.name)
-            self.logger.warning("Generated identifier for 2900: %s", identifier)
-            if len(identifier) == 6:
+            identifier = re.search("(?<=\#)[0-9]{1,6}", device.name)
+            self.logger.warning("Generated identifier for 2900: %s", identifier.string)
+            if identifier.group() is not None and len(identifier.group()) == 6:
                 device.identifier = identifier
 
         if device.name == "":
