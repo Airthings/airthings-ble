@@ -441,7 +441,7 @@ class AirthingsBluetoothDeviceData:
             identifier = re.search("(?<=\#)[0-9]{1,6}", device.name)
             self.logger.warning("Generated identifier for 2900: %s", identifier.string)
             if identifier.group() is not None and len(identifier.group()) == 6:
-                device.identifier = identifier
+                device.identifier = identifier.group()
 
         if device.name == "":
             name = f"Airthings {device.model}"
