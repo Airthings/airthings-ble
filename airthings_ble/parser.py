@@ -24,6 +24,7 @@ from .const import (
     CHAR_UUID_HARDWARE_REV,
     CHAR_UUID_HUMIDITY,
     CHAR_UUID_ILLUMINANCE_ACCELEROMETER,
+    CHAR_UUID_MANUFACTURER_NAME,
     CHAR_UUID_MODEL_NUMBER_STRING,
     CHAR_UUID_RADON_1DAYAVG,
     CHAR_UUID_RADON_LONG_TERM_AVG,
@@ -43,6 +44,7 @@ from .const import (
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
 device_info_characteristics = [
+    Characteristic(CHAR_UUID_MANUFACTURER_NAME, "manufacturer", "utf-8"),
     Characteristic(CHAR_UUID_SERIAL_NUMBER_STRING, "serial_nr", "utf-8"),
     Characteristic(CHAR_UUID_DEVICE_NAME, "device_name", "utf-8"),
     Characteristic(CHAR_UUID_FIRMWARE_REV, "firmware_rev", "utf-8"),
@@ -337,6 +339,7 @@ def short_address(address: str) -> str:
 class AirthingsDevice:
     """Response data with information about the Airthings device"""
 
+    manufacturer: str = ""
     hw_version: str = ""
     sw_version: str = ""
     model: str = ""
@@ -393,14 +396,16 @@ class AirthingsBluetoothDeviceData:
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
+            if characteristic.name == "manufacturer":
+                device.manufacturer = data.decode(characteristic.format)
             if characteristic.name == "hardware_rev":
-                device.hw_version = data.decode("utf-8")
+                device.hw_version = data.decode(characteristic.format)
             elif characteristic.name == "firmware_rev":
-                device.sw_version = data.decode("utf-8")
+                device.sw_version = data.decode(characteristic.format)
             elif characteristic.name == "device_name":
-                device.name = data.decode("utf-8")
+                device.name = data.decode(characteristic.format)
             elif characteristic.name == "serial_nr":
-                identifier = data.decode("utf-8")
+                identifier = data.decode(characteristic.format)
                 # Some devices return `Serial Number` on Mac instead of the actual serial number.
                 if identifier != "Serial Number":
                     device.identifier = identifier
@@ -419,6 +424,10 @@ class AirthingsBluetoothDeviceData:
             identifier = re.search("(?<=\#)[0-9]{1,6}", device.name)
             if identifier.group() is not None and len(identifier.group()) == 6:
                 device.identifier = identifier.group()
+
+        # In some cases the device name will be empty, for example when using a Mac.
+        if device.name == "":
+            device.name = f"Airthings {device.model}"
 
         return device
 
