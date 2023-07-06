@@ -46,8 +46,47 @@ HIGH = (300, None, "high")
 BQ_TO_PCI_MULTIPLIER = 0.027
 
 DEVICE_TYPE = {
-    "2900": "Wave gen. 1",
-    "2920": "Wave Mini",
-    "2930": "Wave Plus",
-    "2950": "Wave Radon",
+    "2900": {
+        "name": "Wave gen. 1",
+        "characteristics": [
+            CHAR_UUID_DEVICE_NAME,
+            CHAR_UUID_FIRMWARE_REV,
+            CHAR_UUID_HARDWARE_REV,
+            CHAR_UUID_SERIAL_NUMBER_STRING,
+        ],
+    },
+    "2920": {
+        "name": "Wave Mini",
+        "characteristics": [
+            CHAR_UUID_DEVICE_NAME,
+            CHAR_UUID_FIRMWARE_REV,
+            CHAR_UUID_HARDWARE_REV,
+            CHAR_UUID_SERIAL_NUMBER_STRING,
+        ],
+    },
+    "2930": {
+        "name": "Wave Plus",
+        "characteristics": [
+            CHAR_UUID_DEVICE_NAME,
+            CHAR_UUID_FIRMWARE_REV,
+            CHAR_UUID_HARDWARE_REV,
+            CHAR_UUID_SERIAL_NUMBER_STRING,
+        ],
+    },
+    "2950": {
+        "name": "Wave Radon",
+        "characteristics": [
+            CHAR_UUID_DEVICE_NAME,
+            CHAR_UUID_FIRMWARE_REV,
+            CHAR_UUID_HARDWARE_REV,
+            CHAR_UUID_SERIAL_NUMBER_STRING,
+        ],
+    },
 }
+
+ALL_CHARACTERISTICS = [
+    CHAR_UUID_DEVICE_NAME,
+    CHAR_UUID_FIRMWARE_REV,
+    CHAR_UUID_HARDWARE_REV,
+    CHAR_UUID_SERIAL_NUMBER_STRING,
+]

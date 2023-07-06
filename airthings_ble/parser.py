@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import re
 import struct
 from collections import namedtuple
 from datetime import datetime
@@ -16,6 +17,7 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import establish_connection
 
 from .const import (
+    ALL_CHARACTERISTICS,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -38,16 +40,6 @@ from .const import (
     MODERATE,
     VERY_LOW,
 )
-
-Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
-
-device_info_characteristics = [
-    Characteristic(CHAR_UUID_SERIAL_NUMBER_STRING, "serial_nr", "utf-8"),
-    Characteristic(CHAR_UUID_MODEL_NUMBER_STRING, "model_nr", "utf-8"),
-    Characteristic(CHAR_UUID_DEVICE_NAME, "device_name", "utf-8"),
-    Characteristic(CHAR_UUID_FIRMWARE_REV, "firmware_rev", "utf-8"),
-    Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
-]
 
 sensors_characteristics_uuid = [
     CHAR_UUID_DATETIME,
@@ -371,32 +363,69 @@ class AirthingsBluetoothDeviceData:
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
         device.address = client.address
-        for characteristic in device_info_characteristics:
+
+        # First we need to fetch model. With this we can determ what to fetch.
+        try:
+            data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
+        except BleakError as err:
+            self.logger.debug("Get device characteristics exception: %s", err)
+            return device
+        device.model_raw = str(data.decode("utf-8"))
+
+        config = DEVICE_TYPE.get(device.model_raw)
+        if config is not None:
+            characteristics = config["characteristics"]
+            device.model = config.get("name")
+        else:
+            self.logger.debug(
+                "Could not map model number to model name, most likely an unsupported device: %s",
+                device.model_raw,
+            )
+            characteristics = ALL_CHARACTERISTICS
+
+        for characteristic in characteristics:
             try:
-                data = await client.read_gatt_char(characteristic.uuid)
+                data = await client.read_gatt_char(characteristic)
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
-            if characteristic.name == "model_nr":
-                device.model_raw = data.decode(characteristic.format)
-                device.model = DEVICE_TYPE.get(device.model_raw)
-            elif characteristic.name == "hardware_rev":
-                device.hw_version = data.decode(characteristic.format)
-            elif characteristic.name == "firmware_rev":
-                device.sw_version = data.decode(characteristic.format)
-            elif characteristic.name == "device_name":
-                device.name = data.decode(characteristic.format)
-            elif characteristic.name == "serial_nr":
-                identifier = data.decode(characteristic.format)
+            if characteristic == CHAR_UUID_HARDWARE_REV:
+                device.hw_version = data.decode("utf-8")
+                self.logger.debug("Saved hw version: %s, model: %s", device.hw_version, device.model_raw)
+            elif characteristic == CHAR_UUID_FIRMWARE_REV:
+                device.sw_version = data.decode("utf-8")
+                self.logger.debug("Saved sw version: %s, model: %s", device.sw_version, device.model_raw)
+            elif characteristic == CHAR_UUID_DEVICE_NAME:
+                device.name = data.decode("utf-8")
+                self.logger.debug("Saved name: %s, model: %s", device.name, device.model_raw)
+            elif characteristic == CHAR_UUID_SERIAL_NUMBER_STRING:
+                identifier = data.decode("utf-8")
+                # Some devices return `Serial Number` on Mac instead of the actual serial number.
                 if identifier != "Serial Number":
                     device.identifier = identifier
+                    self.logger.debug("Saved identifier: %s, model: %s", device.identifier, device.model_raw)
+                else:
+                    self.logger.debug("Identifier not saved...: %s, model: %s", identifier, device.model_raw)
             else:
-                self.logger.debug("Characteristics not handled: %s", characteristic.uuid)
+                self.logger.debug(
+                    "Characteristics not handled: %s", characteristic.uuid
+                )
+
+        if (
+            device.model_raw == "2900"
+            and (device.identifier == "" or device.identifier is None)
+        ):
+            self.logger.warning("Current identifier for 2900: %s", device.identifier)
+            self.logger.warning("Current name for 2900: %s", device.name)
+            # For the Wave gen. 1 we need to fetch the identifier in the device name.
+            # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
+            identifier = re.search("(?<=\#)(.*?)(?=\-)", device.name)
+            self.logger.warning("Generated identifier for 2900: %s", identifier)
+            if len(identifier) == 6:
+                device.identifier = identifier
 
         if device.name == "":
-            name = "Airthings"
-            if device.model != "":
-                name += f" {device.model}"
+            name = f"Airthings {device.model}"
             device.name = name
             self.logger.debug("Generating name 1: %s", device.name)
         if device.identifier != "":
@@ -404,17 +433,17 @@ class AirthingsBluetoothDeviceData:
             self.logger.debug("Generating name 2: %s", device.name)
 
         if device.model_raw == "":
-            self.logger.warning("Missing `model_raw`")
+            self.logger.warning("Missing `model_raw`, model: %s", device.model)
         if device.model == "":
-            self.logger.warning("Missing `model`")
+            self.logger.warning("Missing `model`, model: %s", device.model)
         if device.hw_version == "":
-            self.logger.warning("Missing `hw_version`")
+            self.logger.warning("Missing `hw_version`, model: %s", device.model)
         if device.sw_version == "":
-            self.logger.warning("Missing `sw_version`")
+            self.logger.warning("Missing `sw_version`, model: %s", device.model)
         if device.name == "":
-            self.logger.warning("Missing `name`")
+            self.logger.warning("Missing `name`, model: %s", device.model)
         if device.identifier == "":
-            self.logger.warning("Missing `identifier`")
+            self.logger.warning("Missing `identifier`, model: %s", device.model)
         return device
 
     async def _get_service_characteristics(
