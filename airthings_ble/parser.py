@@ -448,9 +448,9 @@ class AirthingsBluetoothDeviceData:
         ):
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
-            identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
-            if identifier.group() is not None and len(identifier.group()) == 6:
-                device.identifier = identifier.group()
+            wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
+            if wave1_identifier is not None and len(wave1_identifier.group()) == 6:
+                device.identifier = wave1_identifier.group()
 
         # In some cases the device name will be empty, for example when using a Mac.
         if device.name == "":
