@@ -49,3 +49,10 @@ CO2_MAX = 65534
 VOC_MAX = 65534
 HUMIDITY_MAX = 100
 RADON_MAX = 16383
+
+DEVICE_TYPE = {
+    "2900": "Wave gen. 1",
+    "2920": "Wave Mini",
+    "2930": "Wave Plus",
+    "2950": "Wave Radon",
+}

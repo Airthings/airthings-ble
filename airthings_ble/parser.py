@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import dataclasses
+import re
 import struct
 from collections import namedtuple
 from datetime import datetime
@@ -34,6 +35,7 @@ from .const import (
     CHAR_UUID_WAVEMINI_DATA,
     CO2_MAX,
     COMMAND_UUID,
+    DEVICE_TYPE,
     HIGH,
     HUMIDITY_MAX,
     LOW,
@@ -45,15 +47,13 @@ from .const import (
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
-manufacturer_characteristics = Characteristic(
-    CHAR_UUID_MANUFACTURER_NAME, "manufacturer", "utf-8"
-)
-device_info_characteristics = [
-    manufacturer_characteristics,
+wave_gen_1_device_info_characteristics = [
+    Characteristic(CHAR_UUID_MANUFACTURER_NAME, "manufacturer", "utf-8"),
     Characteristic(CHAR_UUID_SERIAL_NUMBER_STRING, "serial_nr", "utf-8"),
-    Characteristic(CHAR_UUID_MODEL_NUMBER_STRING, "model_nr", "utf-8"),
     Characteristic(CHAR_UUID_DEVICE_NAME, "device_name", "utf-8"),
     Characteristic(CHAR_UUID_FIRMWARE_REV, "firmware_rev", "utf-8"),
+]
+device_info_characteristics = wave_gen_1_device_info_characteristics + [
     Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
 ]
 
@@ -272,7 +272,8 @@ class _NotificationReceiver:
     async def wait_for_message(self) -> None:
         """Waits until the full message is received.
 
-        If the full message has already been received, this method returns immediately."""
+        If the full message has already been received, this method returns immediately.
+        """
         if not self._full_message_received():
             await self._event.wait()
 
@@ -303,9 +304,12 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
+sensor_decoders: dict[
+    str,
+    Callable[[bytearray], dict[str, float | None | str]],
+] = {
     str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
-        name="Pluss", format_type="BBBBHHHHHHHH", scale=0
+        name="Plus", format_type="BBBBHHHHHHHH", scale=0
     ),
     str(CHAR_UUID_DATETIME): _decode_wave(
         name="date_time", format_type="HBBBBB", scale=0
@@ -348,18 +352,27 @@ def short_address(address: str) -> str:
     return address.replace("-", "").replace(":", "")[-6:].upper()
 
 
+# pylint: disable=too-many-instance-attributes
 @dataclasses.dataclass
 class AirthingsDevice:
     """Response data with information about the Airthings device"""
 
+    manufacturer: str = ""
     hw_version: str = ""
     sw_version: str = ""
+    model: str = ""
+    model_raw: str = ""
     name: str = ""
     identifier: str = ""
     address: str = ""
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
     )
+
+    def friendly_name(self) -> str:
+        """Generate a name for the device."""
+
+        return f"Airthings {self.model}"
 
 
 # pylint: disable=too-many-locals
@@ -383,30 +396,73 @@ class AirthingsBluetoothDeviceData:
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
-        # device.identifier = short_address(client.address)
         device.address = client.address
-        for characteristic in device_info_characteristics:
+
+        # We need to fetch model to determ what to fetch.
+        try:
+            data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
+        except BleakError as err:
+            self.logger.debug("Get device characteristics exception: %s", err)
+            return device
+        device.model_raw = data.decode("utf-8")
+        device.model = DEVICE_TYPE.get(device.model_raw)
+
+        if device.model is None:
+            self.logger.debug(
+                "Could not map model number to model name, most likely an unsupported device: %s",
+                device.model_raw,
+            )
+
+        if device.model_raw == "2900":
+            characteristics = wave_gen_1_device_info_characteristics
+        else:
+            characteristics = device_info_characteristics
+
+        for characteristic in characteristics:
             try:
                 data = await client.read_gatt_char(characteristic.uuid)
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
+            if characteristic.name == "manufacturer":
+                device.manufacturer = data.decode(characteristic.format)
             if characteristic.name == "hardware_rev":
                 device.hw_version = data.decode(characteristic.format)
-                continue
-            if characteristic.name == "firmware_rev":
+            elif characteristic.name == "firmware_rev":
                 device.sw_version = data.decode(characteristic.format)
-                continue
-            if characteristic.name == "device_name":
+            elif characteristic.name == "device_name":
                 device.name = data.decode(characteristic.format)
-            if characteristic.name == "serial_nr":
-                device.identifier = data.decode(characteristic.format)
+            elif characteristic.name == "serial_nr":
+                identifier = data.decode(characteristic.format)
+                # Some devices return `Serial Number` on Mac instead of the actual serial number.
+                if identifier != "Serial Number":
+                    device.identifier = identifier
+            else:
+                self.logger.debug(
+                    "Characteristics not handled: %s", characteristic.uuid
+                )
+
+        if (
+            device.model_raw == "2900"
+            and device.name != ""
+            and (device.identifier == "" or device.identifier is None)
+        ):
+            # For the Wave gen. 1 we need to fetch the identifier in the device name.
+            # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
+            identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
+            if identifier.group() is not None and len(identifier.group()) == 6:
+                device.identifier = identifier.group()
+
+        # In some cases the device name will be empty, for example when using a Mac.
+        if device.name == "":
+            device.name = device.friendly_name()
+
         return device
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
-        svcs = await client.get_services()
+        svcs = client.services
         for service in svcs:
             for characteristic in service.characteristics:
                 if (
