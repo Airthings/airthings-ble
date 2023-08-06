@@ -296,7 +296,10 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
+sensor_decoders: dict[
+    str,
+    Callable[[bytearray], dict[str, float | None | str]],
+] = {
     str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
         name="Plus", format_type="BBBBHHHHHHHH", scale=0
     ),
@@ -338,6 +341,7 @@ def short_address(address: str) -> str:
     return address.replace("-", "").replace(":", "")[-6:].upper()
 
 
+# pylint: disable=too-many-instance-attributes
 @dataclasses.dataclass
 class AirthingsDevice:
     """Response data with information about the Airthings device"""
@@ -434,7 +438,7 @@ class AirthingsBluetoothDeviceData:
         ):
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
-            identifier = re.search("(?<=\#)[0-9]{1,6}", device.name)
+            identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
             if identifier.group() is not None and len(identifier.group()) == 6:
                 device.identifier = identifier.group()
 
