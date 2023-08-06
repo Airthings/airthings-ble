@@ -62,4 +62,5 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           files: dist/${{ env.name }}/*
+          tag_name: ${{ github.event.inputs.tag }}
       
