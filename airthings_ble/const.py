@@ -44,3 +44,10 @@ MODERATE = (100, 299, "moderate")
 HIGH = (300, None, "high")
 
 BQ_TO_PCI_MULTIPLIER = 0.027
+
+DEVICE_TYPE = {
+    "2900": "Wave gen. 1",
+    "2920": "Wave Mini",
+    "2930": "Wave Plus",
+    "2950": "Wave Radon",
+}
