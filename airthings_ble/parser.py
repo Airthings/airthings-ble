@@ -304,10 +304,7 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[
-    str,
-    Callable[[bytearray], dict[str, float | None | str]],
-] = {
+sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
     str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
         name="Plus", format_type="BBBBHHHHHHHH", scale=0
     ),
