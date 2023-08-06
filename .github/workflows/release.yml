@@ -63,4 +63,5 @@ jobs:
         with:
           files: dist/${{ env.name }}/*
           tag_name: ${{ github.event.inputs.tag }}
+          generate_release_notes: true
       
