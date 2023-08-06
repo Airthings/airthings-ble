@@ -264,7 +264,8 @@ class _NotificationReceiver:
     async def wait_for_message(self) -> None:
         """Waits until the full message is received.
 
-        If the full message has already been received, this method returns immediately."""
+        If the full message has already been received, this method returns immediately.
+        """
         if not self._full_message_received():
             await self._event.wait()
 
