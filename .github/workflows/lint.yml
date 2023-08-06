@@ -1,0 +1,20 @@
+name: Linting
+on: 
+  workflow_call:
+  pull_request:
+
+jobs:
+  lint:
+    name: Lint code
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - uses: actions/setup-python@v3
+        with:
+          python-version: "3.x"
+      - uses: snok/install-poetry@v1
+      - name: Install Dependencies
+        run: poetry install
+      - name: Run linters
+        run: poetry run make lint
