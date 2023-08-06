@@ -45,6 +45,11 @@ HIGH = (300, None, "high")
 
 BQ_TO_PCI_MULTIPLIER = 0.027
 
+CO2_MAX = 65534
+VOC_MAX = 65534
+HUMIDITY_MAX = 100
+RADON_MAX = 16383
+
 DEVICE_TYPE = {
     "2900": "Wave gen. 1",
     "2920": "Wave Mini",
