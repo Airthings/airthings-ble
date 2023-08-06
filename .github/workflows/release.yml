@@ -49,6 +49,8 @@ jobs:
           git add pyproject.toml
           git commit -m "Update version to ${{ github.event.inputs.tag }}"
           git push
+          git tag ${{ github.event.inputs.tag }}
+          git push --tags
       - name: Build source and wheel distributions
         run: |
           python -m pip install --upgrade build twine
