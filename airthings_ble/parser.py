@@ -10,7 +10,7 @@ from collections import namedtuple
 from datetime import datetime
 from logging import Logger
 from math import exp
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
@@ -87,7 +87,7 @@ def _decode_base(
 
 
 def _decode_attr(
-    name: str, format_type: str, scale: float, max_value: float = None
+    name: str, format_type: str, scale: float, max_value: Optional[float] = None
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     """same as base decoder, but expects only one value.. for real"""
 
@@ -96,8 +96,10 @@ def _decode_attr(
         res: float | None = None
         if len(val) == 1:
             res = val[0] * scale
-        if max_value is not None and res > max_value:
-            res = None
+        if res is not None and max_value is not None:
+            # Verify that the result is not above the maximum allowed value
+            if res > max_value:
+                res = None
         data: dict[str, float | None | str] = {name: res}
         return data
 
@@ -357,7 +359,7 @@ class AirthingsDevice:
     manufacturer: str = ""
     hw_version: str = ""
     sw_version: str = ""
-    model: str = ""
+    model: Optional[str] = None
     model_raw: str = ""
     name: str = ""
     identifier: str = ""
