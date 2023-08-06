@@ -1,9 +1,11 @@
 name: Publish to PyPI and GitHub
 
 on:
-  push:
-    tags:
-      - "v*"
+  workflow_dispatch:
+    inputs:
+      tag: 
+        description: New version tag
+        required: true
 
 jobs:
   final-linting:
@@ -14,16 +16,39 @@ jobs:
     needs: final-linting
     environment:
       name: release
-      url: https://pypi.org/p/<your-pypi-project-name>
+      url: https://pypi.org/p/airthings-ble
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
+      contents: write
     steps:
       - name: Checkout source
         uses: actions/checkout@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
       - name: Set up Python
         uses: actions/setup-python@v3
         with:
           python-version: "3.x"
+      - name: Update pyproject.toml Version
+        run: |
+          pip install tomlkit
+          python -c "
+          import tomlkit
+          tag = '${{ github.event.inputs.tag }}'
+          with open('pyproject.toml', 'r') as file:
+            content = tomlkit.parse(file.read())
+          content['tool']['poetry']['version'] = tag
+          with open('pyproject.toml', 'w') as file:
+            file.write(tomlkit.dumps(content))
+          "
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions"
+          git add pyproject.toml
+          git commit -m "Update version to ${{ github.event.inputs.tag }}"
+          git push
       - name: Build source and wheel distributions
         run: |
           python -m pip install --upgrade build twine
