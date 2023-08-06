@@ -10,7 +10,7 @@ from collections import namedtuple
 from datetime import datetime
 from logging import Logger
 from math import exp
-from typing import Any, Callable, Tuple
+from typing import Any, Callable, Optional, Tuple
 
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
@@ -296,10 +296,7 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[
-    str,
-    Callable[[bytearray], dict[str, float | None | str]],
-] = {
+sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
     str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
         name="Plus", format_type="BBBBHHHHHHHH", scale=0
     ),
@@ -349,7 +346,7 @@ class AirthingsDevice:
     manufacturer: str = ""
     hw_version: str = ""
     sw_version: str = ""
-    model: str = ""
+    model: Optional[str] = None
     model_raw: str = ""
     name: str = ""
     identifier: str = ""
@@ -438,9 +435,9 @@ class AirthingsBluetoothDeviceData:
         ):
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
-            identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
-            if identifier.group() is not None and len(identifier.group()) == 6:
-                device.identifier = identifier.group()
+            wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
+            if wave1_identifier is not None and len(wave1_identifier.group()) == 6:
+                device.identifier = wave1_identifier.group()
 
         # In some cases the device name will be empty, for example when using a Mac.
         if device.name == "":
