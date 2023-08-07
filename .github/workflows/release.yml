@@ -52,7 +52,7 @@ jobs:
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
           git config --global user.name "GitHub Actions"
-          git add pyproject.toml
+          git add pyproject.toml airthings_ble/__init__.py
           git commit -m "Update version to ${{ github.event.inputs.tag }}"
           git push
           git tag ${{ github.event.inputs.tag }}
