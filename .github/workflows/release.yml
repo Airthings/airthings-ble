@@ -42,6 +42,12 @@ jobs:
           with open('pyproject.toml', 'w') as file:
             file.write(tomlkit.dumps(content))
           "
+      - name: Update __init__.py version
+        run: | 
+          version="${{ github.event.inputs.tag }}"
+          file="airthings_ble/__init__.py"
+          sed -i "s/__version__\\s*=\\s*[\"'].*[\"']/__version__ = \"$version\"/" $file
+
       - name: Commit and Push Changes
         run: |
           git config --global user.email "github-actions[bot]@users.noreply.github.com"
