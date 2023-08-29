@@ -145,16 +145,6 @@ def __decode_wave_2(
     return handler
 
 
-def _validate_value(
-    value: float, min: Optional[float] = 0.0, max: Optional[float] = 100
-) -> Optional[float]:
-    if min is not None and value < min:
-        return None
-    if max is not None and value > max:
-        return None
-    return value
-
-
 def _decode_wave_mini(
     name: str, format_type: str, scale: float
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
@@ -211,9 +201,9 @@ def _decode_wave_illum_accel(
     return handler
 
 
-def validate_value(
-    value: float, min: Optional[float], max: Optional[float]
-) -> Optional[float]:
+def validate_value(value: float, max: float) -> Optional[float]:
+    """Validate if the given 'value' is within the specified range [min, max]"""
+    min = 0
     if min <= value <= max:
         return value
     return None
