@@ -214,11 +214,9 @@ def _decode_wave_illum_accel(
 def validate_value(
     value: float, min: Optional[float], max: Optional[float]
 ) -> Optional[float]:
-    if min is not None and value < min:
-        return None
-    if max is not None and value > max:
-        return None
-    return value
+    if min <= value <= max:
+        return value
+    return None
 
 
 # pylint: disable=too-few-public-methods
