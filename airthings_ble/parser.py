@@ -41,7 +41,6 @@ from .const import (
     LOW,
     MODERATE,
     RADON_MAX,
-    TEMPERATURE_MAX,
     VERY_LOW,
     VOC_MAX,
 )
