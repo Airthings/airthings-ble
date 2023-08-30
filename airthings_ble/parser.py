@@ -117,7 +117,6 @@ def __decode_wave_plus(
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["humidity"] = validate_value(value=val[1] / 2.0, max_value=HUMIDITY_MAX)
         data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
-        data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
         data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
         data["temperature"] = val[6] / 100.0
         data["rel_atm_pressure"] = val[7] / 50.0
