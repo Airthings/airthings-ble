@@ -155,7 +155,6 @@ def _decode_wave_mini(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["temperature"] = round(val[1] / 100.0 - 273.15, 2)
         data["temperature"] = validate_value(
             value=round(val[1] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
         )
