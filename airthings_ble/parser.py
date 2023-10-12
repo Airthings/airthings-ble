@@ -384,7 +384,7 @@ class AirthingsBluetoothDeviceData:
         logger: Logger,
         elevation: int | None = None,
         is_metric: bool = True,
-        voltage: tuple[float, float] = (2.4, 3.2),
+        voltage: tuple[float, float] = (2.0, 3.0),
     ):
         super().__init__()
         self.logger = logger
