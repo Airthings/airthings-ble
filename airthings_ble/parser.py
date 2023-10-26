@@ -438,7 +438,7 @@ class AirthingsBluetoothDeviceData:
                 continue
             if characteristic.name == "manufacturer":
                 device.manufacturer = data.decode(characteristic.format)
-            if characteristic.name == "hardware_rev":
+            elif characteristic.name == "hardware_rev":
                 device.hw_version = data.decode(characteristic.format)
             elif characteristic.name == "firmware_rev":
                 device.sw_version = data.decode(characteristic.format)
