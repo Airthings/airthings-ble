@@ -18,3 +18,5 @@ jobs:
         run: poetry install
       - name: Run linters
         run: poetry run make lint
+      - name: Run tests
+        run: poetry run pytest

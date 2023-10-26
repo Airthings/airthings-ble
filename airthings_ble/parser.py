@@ -41,6 +41,7 @@ from .const import (
     LOW,
     MODERATE,
     RADON_MAX,
+    TEMPERATURE_MAX,
     VERY_LOW,
     VOC_MAX,
 )
@@ -114,13 +115,15 @@ def __decode_wave_plus(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2.0 <= HUMIDITY_MAX else None
-        data["radon_1day_avg"] = val[4] if 0 <= val[4] <= RADON_MAX else None
-        data["radon_longterm_avg"] = val[5] if 0 <= val[5] <= RADON_MAX else None
-        data["temperature"] = val[6] / 100.0
+        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=HUMIDITY_MAX)
+        data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
+        data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
+        data["temperature"] = validate_value(
+            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
+        )
         data["rel_atm_pressure"] = val[7] / 50.0
-        data["co2"] = val[8] * 1.0 if 0 <= val[8] * 1.0 <= CO2_MAX else None
-        data["voc"] = val[9] * 1.0 if 0 <= val[9] * 1.0 <= VOC_MAX else None
+        data["co2"] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
+        data["voc"] = validate_value(value=val[9] * 1.0, max_value=VOC_MAX)
         return data
 
     return handler
@@ -134,10 +137,12 @@ def __decode_wave_2(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = val[1] / 2.0 if 0 <= val[1] / 2.0 <= HUMIDITY_MAX else None
-        data["radon_1day_avg"] = val[4] if 0 <= val[4] <= RADON_MAX else None
-        data["radon_longterm_avg"] = val[5] if 0 <= val[5] <= RADON_MAX else None
-        data["temperature"] = val[6] / 100.0
+        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=HUMIDITY_MAX)
+        data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
+        data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
+        data["temperature"] = validate_value(
+            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
+        )
         return data
 
     return handler
@@ -151,11 +156,11 @@ def _decode_wave_mini(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["temperature"] = round(val[1] / 100.0 - 273.15, 2)
-        data["humidity"] = (
-            val[3] / 100.0 if 0 <= val[3] / 100.0 <= HUMIDITY_MAX else None
+        data["temperature"] = validate_value(
+            value=round(val[1] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
         )
-        data["voc"] = val[4] * 1.0 if 0 <= val[4] * 1.0 <= VOC_MAX else None
+        data["humidity"] = validate_value(value=val[3] / 100.0, max_value=HUMIDITY_MAX)
+        data["voc"] = validate_value(value=val[4] * 1.0, max_value=VOC_MAX)
         return data
 
     return handler
@@ -196,6 +201,14 @@ def _decode_wave_illum_accel(
         return data
 
     return handler
+
+
+def validate_value(value: float, max_value: float) -> Optional[float]:
+    """Validate if the given 'value' is within the specified range [min, max]"""
+    min_value = 0
+    if min_value <= value <= max_value:
+        return value
+    return None
 
 
 # pylint: disable=too-few-public-methods

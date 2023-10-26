@@ -30,7 +30,6 @@ MANIFEST
 pip-log.txt
 pip-delete-this-directory.txt
 
-
 # pyenv
 .python-version
 
@@ -40,3 +39,6 @@ pip-delete-this-directory.txt
 # Misc
 .vscode
 .idea
+
+# Tests
+.coverage
