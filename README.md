@@ -7,7 +7,7 @@ the [Home Assistant integration](https://www.home-assistant.io/integrations/airt
 
 Prerequisites:
 
-- [Python 3.7.2+](https://www.python.org/downloads/)
+- [Python](https://www.python.org/downloads/) with version 3.11 that is required by Home Assistant ([docs](https://developers.home-assistant.io/docs/development_environment?_highlight=python&_highlight=versi#manual-environment))
 - [Poetry](https://python-poetry.org/docs/#installation)
 
 Install dependencies:
