@@ -4,6 +4,7 @@ from uuid import UUID
 
 MFCT_ID = 820
 
+UPDATE_TIMEOUT = 15
 
 # Use full UUID since we do not use UUID from bluetooth library
 CHAR_UUID_MANUFACTURER_NAME = UUID("00002a29-0000-1000-8000-00805f9b34fb")

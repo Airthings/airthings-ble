@@ -6,6 +6,7 @@ import asyncio
 import dataclasses
 import re
 import struct
+import sys
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
@@ -17,6 +18,11 @@ from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
+
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import timeout as asyncio_timeout
+else:
+    from asyncio import timeout as asyncio_timeout
 
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
@@ -44,6 +50,7 @@ from .const import (
     MODERATE,
     RADON_MAX,
     TEMPERATURE_MAX,
+    UPDATE_TIMEOUT,
     VERY_LOW,
     VOC_MAX,
 )
@@ -545,9 +552,8 @@ class AirthingsBluetoothDeviceData:
                     )
                     # Wait for up to one second to see if a callback comes in.
                     try:
-                        await asyncio.wait_for(
-                            command_data_receiver.wait_for_message(), 1
-                        )
+                        async with asyncio_timeout(1):
+                            await command_data_receiver.wait_for_message()
                     except asyncio.TimeoutError:
                         self.logger.warning("Timeout getting command data.")
 
@@ -605,7 +611,7 @@ class AirthingsBluetoothDeviceData:
                 disconnect_future,
                 DisconnectedError,
                 f"Disconnected from {client.address}",
-            ):
+            ), asyncio_timeout(UPDATE_TIMEOUT):
                 await self._get_device_characteristics(client, device)
                 await self._get_service_characteristics(client, device)
         except BleakError as err:

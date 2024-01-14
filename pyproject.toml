@@ -29,6 +29,7 @@ python = "^3.9"
 bleak = ">=0.15.1"
 bleak-retry-connector = ">=1.8.0"
 async-interrupt = ">=1.1.1"
+async-timeout = {version = ">=4.0.1", markers = "python_version < \"3.11\""}
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0"
