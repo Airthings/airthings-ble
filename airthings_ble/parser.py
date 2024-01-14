@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import dataclasses
 import re
 import struct
 from collections import namedtuple
 from datetime import datetime
+from functools import partial
 from logging import Logger
 from math import exp
 from typing import Any, Callable, Optional, Tuple
 
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
-from bleak_retry_connector import establish_connection
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
@@ -319,7 +321,10 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
+sensor_decoders: dict[
+    str,
+    Callable[[bytearray], dict[str, float | None | str]],
+] = {
     str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
         name="Plus", format_type="BBBBHHHHHHHH", scale=0
     ),
@@ -469,8 +474,6 @@ class AirthingsBluetoothDeviceData:
         if device.name == "":
             device.name = device.friendly_name()
 
-        return device
-
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
     ) -> AirthingsDevice:
@@ -575,16 +578,59 @@ class AirthingsBluetoothDeviceData:
                     # Stop notification handler
                     await client.stop_notify(characteristic.uuid)
 
-        return device
+    def _handle_disconnect(
+        self, disconnect_future: asyncio.Future[bool], client: BleakClient
+    ) -> None:
+        """Handle disconnect from device."""
+        self.logger.debug("Disconnected from %s", client.address)
+        disconnect_future.set_result(True)
+
+    async def _update_device_and_service(
+        self, client: BleakClient, device: AirthingsDevice
+    ) -> AirthingsDevice:
+        """Update device and service characteristics."""
+        await self._get_device_characteristics(client, device)
+        await self._get_service_characteristics(client, device)
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
         device = AirthingsDevice()
-        client = await establish_connection(BleakClient, ble_device, ble_device.address)
+        loop = asyncio.get_running_loop()
+        disconnect_future = loop.create_future()
+        client = await establish_connection(
+            BleakClientWithServiceCache,
+            ble_device,
+            ble_device.address,
+            disconnected_callback=partial(self._handle_disconnect, disconnect_future),
+        )
+        disconnect_wait_task = asyncio.create_task(disconnect_future)
+        update_task = asyncio.create_task(
+            self._update_device_and_service(client, device)
+        )
         try:
-            device = await self._get_device_characteristics(client, device)
-            device = await self._get_service_characteristics(client, device)
+            await asyncio.wait(
+                (disconnect_wait_task, update_task), return_when=asyncio.FIRST_COMPLETED
+            )
         finally:
+            if disconnect_future.done():
+                # Disconnected during update
+                update_task.cancel()
+                with contextlib.suppress(asyncio.CancelledError):
+                    await update_task
+            else:
+                disconnect_future.set_result(False)
             await client.disconnect()
+
+        if disconnect_future.done() and disconnect_future.result() is True:
+            self.logger.debug("Unexpectedly disconnected from %s", client.address)
+
+        try:
+            await update_task
+        except BleakError as err:
+            if "not found" in str(err):  # In future bleak this is a named exception
+                # Clear the char cache since a char is likely
+                # missing from the cache
+                await client.clear_cache()
+            self.logger.debug("Update device exception: %s", err)
 
         return device
