@@ -448,7 +448,7 @@ class AirthingsBluetoothDeviceData:
 
         for characteristic in characteristics:
             try:
-                data = await client.read_gatt_char(characteristic.uuid)
+                data = await client.read_gatt_char(characteristic)
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
@@ -491,20 +491,21 @@ class AirthingsBluetoothDeviceData:
         svcs = client.services
         for service in svcs:
             for characteristic in service.characteristics:
+                uuid = characteristic.uuid
+                uuid_str = str(uuid)
                 if (
-                    characteristic.uuid in sensors_characteristics_uuid_str
-                    and str(characteristic.uuid) in sensor_decoders
+                    uuid in sensors_characteristics_uuid_str
+                    and uuid_str in sensor_decoders
                 ):
                     try:
-                        data = await client.read_gatt_char(characteristic.uuid)
+                        data = await client.read_gatt_char(characteristic)
                     except BleakError as err:
                         self.logger.debug(
                             "Get service characteristics exception: %s", err
                         )
                         continue
-                    data = await client.read_gatt_char(characteristic.uuid)
 
-                    sensor_data = sensor_decoders[str(characteristic.uuid)](data)
+                    sensor_data = sensor_decoders[uuid_str](data)
                     # skip for now!
 
                     if "date_time" in sensor_data:
@@ -539,16 +540,16 @@ class AirthingsBluetoothDeviceData:
                     # remove rel atm
                     device.sensors.pop("rel_atm_pressure", None)
 
-                if str(characteristic.uuid) in command_decoders:
-                    decoder = command_decoders[str(characteristic.uuid)]
+                if uuid_str in command_decoders:
+                    decoder = command_decoders[uuid_str]
                     command_data_receiver = decoder.make_data_receiver()
                     # Set up the notification handlers
                     await client.start_notify(
-                        characteristic.uuid, command_data_receiver
+                        characteristic, command_data_receiver
                     )
                     # send command to this 'indicate' characteristic
                     await client.write_gatt_char(
-                        characteristic.uuid, bytearray(decoder.cmd)
+                        characteristic, bytearray(decoder.cmd)
                     )
                     # Wait for up to one second to see if a callback comes in.
                     try:
@@ -586,7 +587,7 @@ class AirthingsBluetoothDeviceData:
                         )
 
                     # Stop notification handler
-                    await client.stop_notify(characteristic.uuid)
+                    await client.stop_notify(characteristic)
 
     def _handle_disconnect(
         self, disconnect_future: asyncio.Future[bool], client: BleakClient
