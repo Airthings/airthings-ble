@@ -395,6 +395,7 @@ class AirthingsDeviceInfo:
     name: str = ""
     identifier: str = ""
     address: str = ""
+    did_first_sync: bool = False
 
     def friendly_name(self) -> str:
         """Generate a name for the device."""
@@ -463,10 +464,7 @@ class AirthingsBluetoothDeviceData:
             characteristics = device_info_characteristics
 
         for characteristic in characteristics:
-            if device_info.sw_version and characteristic.name != "firmware_rev":
-                # Only the sw_version can change once set, so we can skip the rest.
-                continue
-            if device_info.sw_version and characteristic.name != "firmware_rev":
+            if device_info.did_first_sync and characteristic.name != "firmware_rev":
                 # Only the sw_version can change once set, so we can skip the rest.
                 continue
 
@@ -508,6 +506,7 @@ class AirthingsBluetoothDeviceData:
         if device_info.name == "":
             device_info.name = device_info.friendly_name()
 
+        device_info.did_first_sync = True
         # Copy the device_info to device
         self.logger.debug("Device info: %s", device_info)
         for field in dataclasses.fields(device_info):
