@@ -507,7 +507,8 @@ class AirthingsBluetoothDeviceData:
         if not device_info.name:
             device_info.name = device_info.friendly_name()
 
-        device_info.did_first_sync = True
+        if device_info.model:
+            device_info.did_first_sync = True
         # Copy the device_info to device
         self.logger.debug("Device info: %s", device_info)
         for field in dataclasses.fields(device_info):
