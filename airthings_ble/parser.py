@@ -75,8 +75,10 @@ sensors_characteristics_uuid = [
 ]
 sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
 
+
 class DisconnectedError(Exception):
     """Disconnected from device."""
+
 
 def _decode_base(
     name: str, format_type: str, scale: float
@@ -600,14 +602,14 @@ class AirthingsBluetoothDeviceData:
             disconnected_callback=partial(self._handle_disconnect, disconnect_future),
         )
         try:
-            async with interrupt(disconnect_future,DisconnectedError):
+            async with interrupt(disconnect_future, DisconnectedError):
                 await self._get_device_characteristics(client, device)
                 await self._get_service_characteristics(client, device)
         except BleakError as err:
             if "not found" in str(err):  # In future bleak this is a named exception
                 # Clear the char cache since a char is likely
                 # missing from the cache
-                await client.clear_cache()                
+                await client.clear_cache()
         except DisconnectedError:
             self.logger.debug("Unexpectedly disconnected from %s", client.address)
         finally:
