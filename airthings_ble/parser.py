@@ -443,9 +443,10 @@ class AirthingsBluetoothDeviceData:
     ) -> AirthingsDevice:
         device_info = self.device_info
         device_info.address = client.address
+        did_first_sync = device_info.did_first_sync
 
         # We need to fetch model to determ what to fetch.
-        if not device_info.did_first_sync:
+        if not did_first_sync:
             try:
                 data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
             except BleakError as err:
@@ -456,7 +457,7 @@ class AirthingsBluetoothDeviceData:
             device_info.model = DEVICE_TYPE.get(device.model_raw)
 
             if device_info.model is None:
-                self.logger.debug(
+                self.logger.warning(
                     "Could not map model number to model name, most likely an unsupported device: %s",
                     device.model_raw,
                 )
@@ -464,7 +465,7 @@ class AirthingsBluetoothDeviceData:
         model_raw = device_info.model_raw
         characteristics = _CHARS_BY_MODELS.get(model_raw, device_info_characteristics)
         for characteristic in characteristics:
-            if device_info.did_first_sync and characteristic.name != "firmware_rev":
+            if did_first_sync and characteristic.name != "firmware_rev":
                 # Only the sw_version can change once set, so we can skip the rest.
                 continue
 
