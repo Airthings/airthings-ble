@@ -493,7 +493,7 @@ class AirthingsBluetoothDeviceData:
 
         if (
             model_raw == "2900"
-            and device_info.name != ""
+            and device_info.name
             and not device_info.identifier
         ):
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
