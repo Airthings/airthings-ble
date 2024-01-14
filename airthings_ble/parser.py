@@ -509,8 +509,11 @@ class AirthingsBluetoothDeviceData:
             device_info.name = device_info.friendly_name()
 
         # Copy the device_info to device
+        self.logger.debug("Device info: %s", device_info)
         for field in dataclasses.fields(device_info):
-            setattr(device, field.name, getattr(device_info, field.name))
+            name = field.name
+            setattr(device, name, getattr(device_info, name))
+        self.logger.debug("Device: %s", device)
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
