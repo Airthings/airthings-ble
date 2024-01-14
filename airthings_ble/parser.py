@@ -453,10 +453,11 @@ class AirthingsBluetoothDeviceData:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 return
 
-
             self.logger.debug("Model number: %s", data)
             device_info.model_raw = data.decode("utf-8")
+            self.logger.debug("Model raw: %s", device_info.model_raw)
             device_info.model = DEVICE_TYPE.get(device.model_raw)
+            self.logger.debug("Model: %s", device_info.model)
 
             if device_info.model is None:
                 self.logger.warning(
@@ -494,11 +495,7 @@ class AirthingsBluetoothDeviceData:
                     "Characteristics not handled: %s", characteristic.uuid
                 )
 
-        if (
-            model_raw == "2900"
-            and device_info.name
-            and not device_info.identifier
-        ):
+        if model_raw == "2900" and device_info.name and not device_info.identifier:
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
             wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
