@@ -7,7 +7,6 @@ import contextlib
 import dataclasses
 import re
 import struct
-from async_interrupt import interrupt
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
@@ -15,6 +14,7 @@ from logging import Logger
 from math import exp
 from typing import Any, Callable, Optional, Tuple
 
+from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
