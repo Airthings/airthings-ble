@@ -66,6 +66,9 @@ wave_gen_1_device_info_characteristics = [
 device_info_characteristics = wave_gen_1_device_info_characteristics + [
     Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
 ]
+_CHARS_BY_MODELS = {
+    "2900": wave_gen_1_device_info_characteristics,
+}
 
 sensors_characteristics_uuid = [
     CHAR_UUID_DATETIME,
@@ -458,11 +461,8 @@ class AirthingsBluetoothDeviceData:
                 device.model_raw,
             )
 
-        if device_info.model_raw == "2900":
-            characteristics = wave_gen_1_device_info_characteristics
-        else:
-            characteristics = device_info_characteristics
-
+        model_raw = device_info.model_raw
+        characteristics = _CHARS_BY_MODELS.get(model_raw, device_info_characteristics)
         for characteristic in characteristics:
             if device_info.did_first_sync and characteristic.name != "firmware_rev":
                 # Only the sw_version can change once set, so we can skip the rest.
@@ -492,9 +492,9 @@ class AirthingsBluetoothDeviceData:
                 )
 
         if (
-            device_info.model_raw == "2900"
+            model_raw == "2900"
             and device_info.name != ""
-            and (device_info.identifier == "" or device_info.identifier is None)
+            and not device_info.identifier
         ):
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
