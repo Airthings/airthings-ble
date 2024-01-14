@@ -601,7 +601,11 @@ class AirthingsBluetoothDeviceData:
             disconnected_callback=partial(self._handle_disconnect, disconnect_future),
         )
         try:
-            async with interrupt(disconnect_future, DisconnectedError, f"Disconnected from {client.address}"):
+            async with interrupt(
+                disconnect_future,
+                DisconnectedError,
+                f"Disconnected from {client.address}",
+            ):
                 await self._get_device_characteristics(client, device)
                 await self._get_service_characteristics(client, device)
         except BleakError as err:
