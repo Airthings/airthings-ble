@@ -466,6 +466,9 @@ class AirthingsBluetoothDeviceData:
             if device_info.sw_version and characteristic.name != "firmware_rev":
                 # Only the sw_version can change once set, so we can skip the rest.
                 continue
+            if device_info.sw_version and characteristic.name != "firmware_rev":
+                # Only the sw_version can change once set, so we can skip the rest.
+                continue
 
             try:
                 data = await client.read_gatt_char(characteristic)
@@ -507,7 +510,7 @@ class AirthingsBluetoothDeviceData:
 
         # Copy the device_info to device
         for field in dataclasses.fields(device_info):
-            device.sensors[field.name] = getattr(device_info, field.name)
+            setattr(device, field.name, getattr(device_info, field.name))
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
