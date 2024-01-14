@@ -445,7 +445,7 @@ class AirthingsBluetoothDeviceData:
         device_info.address = client.address
 
         # We need to fetch model to determ what to fetch.
-        if not device_info.model:
+        if not device_info.did_first_sync:
             try:
                 data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
             except BleakError as err:
@@ -455,11 +455,11 @@ class AirthingsBluetoothDeviceData:
             device_info.model_raw = data.decode("utf-8")
             device_info.model = DEVICE_TYPE.get(device.model_raw)
 
-        if device_info.model is None:
-            self.logger.debug(
-                "Could not map model number to model name, most likely an unsupported device: %s",
-                device.model_raw,
-            )
+            if device_info.model is None:
+                self.logger.debug(
+                    "Could not map model number to model name, most likely an unsupported device: %s",
+                    device.model_raw,
+                )
 
         model_raw = device_info.model_raw
         characteristics = _CHARS_BY_MODELS.get(model_raw, device_info_characteristics)
@@ -503,7 +503,7 @@ class AirthingsBluetoothDeviceData:
                 device_info.identifier = wave1_identifier.group()
 
         # In some cases the device name will be empty, for example when using a Mac.
-        if device_info.name == "":
+        if not device_info.name:
             device_info.name = device_info.friendly_name()
 
         device_info.did_first_sync = True
