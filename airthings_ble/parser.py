@@ -453,6 +453,8 @@ class AirthingsBluetoothDeviceData:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 return
 
+
+            self.logger.debug("Model number: %s", data)
             device_info.model_raw = data.decode("utf-8")
             device_info.model = DEVICE_TYPE.get(device.model_raw)
 
