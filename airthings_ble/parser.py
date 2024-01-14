@@ -453,16 +453,12 @@ class AirthingsBluetoothDeviceData:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 return
 
-            self.logger.debug("Model number: %s", data)
             device_info.model_raw = data.decode("utf-8")
-            self.logger.debug("Model raw: %s", device_info.model_raw)
-            device_info.model = DEVICE_TYPE.get(device.model_raw)
-            self.logger.debug("Model: %s", device_info.model)
-
+            device_info.model = DEVICE_TYPE.get(device_info.model_raw)
             if device_info.model is None:
                 self.logger.warning(
                     "Could not map model number to model name, most likely an unsupported device: %s",
-                    device.model_raw,
+                    device_info.model_raw,
                 )
 
         model_raw = device_info.model_raw
@@ -498,7 +494,7 @@ class AirthingsBluetoothDeviceData:
         if model_raw == "2900" and device_info.name and not device_info.identifier:
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
-            wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
+            wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device_info.name)
             if wave1_identifier is not None and len(wave1_identifier.group()) == 6:
                 device_info.identifier = wave1_identifier.group()
 
@@ -508,12 +504,11 @@ class AirthingsBluetoothDeviceData:
 
         if device_info.model:
             device_info.did_first_sync = True
-        # Copy the device_info to device
-        self.logger.debug("Device info: %s", device_info)
+
+        # Copy the cached device_info to device
         for field in dataclasses.fields(device_info):
             name = field.name
             setattr(device, name, getattr(device_info, name))
-        self.logger.debug("Device: %s", device)
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
