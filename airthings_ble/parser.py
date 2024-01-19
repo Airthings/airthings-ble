@@ -612,7 +612,8 @@ class AirthingsBluetoothDeviceData:
     ) -> None:
         """Handle disconnect from device."""
         self.logger.debug("Disconnected from %s", client.address)
-        disconnect_future.set_result(True)
+        if not disconnect_future.done():
+            disconnect_future.set_result(True)
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
