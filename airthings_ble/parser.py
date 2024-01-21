@@ -6,15 +6,18 @@ import asyncio
 import dataclasses
 import re
 import struct
+import sys
 from collections import namedtuple
 from datetime import datetime
+from functools import partial
 from logging import Logger
 from math import exp
 from typing import Any, Callable, Optional, Tuple
 
+from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
-from bleak_retry_connector import establish_connection
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
@@ -42,9 +45,15 @@ from .const import (
     MODERATE,
     RADON_MAX,
     TEMPERATURE_MAX,
+    UPDATE_TIMEOUT,
     VERY_LOW,
     VOC_MAX,
 )
+
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import timeout as asyncio_timeout
+else:
+    from asyncio import timeout as asyncio_timeout
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
@@ -57,6 +66,9 @@ wave_gen_1_device_info_characteristics = [
 device_info_characteristics = wave_gen_1_device_info_characteristics + [
     Characteristic(CHAR_UUID_HARDWARE_REV, "hardware_rev", "utf-8"),
 ]
+_CHARS_BY_MODELS = {
+    "2900": wave_gen_1_device_info_characteristics,
+}
 
 sensors_characteristics_uuid = [
     CHAR_UUID_DATETIME,
@@ -71,6 +83,10 @@ sensors_characteristics_uuid = [
     COMMAND_UUID,
 ]
 sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
+
+
+class DisconnectedError(Exception):
+    """Disconnected from device."""
 
 
 def _decode_base(
@@ -365,9 +381,11 @@ def short_address(address: str) -> str:
 
 
 # pylint: disable=too-many-instance-attributes
+
+
 @dataclasses.dataclass
-class AirthingsDevice:
-    """Response data with information about the Airthings device"""
+class AirthingsDeviceInfo:
+    """Response data with information about the Airthings device without sensors."""
 
     manufacturer: str = ""
     hw_version: str = ""
@@ -377,6 +395,18 @@ class AirthingsDevice:
     name: str = ""
     identifier: str = ""
     address: str = ""
+    did_first_sync: bool = False
+
+    def friendly_name(self) -> str:
+        """Generate a name for the device."""
+
+        return f"Airthings {self.model}"
+
+
+@dataclasses.dataclass
+class AirthingsDevice(AirthingsDeviceInfo):
+    """Response data with information about the Airthings device"""
+
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
     )
@@ -398,149 +428,149 @@ class AirthingsBluetoothDeviceData:
         elevation: int | None = None,
         is_metric: bool = True,
         voltage: tuple[float, float] = (2.4, 3.2),
-    ):
-        super().__init__()
+    ) -> None:
         self.logger = logger
         self.is_metric = is_metric
         self.elevation = elevation
         self.voltage = voltage
+        self.device_info = AirthingsDeviceInfo()
 
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
-    ) -> AirthingsDevice:
-        device.address = client.address
+    ) -> None:
+        device_info = self.device_info
+        device_info.address = client.address
+        did_first_sync = device_info.did_first_sync
 
         # We need to fetch model to determ what to fetch.
-        try:
-            data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
-        except BleakError as err:
-            self.logger.debug("Get device characteristics exception: %s", err)
-            return device
-        device.model_raw = data.decode("utf-8")
-        device.model = DEVICE_TYPE.get(device.model_raw)
+        if not did_first_sync:
+            try:
+                data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
+            except BleakError as err:
+                self.logger.debug("Get device characteristics exception: %s", err)
+                return
 
-        if device.model is None:
-            self.logger.debug(
-                "Could not map model number to model name, most likely an unsupported device: %s",
-                device.model_raw,
-            )
+            device_info.model_raw = data.decode("utf-8")
+            device_info.model = DEVICE_TYPE.get(device_info.model_raw)
+            if device_info.model is None:
+                self.logger.warning(
+                    "Could not map model number to model name, "
+                    "most likely an unsupported device: %s",
+                    device_info.model_raw,
+                )
 
-        if device.model_raw == "2900":
-            characteristics = wave_gen_1_device_info_characteristics
-        else:
-            characteristics = device_info_characteristics
-
+        model_raw = device_info.model_raw
+        characteristics = _CHARS_BY_MODELS.get(model_raw, device_info_characteristics)
         for characteristic in characteristics:
+            if did_first_sync and characteristic.name != "firmware_rev":
+                # Only the sw_version can change once set, so we can skip the rest.
+                continue
+
             try:
                 data = await client.read_gatt_char(characteristic.uuid)
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 continue
             if characteristic.name == "manufacturer":
-                device.manufacturer = data.decode(characteristic.format)
+                device_info.manufacturer = data.decode(characteristic.format)
             elif characteristic.name == "hardware_rev":
-                device.hw_version = data.decode(characteristic.format)
+                device_info.hw_version = data.decode(characteristic.format)
             elif characteristic.name == "firmware_rev":
-                device.sw_version = data.decode(characteristic.format)
+                device_info.sw_version = data.decode(characteristic.format)
             elif characteristic.name == "device_name":
-                device.name = data.decode(characteristic.format)
+                device_info.name = data.decode(characteristic.format)
             elif characteristic.name == "serial_nr":
                 identifier = data.decode(characteristic.format)
                 # Some devices return `Serial Number` on Mac instead of the actual serial number.
                 if identifier != "Serial Number":
-                    device.identifier = identifier
+                    device_info.identifier = identifier
             else:
                 self.logger.debug(
                     "Characteristics not handled: %s", characteristic.uuid
                 )
 
-        if (
-            device.model_raw == "2900"
-            and device.name != ""
-            and (device.identifier == "" or device.identifier is None)
-        ):
+        if model_raw == "2900" and device_info.name and not device_info.identifier:
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
-            wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device.name)
+            wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device_info.name)
             if wave1_identifier is not None and len(wave1_identifier.group()) == 6:
-                device.identifier = wave1_identifier.group()
+                device_info.identifier = wave1_identifier.group()
 
         # In some cases the device name will be empty, for example when using a Mac.
-        if device.name == "":
-            device.name = device.friendly_name()
+        if not device_info.name:
+            device_info.name = device_info.friendly_name()
 
-        return device
+        if device_info.model:
+            device_info.did_first_sync = True
+
+        # Copy the cached device_info to device
+        for field in dataclasses.fields(device_info):
+            name = field.name
+            setattr(device, name, getattr(device_info, name))
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
-    ) -> AirthingsDevice:
+    ) -> None:
         svcs = client.services
+        sensors = device.sensors
         for service in svcs:
             for characteristic in service.characteristics:
+                uuid = characteristic.uuid
+                uuid_str = str(uuid)
                 if (
-                    characteristic.uuid in sensors_characteristics_uuid_str
-                    and str(characteristic.uuid) in sensor_decoders
+                    uuid in sensors_characteristics_uuid_str
+                    and uuid_str in sensor_decoders
                 ):
                     try:
-                        data = await client.read_gatt_char(characteristic.uuid)
+                        data = await client.read_gatt_char(characteristic)
                     except BleakError as err:
                         self.logger.debug(
                             "Get service characteristics exception: %s", err
                         )
                         continue
-                    data = await client.read_gatt_char(characteristic.uuid)
 
-                    sensor_data = sensor_decoders[str(characteristic.uuid)](data)
+                    sensor_data = sensor_decoders[uuid_str](data)
                     # skip for now!
 
                     if "date_time" in sensor_data:
                         sensor_data.pop("date_time")
 
-                    device.sensors.update(sensor_data)
+                    sensors.update(sensor_data)
 
                     # manage radon values
                     if d := sensor_data.get("radon_1day_avg") is not None:
-                        device.sensors["radon_1day_level"] = get_radon_level(float(d))
+                        sensors["radon_1day_level"] = get_radon_level(float(d))
                         if not self.is_metric:
-                            device.sensors["radon_1day_avg"] = (
-                                float(d) * BQ_TO_PCI_MULTIPLIER
-                            )
+                            sensors["radon_1day_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
                     if d := sensor_data.get("radon_longterm_avg") is not None:
-                        device.sensors["radon_longterm_level"] = get_radon_level(
-                            float(d)
-                        )
+                        sensors["radon_longterm_level"] = get_radon_level(float(d))
                         if not self.is_metric:
-                            device.sensors["radon_longterm_avg"] = (
+                            sensors["radon_longterm_avg"] = (
                                 float(d) * BQ_TO_PCI_MULTIPLIER
                             )
 
                     # rel to abs pressure
                     if pressure := sensor_data.get("rel_atm_pressure") is not None:
-                        device.sensors["pressure"] = (
+                        sensors["pressure"] = (
                             get_absolute_pressure(self.elevation, float(pressure))
                             if self.elevation is not None
                             else pressure
                         )
 
                     # remove rel atm
-                    device.sensors.pop("rel_atm_pressure", None)
+                    sensors.pop("rel_atm_pressure", None)
 
-                if str(characteristic.uuid) in command_decoders:
-                    decoder = command_decoders[str(characteristic.uuid)]
+                if uuid_str in command_decoders:
+                    decoder = command_decoders[uuid_str]
                     command_data_receiver = decoder.make_data_receiver()
                     # Set up the notification handlers
-                    await client.start_notify(
-                        characteristic.uuid, command_data_receiver
-                    )
+                    await client.start_notify(characteristic, command_data_receiver)
                     # send command to this 'indicate' characteristic
-                    await client.write_gatt_char(
-                        characteristic.uuid, bytearray(decoder.cmd)
-                    )
+                    await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
                     # Wait for up to one second to see if a callback comes in.
                     try:
-                        await asyncio.wait_for(
-                            command_data_receiver.wait_for_message(), 1
-                        )
+                        async with asyncio_timeout(1):
+                            await command_data_receiver.wait_for_message()
                     except asyncio.TimeoutError:
                         self.logger.warning("Timeout getting command data.")
 
@@ -565,7 +595,7 @@ class AirthingsBluetoothDeviceData:
                                 ),
                             )[0]
 
-                        device.sensors.update(
+                        sensors.update(
                             {
                                 "illuminance": command_sensor_data.get("illuminance"),
                                 "battery": bat_pct,
@@ -573,17 +603,42 @@ class AirthingsBluetoothDeviceData:
                         )
 
                     # Stop notification handler
-                    await client.stop_notify(characteristic.uuid)
+                    await client.stop_notify(characteristic)
 
-        return device
+    def _handle_disconnect(
+        self, disconnect_future: asyncio.Future[bool], client: BleakClient
+    ) -> None:
+        """Handle disconnect from device."""
+        self.logger.debug("Disconnected from %s", client.address)
+        if not disconnect_future.done():
+            disconnect_future.set_result(True)
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
         device = AirthingsDevice()
-        client = await establish_connection(BleakClient, ble_device, ble_device.address)
+        loop = asyncio.get_running_loop()
+        disconnect_future = loop.create_future()
+        client: BleakClientWithServiceCache = await establish_connection(  # type: ignore[assignment] # pylint: disable=line-too-long
+            BleakClientWithServiceCache,
+            ble_device,
+            ble_device.address,
+            disconnected_callback=partial(self._handle_disconnect, disconnect_future),
+        )
         try:
-            device = await self._get_device_characteristics(client, device)
-            device = await self._get_service_characteristics(client, device)
+            async with interrupt(
+                disconnect_future,
+                DisconnectedError,
+                f"Disconnected from {client.address}",
+            ), asyncio_timeout(UPDATE_TIMEOUT):
+                await self._get_device_characteristics(client, device)
+                await self._get_service_characteristics(client, device)
+        except BleakError as err:
+            if "not found" in str(err):  # In future bleak this is a named exception
+                # Clear the char cache since a char is likely
+                # missing from the cache
+                await client.clear_cache()
+        except DisconnectedError:
+            self.logger.debug("Unexpectedly disconnected from %s", client.address)
         finally:
             await client.disconnect()
 
