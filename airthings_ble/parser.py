@@ -19,11 +19,6 @@ from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout
-else:
-    from asyncio import timeout as asyncio_timeout
-
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
@@ -54,6 +49,11 @@ from .const import (
     VERY_LOW,
     VOC_MAX,
 )
+
+if sys.version_info[:2] < (3, 11):
+    from async_timeout import timeout as asyncio_timeout
+else:
+    from asyncio import timeout as asyncio_timeout
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
@@ -437,7 +437,7 @@ class AirthingsBluetoothDeviceData:
 
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
-    ) -> AirthingsDevice:
+    ) -> None:
         device_info = self.device_info
         device_info.address = client.address
         did_first_sync = device_info.did_first_sync
@@ -454,7 +454,8 @@ class AirthingsBluetoothDeviceData:
             device_info.model = DEVICE_TYPE.get(device_info.model_raw)
             if device_info.model is None:
                 self.logger.warning(
-                    "Could not map model number to model name, most likely an unsupported device: %s",
+                    "Could not map model number to model name, "
+                    "most likely an unsupported device: %s",
                     device_info.model_raw,
                 )
 
@@ -509,7 +510,7 @@ class AirthingsBluetoothDeviceData:
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
-    ) -> AirthingsDevice:
+    ) -> None:
         svcs = client.services
         sensors = device.sensors
         for service in svcs:
@@ -617,7 +618,7 @@ class AirthingsBluetoothDeviceData:
         device = AirthingsDevice()
         loop = asyncio.get_running_loop()
         disconnect_future = loop.create_future()
-        client: BleakClientWithServiceCache = await establish_connection(
+        client: BleakClientWithServiceCache = await establish_connection(  # type: ignore[assignment] # pylint: disable=line-too-long
             BleakClientWithServiceCache,
             ble_device,
             ble_device.address,
