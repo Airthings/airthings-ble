@@ -7,7 +7,6 @@ class AirthingsDeviceType(Enum):
     WAVE_PLUS = "2930"
     WAVE_RADON = "2950"
 
-    @classmethod
     def product_name(self):
         if self == AirthingsDeviceType.WAVE_GEN_1:
             return "Wave Gen 1"
@@ -20,7 +19,6 @@ class AirthingsDeviceType(Enum):
         else:
             return "Unknown"
 
-    @classmethod
     def battery_percentage(self, vin: float) -> int:
         if self == AirthingsDeviceType.WAVE_MINI:
             # The only device that has a different battery voltage range (3 x AAA)

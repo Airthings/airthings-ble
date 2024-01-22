@@ -402,7 +402,7 @@ class AirthingsDeviceInfo:
     def friendly_name(self) -> str:
         """Generate a name for the device."""
 
-        return f"Airthings {self.model}"
+        return f"Airthings {self.model.product_name()}"
 
 
 @dataclasses.dataclass
@@ -416,7 +416,7 @@ class AirthingsDevice(AirthingsDeviceInfo):
     def friendly_name(self) -> str:
         """Generate a name for the device."""
 
-        return f"Airthings {self.model}"
+        return f"Airthings {self.model.product_name()}"
 
 
 # pylint: disable=too-many-locals
@@ -451,6 +451,7 @@ class AirthingsBluetoothDeviceData:
                 return
 
             try:
+                self.logger.debug("Model number: %s", data.decode("utf-8"))
                 device_info.model = AirthingsDeviceType(data.decode("utf-8"))
             except ValueError:
                 device_info.model = None
@@ -517,10 +518,7 @@ class AirthingsBluetoothDeviceData:
             setattr(device, name, getattr(device_info, name))
 
     async def _get_service_characteristics(
-        self,
-        client: BleakClient,
-        device: AirthingsDevice,
-        model: Optional[AirthingsDeviceType],
+        self, client: BleakClient, device: AirthingsDevice
     ) -> None:
         svcs = client.services
         sensors = device.sensors
@@ -593,8 +591,8 @@ class AirthingsBluetoothDeviceData:
                         bat_pct: int | None = None
 
                         if (bat_data := command_sensor_data.get("battery")) is not None:
-                            model.battery_percentage(float(bat_data))
-                            bat_pct = float(bat_data)
+                            self.logger.debug("Battery voltage: %s", bat_data)
+                            bat_pct = device.model.battery_percentage(float(bat_data))
 
                         sensors.update(
                             {
