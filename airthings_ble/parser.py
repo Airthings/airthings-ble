@@ -335,7 +335,10 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
+sensor_decoders: dict[
+    str,
+    Callable[[bytearray], dict[str, float | None | str]],
+] = {
     str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
         name="Plus", format_type="BBBBHHHHHHHH", scale=0
     ),
@@ -426,12 +429,10 @@ class AirthingsBluetoothDeviceData:
         logger: Logger,
         elevation: int | None = None,
         is_metric: bool = True,
-        voltage: tuple[float, float] = (2.4, 3.2),
     ) -> None:
         self.logger = logger
         self.is_metric = is_metric
         self.elevation = elevation
-        self.voltage = voltage
         self.device_info = AirthingsDeviceInfo()
 
     async def _get_device_characteristics(
@@ -483,7 +484,8 @@ class AirthingsBluetoothDeviceData:
                 device_info.name = data.decode(characteristic.format)
             elif characteristic.name == "serial_nr":
                 identifier = data.decode(characteristic.format)
-                # Some devices return `Serial Number` on Mac instead of the actual serial number.
+                # Some devices return `Serial Number` on Mac instead of
+                # the actual serial number.
                 if identifier != "Serial Number":
                     device_info.identifier = identifier
             else:
@@ -515,7 +517,10 @@ class AirthingsBluetoothDeviceData:
             setattr(device, name, getattr(device_info, name))
 
     async def _get_service_characteristics(
-        self, client: BleakClient, device: AirthingsDevice
+        self,
+        client: BleakClient,
+        device: AirthingsDevice,
+        model: Optional[AirthingsDeviceType],
     ) -> None:
         svcs = client.services
         sensors = device.sensors
@@ -585,21 +590,11 @@ class AirthingsBluetoothDeviceData:
                     )
                     if command_sensor_data is not None:
                         # calculate battery percentage
-                        v_min, v_max = self.voltage
                         bat_pct: int | None = None
-                        bat_data = command_sensor_data.get("battery")
-                        if bat_data is not None:
-                            bat = float(bat_data)
-                            # set as tuple during lint somehow..
-                            bat_pct = (
-                                max(
-                                    0,
-                                    min(
-                                        100,
-                                        round((bat - v_min) / (v_max - v_min) * 100),
-                                    ),
-                                ),
-                            )[0]
+
+                        if (bat_data := command_sensor_data.get("battery")) is not None:
+                            model.battery_percentage(float(bat_data))
+                            bat_pct = float(bat_data)
 
                         sensors.update(
                             {

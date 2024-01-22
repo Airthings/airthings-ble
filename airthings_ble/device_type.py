@@ -21,7 +21,7 @@ class AirthingsDeviceType(Enum):
             return "Unknown"
 
     @classmethod
-    def battery_percentage(self, vin) -> int:
+    def battery_percentage(self, vin: float) -> int:
         if self == AirthingsDeviceType.WAVE_MINI:
             # The only device that has a different battery voltage range (3 x AAA)
             if vin >= 4.50:
