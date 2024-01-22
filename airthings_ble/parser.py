@@ -38,7 +38,6 @@ from .const import (
     CHAR_UUID_WAVEMINI_DATA,
     CO2_MAX,
     COMMAND_UUID,
-    DEVICE_TYPE,
     HIGH,
     HUMIDITY_MAX,
     LOW,
@@ -49,6 +48,7 @@ from .const import (
     VERY_LOW,
     VOC_MAX,
 )
+from .device_type import AirthingsDeviceType
 
 if sys.version_info[:2] < (3, 11):
     from async_timeout import timeout as asyncio_timeout
@@ -278,8 +278,8 @@ class CommandDecode:
 class _NotificationReceiver:
     """Receiver for a single notification message.
 
-    A notification message that is larger than the MTU can get sent over multiple packets. This
-    receiver knows how to reconstruct it.
+    A notification message that is larger than the MTU can get sent over multiple
+    packets. This receiver knows how to reconstruct it.
     """
 
     message: bytearray | None
@@ -390,8 +390,7 @@ class AirthingsDeviceInfo:
     manufacturer: str = ""
     hw_version: str = ""
     sw_version: str = ""
-    model: Optional[str] = None
-    model_raw: str = ""
+    model: Optional[AirthingsDeviceType] = None
     name: str = ""
     identifier: str = ""
     address: str = ""
@@ -450,17 +449,20 @@ class AirthingsBluetoothDeviceData:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 return
 
-            device_info.model_raw = data.decode("utf-8")
-            device_info.model = DEVICE_TYPE.get(device_info.model_raw)
-            if device_info.model is None:
+            try:
+                device_info.model = AirthingsDeviceType(data.decode("utf-8"))
+            except ValueError:
+                device_info.model = None
+                device_info.model_raw = data.decode("utf-8")
                 self.logger.warning(
                     "Could not map model number to model name, "
                     "most likely an unsupported device: %s",
-                    device_info.model_raw,
+                    device_info.model,
                 )
 
-        model_raw = device_info.model_raw
-        characteristics = _CHARS_BY_MODELS.get(model_raw, device_info_characteristics)
+        characteristics = _CHARS_BY_MODELS.get(
+            device_info.model.value, device_info_characteristics
+        )
         for characteristic in characteristics:
             if did_first_sync and characteristic.name != "firmware_rev":
                 # Only the sw_version can change once set, so we can skip the rest.
@@ -489,7 +491,11 @@ class AirthingsBluetoothDeviceData:
                     "Characteristics not handled: %s", characteristic.uuid
                 )
 
-        if model_raw == "2900" and device_info.name and not device_info.identifier:
+        if (
+            device_info.model.value == AirthingsDeviceType.WAVE_GEN_1
+            and device_info.name
+            and not device_info.identifier
+        ):
             # For the Wave gen. 1 we need to fetch the identifier in the device name.
             # Example: From `AT#123456-2900Radon` we need to fetch `123456`.
             wave1_identifier = re.search(r"(?<=\#)[0-9]{1,6}", device_info.name)
