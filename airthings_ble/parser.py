@@ -37,7 +37,9 @@ from .const import (
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
     CO2_MAX,
-    COMMAND_UUID,
+    COMMAND_UUID_WAVE_2,
+    COMMAND_UUID_WAVE_PLUS,
+    COMMAND_UUID_WAVE_MINI,
     HIGH,
     HUMIDITY_MAX,
     LOW,
@@ -80,7 +82,9 @@ sensors_characteristics_uuid = [
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVEMINI_DATA,
-    COMMAND_UUID,
+    COMMAND_UUID_WAVE_2,
+    COMMAND_UUID_WAVE_PLUS,
+    COMMAND_UUID_WAVE_MINI,
 ]
 sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
 
@@ -233,9 +237,8 @@ class CommandDecode:
 
     cmd: bytes | bytearray
 
-    def __init__(self, name: str, format_type: str, cmd: bytes):
+    def __init__(self, format_type: str, cmd: bytes):
         """Initialize command decoder"""
-        self.name = name
         self.format_type = format_type
         self.cmd = cmd
 
@@ -248,7 +251,7 @@ class CommandDecode:
 
         cmd = raw_data[0:1]
         if cmd != self.cmd:
-            logger.debug(
+            logger.warning(
                 "Result for wrong command received, expected %s got %s",
                 self.cmd.hex(),
                 cmd.hex(),
@@ -256,10 +259,11 @@ class CommandDecode:
             return None
 
         if len(raw_data[2:]) != struct.calcsize(self.format_type):
-            logger.debug(
+            logger.warning(
                 "Wrong length data received (%s) versus expected (%s)",
-                len(cmd),
+                len(raw_data[2:]),
                 struct.calcsize(self.format_type),
+                raw_data.hex(),
             )
             return None
         val = struct.unpack(self.format_type, raw_data[2:])
@@ -340,10 +344,10 @@ sensor_decoders: dict[
     Callable[[bytearray], dict[str, float | None | str]],
 ] = {
     str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
-        name="Plus", format_type="BBBBHHHHHHHH", scale=0
+        name="Plus", format_type="4B8H", scale=0
     ),
     str(CHAR_UUID_DATETIME): _decode_wave(
-        name="date_time", format_type="HBBBBB", scale=0
+        name="date_time", format_type="H5B", scale=0
     ),
     str(CHAR_UUID_HUMIDITY): _decode_attr(
         name="humidity",
@@ -367,13 +371,19 @@ sensor_decoders: dict[
         name="Wave2", format_type="<4B8H", scale=1.0
     ),
     str(CHAR_UUID_WAVEMINI_DATA): _decode_wave_mini(
-        name="WaveMini", format_type="<HHHHHHLL", scale=1.0
+        name="WaveMini", format_type="<2B5HLL", scale=1.0
     ),
 }
 
 command_decoders: dict[str, CommandDecode] = {
-    str(COMMAND_UUID): CommandDecode(
-        name="Battery", format_type="<L12B6H", cmd=struct.pack("<B", 0x6D)
+    str(COMMAND_UUID_WAVE_2): CommandDecode(
+        format_type="<L12B6H", cmd=struct.pack("<B", 0x6D)
+    ),
+    str(COMMAND_UUID_WAVE_PLUS): CommandDecode(
+        format_type="<L12B6H", cmd=struct.pack("<B", 0x6D)
+    ),
+    str(COMMAND_UUID_WAVE_MINI): CommandDecode(
+        format_type="<L12B6H4B", cmd=struct.pack("<B", 0x6D)
     )
 }
 
