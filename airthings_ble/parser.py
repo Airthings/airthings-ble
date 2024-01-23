@@ -26,7 +26,6 @@ from .const import (
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_HARDWARE_REV,
     CHAR_UUID_HUMIDITY,
-    CHAR_UUID_ILLUMINANCE_ACCELEROMETER,
     CHAR_UUID_MANUFACTURER_NAME,
     CHAR_UUID_MODEL_NUMBER_STRING,
     CHAR_UUID_RADON_1DAYAVG,
@@ -78,7 +77,6 @@ sensors_characteristics_uuid = [
     CHAR_UUID_HUMIDITY,
     CHAR_UUID_RADON_1DAYAVG,
     CHAR_UUID_RADON_LONG_TERM_AVG,
-    CHAR_UUID_ILLUMINANCE_ACCELEROMETER,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVEMINI_DATA,
@@ -177,10 +175,11 @@ def _decode_wave_mini(
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["temperature"] = validate_value(
-            value=round(val[1] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
+            value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
         )
-        data["humidity"] = validate_value(value=val[3] / 100.0, max_value=HUMIDITY_MAX)
-        data["voc"] = validate_value(value=val[4] * 1.0, max_value=VOC_MAX)
+        data["rel_atm_pressure"] = val[3] / 50.0
+        data["humidity"] = validate_value(value=val[4] / 100.0, max_value=HUMIDITY_MAX)
+        data["voc"] = validate_value(value=val[5] * 1.0, max_value=VOC_MAX)
         return data
 
     return handler
@@ -209,20 +208,6 @@ def _decode_wave(
     return handler
 
 
-def _decode_wave_illum_accel(
-    name: str, format_type: str, scale: float
-) -> Callable[[bytearray], dict[str, float | None | str]]:
-    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        vals = _decode_base(name, format_type, scale)(raw_data)
-        val = vals[name]
-        data: dict[str, float | None | str] = {}
-        data["illuminance"] = str(val[0] * scale)
-        data["accelerometer"] = str(val[1] * scale)
-        return data
-
-    return handler
-
-
 def validate_value(value: float, max_value: float) -> Optional[float]:
     """Validate if the given 'value' is within the specified range [min, max]"""
     min_value = 0
@@ -245,7 +230,7 @@ class CommandDecode:
     def decode_data(
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with illuminance and battery"""
+        """Decoder returns dict with battery"""
         if raw_data is None:
             return None
 
@@ -268,8 +253,6 @@ class CommandDecode:
             return None
         val = struct.unpack(self.format_type, raw_data[2:])
         res = {}
-        res["illuminance"] = val[2]
-        # res['measurement_periods'] =  val[5]
         res["battery"] = val[17] / 1000.0
 
         return res
@@ -360,9 +343,6 @@ sensor_decoders: dict[
     ),
     str(CHAR_UUID_RADON_LONG_TERM_AVG): _decode_attr(
         name="radon_longterm_avg", format_type="H", scale=1.0
-    ),
-    str(CHAR_UUID_ILLUMINANCE_ACCELEROMETER): _decode_wave_illum_accel(
-        name="illuminance_accelerometer", format_type="BB", scale=1.0
     ),
     str(CHAR_UUID_TEMPERATURE): _decode_attr(
         name="temperature", format_type="h", scale=1.0 / 100.0
@@ -606,7 +586,6 @@ class AirthingsBluetoothDeviceData:
 
                         sensors.update(
                             {
-                                "illuminance": command_sensor_data.get("illuminance"),
                                 "battery": bat_pct,
                             }
                         )
