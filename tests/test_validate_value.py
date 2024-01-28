@@ -1,17 +1,17 @@
 import pytest
 
-from airthings_ble.const import CO2_MAX, HUMIDITY_MAX, RADON_MAX
+from airthings_ble.const import CO2_MAX, PERCENTAGE_MAX, RADON_MAX
 from airthings_ble.parser import validate_value
 
 
 def test_validate_value_humidity():
     valid_humidity_values = [0, 50, 100.0]
     for value in valid_humidity_values:
-        assert validate_value(value=value, max_value=HUMIDITY_MAX) == value
+        assert validate_value(value=value, max_value=PERCENTAGE_MAX) == value
 
     invalid_humidity_values = [-1, 100.1, 101]
     for value in invalid_humidity_values:
-        assert validate_value(value=value, max_value=HUMIDITY_MAX) is None
+        assert validate_value(value=value, max_value=PERCENTAGE_MAX) is None
 
 
 def test_validate_value_radon():
