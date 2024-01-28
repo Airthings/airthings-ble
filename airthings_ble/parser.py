@@ -26,6 +26,7 @@ from .const import (
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_HARDWARE_REV,
     CHAR_UUID_HUMIDITY,
+    CHAR_UUID_ILLUMINANCE_ACCELEROMETER,
     CHAR_UUID_MANUFACTURER_NAME,
     CHAR_UUID_MODEL_NUMBER_STRING,
     CHAR_UUID_RADON_1DAYAVG,
@@ -40,7 +41,7 @@ from .const import (
     COMMAND_UUID_WAVE_PLUS,
     COMMAND_UUID_WAVE_MINI,
     HIGH,
-    HUMIDITY_MAX,
+    PERCENTAGE_MAX,
     LOW,
     MODERATE,
     RADON_MAX,
@@ -77,6 +78,7 @@ sensors_characteristics_uuid = [
     CHAR_UUID_HUMIDITY,
     CHAR_UUID_RADON_1DAYAVG,
     CHAR_UUID_RADON_LONG_TERM_AVG,
+    CHAR_UUID_ILLUMINANCE_ACCELEROMETER,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVEMINI_DATA,
@@ -125,7 +127,7 @@ def _decode_attr(
     return handler
 
 
-def __decode_wave_plus(
+def _decode_wave_plus(
     name: str, format_type: str, scale: float
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     def handler(raw_data: bytearray) -> dict[str, float | None | str]:
@@ -133,13 +135,16 @@ def __decode_wave_plus(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=HUMIDITY_MAX)
+        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
+        data["illuminance_pct"] = validate_value(
+            value=val[2] * 1.0, max_value=PERCENTAGE_MAX
+        )
         data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
         data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
         data["temperature"] = validate_value(
             value=val[6] / 100.0, max_value=TEMPERATURE_MAX
         )
-        data["rel_atm_pressure"] = val[7] / 50.0
+        data["rel_atm_pressure"] = float(val[7] / 50.0)
         data["co2"] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
         data["voc"] = validate_value(value=val[9] * 1.0, max_value=VOC_MAX)
         return data
@@ -147,7 +152,7 @@ def __decode_wave_plus(
     return handler
 
 
-def __decode_wave_2(
+def _decode_wave_2(
     name: str, format_type: str, scale: float
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     def handler(raw_data: bytearray) -> dict[str, float | None | str]:
@@ -155,7 +160,10 @@ def __decode_wave_2(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=HUMIDITY_MAX)
+        data["illuminance_pct"] = validate_value(
+            value=val[2] * 1.0, max_value=PERCENTAGE_MAX
+        )
+        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
         data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
         data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
         data["temperature"] = validate_value(
@@ -177,8 +185,10 @@ def _decode_wave_mini(
         data["temperature"] = validate_value(
             value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
         )
-        data["rel_atm_pressure"] = val[3] / 50.0
-        data["humidity"] = validate_value(value=val[4] / 100.0, max_value=HUMIDITY_MAX)
+        data["rel_atm_pressure"] = float(val[3] / 50.0)
+        data["humidity"] = validate_value(
+            value=val[4] / 100.0, max_value=PERCENTAGE_MAX
+        )
         data["voc"] = validate_value(value=val[5] * 1.0, max_value=VOC_MAX)
         return data
 
@@ -208,6 +218,21 @@ def _decode_wave(
     return handler
 
 
+def _decode_wave_illum_accel(
+    name: str, format_type: str, scale: float
+) -> Callable[[bytearray], dict[str, float | None | str]]:
+    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
+        vals = _decode_base(name, format_type, scale)(raw_data)
+        val = vals[name]
+        data: dict[str, float | None | str] = {}
+        # data["illuminance"] = validate_value(val[0] * scale, max_value=PERCENTAGE_MAX)
+        data["illuminance"] = val[0] * scale
+        data["accelerometer"] = str(val[1] * scale)
+        return data
+
+    return handler
+
+
 def validate_value(value: float, max_value: float) -> Optional[float]:
     """Validate if the given 'value' is within the specified range [min, max]"""
     min_value = 0
@@ -216,22 +241,22 @@ def validate_value(value: float, max_value: float) -> Optional[float]:
     return None
 
 
-# pylint: disable=too-few-public-methods
 class CommandDecode:
     """Decoder for the command response"""
 
-    cmd: bytes | bytearray
-
-    def __init__(self, format_type: str, cmd: bytes):
-        """Initialize command decoder"""
-        self.format_type = format_type
-        self.cmd = cmd
+    cmd: bytes = b'\x6D'
+    format_type: str
 
     def decode_data(
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
+        logger.debug("Command decoder not implemented, pass")
+        pass
+
+    def validate_data(self, logger: Logger, raw_data: bytearray | None) -> None:
         if raw_data is None:
+            logger.debug("Validate data: No data received")
             return None
 
         cmd = raw_data[0:1]
@@ -243,23 +268,90 @@ class CommandDecode:
             )
             return None
 
+        logger.debug(
+            "Result for command received, %s: %s",
+            cmd.hex(),
+            raw_data.hex(),
+        )
+
         if len(raw_data[2:]) != struct.calcsize(self.format_type):
             logger.warning(
                 "Wrong length data received (%s) versus expected (%s)",
                 len(raw_data[2:]),
                 struct.calcsize(self.format_type),
-                raw_data.hex(),
             )
             return None
-        val = struct.unpack(self.format_type, raw_data[2:])
-        res = {}
-        res["battery"] = val[17] / 1000.0
-
-        return res
+        
+        return struct.unpack(self.format_type, raw_data[2:])
 
     def make_data_receiver(self) -> _NotificationReceiver:
         """Creates a notification receiver for the command."""
         return _NotificationReceiver(struct.calcsize(self.format_type))
+
+
+class WavePlusCommandDecode(CommandDecode):
+    """Decoder for the Wave Plus command response"""
+
+    def __init__(self):
+        """Initialize command decoder"""
+        self.format_type = "<L2BH2B9H"
+
+    def decode_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
+        """Decoder returns dict with battery"""
+
+        if val := self.validate_data(logger, raw_data):
+            res = {}
+            res["battery"] = val[13] / 1000.0
+            logger.debug("Battery voltage: %s", res["battery"])
+            return res
+
+        return None
+
+
+class WaveRadonCommandDecode(CommandDecode):
+    """Decoder for the Wave Radon command response"""
+
+    def __init__(self):
+        """Initialize command decoder"""
+        self.format_type = "<L2BH2B9H"
+
+    def decode_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
+        """Decoder returns dict with battery"""
+
+        if val := self.validate_data(logger, raw_data):
+            res = {}
+            res["battery"] = val[13] / 1000.0
+            logger.debug("Battery voltage: %s", res["battery"])
+
+            return res
+
+        return None
+
+
+class WaveMiniCommandDecode(CommandDecode):
+    """Decoder for the Wave Radon command response"""
+
+    def __init__(self):
+        """Initialize command decoder"""
+        self.format_type = "<2L4B2HL4HL"
+
+    def decode_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
+        """Decoder returns dict with battery"""
+
+        if val := self.validate_data(logger, raw_data):
+            res = {}
+            res["battery"] = val[11] / 1000.0
+            logger.debug("Battery voltage: %s", res["battery"])
+
+            return res
+
+        return None
 
 
 class _NotificationReceiver:
@@ -326,9 +418,6 @@ sensor_decoders: dict[
     str,
     Callable[[bytearray], dict[str, float | None | str]],
 ] = {
-    str(CHAR_UUID_WAVE_PLUS_DATA): __decode_wave_plus(
-        name="Plus", format_type="4B8H", scale=0
-    ),
     str(CHAR_UUID_DATETIME): _decode_wave(
         name="date_time", format_type="H5B", scale=0
     ),
@@ -336,7 +425,7 @@ sensor_decoders: dict[
         name="humidity",
         format_type="H",
         scale=1.0 / 100.0,
-        max_value=HUMIDITY_MAX,
+        max_value=PERCENTAGE_MAX,
     ),
     str(CHAR_UUID_RADON_1DAYAVG): _decode_attr(
         name="radon_1day_avg", format_type="H", scale=1.0
@@ -344,11 +433,17 @@ sensor_decoders: dict[
     str(CHAR_UUID_RADON_LONG_TERM_AVG): _decode_attr(
         name="radon_longterm_avg", format_type="H", scale=1.0
     ),
+    str(CHAR_UUID_ILLUMINANCE_ACCELEROMETER): _decode_wave_illum_accel(
+        name="illuminance_accelerometer", format_type="BB", scale=1.0
+    ),
     str(CHAR_UUID_TEMPERATURE): _decode_attr(
         name="temperature", format_type="h", scale=1.0 / 100.0
     ),
-    str(CHAR_UUID_WAVE_2_DATA): __decode_wave_2(
+    str(CHAR_UUID_WAVE_2_DATA): _decode_wave_2(
         name="Wave2", format_type="<4B8H", scale=1.0
+    ),
+    str(CHAR_UUID_WAVE_PLUS_DATA): _decode_wave_plus(
+        name="Plus", format_type="<4B8H", scale=0
     ),
     str(CHAR_UUID_WAVEMINI_DATA): _decode_wave_mini(
         name="WaveMini", format_type="<2B5HLL", scale=1.0
@@ -356,15 +451,9 @@ sensor_decoders: dict[
 }
 
 command_decoders: dict[str, CommandDecode] = {
-    str(COMMAND_UUID_WAVE_2): CommandDecode(
-        format_type="<L12B6H", cmd=struct.pack("<B", 0x6D)
-    ),
-    str(COMMAND_UUID_WAVE_PLUS): CommandDecode(
-        format_type="<L12B6H", cmd=struct.pack("<B", 0x6D)
-    ),
-    str(COMMAND_UUID_WAVE_MINI): CommandDecode(
-        format_type="<L12B6H4B", cmd=struct.pack("<B", 0x6D)
-    )
+    str(COMMAND_UUID_WAVE_2): WaveRadonCommandDecode(),
+    str(COMMAND_UUID_WAVE_PLUS): WavePlusCommandDecode(),
+    str(COMMAND_UUID_WAVE_MINI): WaveMiniCommandDecode(),
 }
 
 
@@ -529,39 +618,44 @@ class AirthingsBluetoothDeviceData:
                         continue
 
                     sensor_data = sensor_decoders[uuid_str](data)
-                    # skip for now!
 
+                    # Skipping for now
                     if "date_time" in sensor_data:
                         sensor_data.pop("date_time")
+                    if "illuminance_pct" in sensor_data:
+                        sensor_data.pop("illuminance_pct")
 
                     sensors.update(sensor_data)
 
-                    # manage radon values
-                    if d := sensor_data.get("radon_1day_avg") is not None:
+                    # Manage radon values
+                    if (d := sensor_data.get("radon_1day_avg")) is not None:
                         sensors["radon_1day_level"] = get_radon_level(float(d))
                         if not self.is_metric:
                             sensors["radon_1day_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
-                    if d := sensor_data.get("radon_longterm_avg") is not None:
+                    if (d := sensor_data.get("radon_longterm_avg")) is not None:
                         sensors["radon_longterm_level"] = get_radon_level(float(d))
                         if not self.is_metric:
                             sensors["radon_longterm_avg"] = (
                                 float(d) * BQ_TO_PCI_MULTIPLIER
                             )
 
-                    # rel to abs pressure
-                    if pressure := sensor_data.get("rel_atm_pressure") is not None:
+                    # Relative to absulute pressure
+                    if (pressure := sensor_data.get("rel_atm_pressure")) is not None:
                         sensors["pressure"] = (
                             get_absolute_pressure(self.elevation, float(pressure))
                             if self.elevation is not None
                             else pressure
                         )
-
-                    # remove rel atm
+                    # Cleanup
                     sensors.pop("rel_atm_pressure", None)
 
                 if uuid_str in command_decoders:
                     decoder = command_decoders[uuid_str]
                     command_data_receiver = decoder.make_data_receiver()
+
+                    self.logger.debug("Model: %s", device.model.name)
+                    self.logger.debug("Command: %s", decoder.cmd.hex())
+
                     # Set up the notification handlers
                     await client.start_notify(characteristic, command_data_receiver)
                     # send command to this 'indicate' characteristic
@@ -573,6 +667,10 @@ class AirthingsBluetoothDeviceData:
                     except asyncio.TimeoutError:
                         self.logger.warning("Timeout getting command data.")
 
+                    self.logger.debug(
+                        "Starting to decode data for model %s",
+                        device.model,
+                    )
                     command_sensor_data = decoder.decode_data(
                         self.logger, command_data_receiver.message
                     )
