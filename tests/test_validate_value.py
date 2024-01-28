@@ -1,7 +1,7 @@
 import pytest
 
-from airthings_ble.parser import validate_value
 from airthings_ble.const import CO2_MAX, HUMIDITY_MAX, RADON_MAX
+from airthings_ble.parser import validate_value
 
 
 def test_validate_value_humidity():

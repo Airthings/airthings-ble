@@ -38,12 +38,12 @@ from .const import (
     CHAR_UUID_WAVEMINI_DATA,
     CO2_MAX,
     COMMAND_UUID_WAVE_2,
-    COMMAND_UUID_WAVE_PLUS,
     COMMAND_UUID_WAVE_MINI,
+    COMMAND_UUID_WAVE_PLUS,
     HIGH,
-    PERCENTAGE_MAX,
     LOW,
     MODERATE,
+    PERCENTAGE_MAX,
     RADON_MAX,
     TEMPERATURE_MAX,
     UPDATE_TIMEOUT,
@@ -244,7 +244,7 @@ def validate_value(value: float, max_value: float) -> Optional[float]:
 class CommandDecode:
     """Decoder for the command response"""
 
-    cmd: bytes = b'\x6D'
+    cmd: bytes = b"\x6D"
     format_type: str
 
     def decode_data(
@@ -281,7 +281,7 @@ class CommandDecode:
                 struct.calcsize(self.format_type),
             )
             return None
-        
+
         return struct.unpack(self.format_type, raw_data[2:])
 
     def make_data_receiver(self) -> _NotificationReceiver:
@@ -418,9 +418,7 @@ sensor_decoders: dict[
     str,
     Callable[[bytearray], dict[str, float | None | str]],
 ] = {
-    str(CHAR_UUID_DATETIME): _decode_wave(
-        name="date_time", format_type="H5B", scale=0
-    ),
+    str(CHAR_UUID_DATETIME): _decode_wave(name="date_time", format_type="H5B", scale=0),
     str(CHAR_UUID_HUMIDITY): _decode_attr(
         name="humidity",
         format_type="H",
