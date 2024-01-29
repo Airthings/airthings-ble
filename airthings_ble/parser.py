@@ -252,7 +252,8 @@ class CommandDecode:
         raw_data: bytearray | None,  # pylint: disable=unused-argument
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
-        logger.debug("Command decoder not implemented, pass")
+        logger.debug("Command decoder not implemented")
+        return {}
 
     def validate_data(
         self, logger: Logger, raw_data: bytearray | None
@@ -393,7 +394,10 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
+sensor_decoders: dict[
+    str,
+    Callable[[bytearray], dict[str, float | None | str]],
+] = {
     str(CHAR_UUID_DATETIME): _decode_wave(name="date_time", format_type="H5B", scale=0),
     str(CHAR_UUID_HUMIDITY): _decode_attr(
         name="humidity",

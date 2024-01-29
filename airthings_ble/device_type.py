@@ -11,6 +11,8 @@ class AirthingsDeviceType(Enum):
     WAVE_PLUS = "2930"
     WAVE_RADON = "2950"
 
+    raw_value: str  # pylint: disable=invalid-name
+
     def __new__(cls, value: str) -> "AirthingsDeviceType":
         """Create new device type."""
         obj = object.__new__(cls)
@@ -18,15 +20,15 @@ class AirthingsDeviceType(Enum):
         return obj
 
     @classmethod
-    def from_raw_value(cls, raw_value: str) -> "AirthingsDeviceType":
+    def from_raw_value(cls, value: str) -> "AirthingsDeviceType":
         """Get device type from raw value."""
-
-        for member in cls.__members__.values():
-            if member.value == raw_value:
-                return member
-        unknown = cls.UNKNOWN
-        unknown.raw_value = raw_value
-        return unknown
+        for device_type in cls:
+            if device_type.value == value:
+                device_type.raw_value = value
+                return device_type
+        unknown_device = AirthingsDeviceType.UNKNOWN
+        unknown_device.raw_value = value
+        return unknown_device
 
     @property
     def product_name(self) -> str:

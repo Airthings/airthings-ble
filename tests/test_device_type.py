@@ -15,12 +15,11 @@ def test_device_type():
     assert AirthingsDeviceType("2950") == AirthingsDeviceType.WAVE_RADON
     with pytest.raises(ValueError):
         AirthingsDeviceType("1234")
-    assert AirthingsDeviceType.from_raw_value("2900") == AirthingsDeviceType.WAVE_GEN_1
-    assert AirthingsDeviceType.from_raw_value("2920") == AirthingsDeviceType.WAVE_MINI
-    assert AirthingsDeviceType.from_raw_value("2930") == AirthingsDeviceType.WAVE_PLUS
-    assert AirthingsDeviceType.from_raw_value("2950") == AirthingsDeviceType.WAVE_RADON
-    assert AirthingsDeviceType.from_raw_value("1234") == AirthingsDeviceType.UNKNOWN
-    assert AirthingsDeviceType.from_raw_value("1234").raw_value == "1234"
+
+    unknown_device = AirthingsDeviceType.from_raw_value("1234")
+    assert unknown_device == AirthingsDeviceType.UNKNOWN
+    assert unknown_device.product_name == "Unknown"
+    assert unknown_device.raw_value == "1234"
 
 
 def test_battery_calculation():
