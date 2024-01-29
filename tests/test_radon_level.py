@@ -1,5 +1,3 @@
-import pytest
-
 from airthings_ble.parser import get_radon_level
 
 

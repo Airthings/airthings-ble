@@ -253,8 +253,11 @@ class CommandDecode:
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
         logger.debug("Command decoder not implemented, pass")
+        return None
 
-    def validate_data(self, logger: Logger, raw_data: bytearray | None) -> None:
+    def validate_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> Optional[Any]:
         """Validate data. Make sure the data is for the command."""
         if raw_data is None:
             logger.debug("Validate data: No data received")
@@ -293,7 +296,7 @@ class CommandDecode:
 class WaveRadonAndPlusCommandDecode(CommandDecode):
     """Decoder for the Wave Plus command response"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize command decoder"""
         self.format_type = "<L2BH2B9H"
 
@@ -305,7 +308,6 @@ class WaveRadonAndPlusCommandDecode(CommandDecode):
         if val := self.validate_data(logger, raw_data):
             res = {}
             res["battery"] = val[13] / 1000.0
-            logger.debug("Battery voltage: %s", res["battery"])
             return res
 
         return None
@@ -314,7 +316,7 @@ class WaveRadonAndPlusCommandDecode(CommandDecode):
 class WaveMiniCommandDecode(CommandDecode):
     """Decoder for the Wave Radon command response"""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Initialize command decoder"""
         self.format_type = "<2L4B2HL4HL"
 
@@ -326,7 +328,6 @@ class WaveMiniCommandDecode(CommandDecode):
         if val := self.validate_data(logger, raw_data):
             res = {}
             res["battery"] = val[11] / 1000.0
-            logger.debug("Battery voltage: %s", res["battery"])
 
             return res
 
@@ -393,7 +394,10 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
+sensor_decoders: dict[
+    str,
+    Callable[[bytearray], dict[str, float | None | str]],
+] = {
     str(CHAR_UUID_DATETIME): _decode_wave(name="date_time", format_type="H5B", scale=0),
     str(CHAR_UUID_HUMIDITY): _decode_attr(
         name="humidity",
@@ -446,7 +450,7 @@ class AirthingsDeviceInfo:
     manufacturer: str = ""
     hw_version: str = ""
     sw_version: str = ""
-    model: Optional[AirthingsDeviceType] = None
+    model: AirthingsDeviceType = AirthingsDeviceType.UNKNOWN
     name: str = ""
     identifier: str = ""
     address: str = ""
@@ -545,7 +549,7 @@ class AirthingsBluetoothDeviceData:
                 )
 
         if (
-            device_info.model.raw_value == AirthingsDeviceType.WAVE_GEN_1
+            device_info.model == AirthingsDeviceType.WAVE_GEN_1
             and device_info.name
             and not device_info.identifier
         ):
@@ -635,27 +639,21 @@ class AirthingsBluetoothDeviceData:
                     except asyncio.TimeoutError:
                         self.logger.warning("Timeout getting command data.")
 
-                    self.logger.debug(
-                        "Starting to decode data for model %s",
-                        device.model,
-                    )
                     command_sensor_data = decoder.decode_data(
                         self.logger, command_data_receiver.message
                     )
                     if command_sensor_data is not None:
-                        # calculate battery percentage
-                        bat_pct: int | None = None
+                        new_values: dict[str, float | str | None] = {}
 
                         if (bat_data := command_sensor_data.get("battery")) is not None:
-                            self.logger.debug("Battery voltage: %s", bat_data)
-                            bat_pct = device.model.battery_percentage(float(bat_data))
+                            new_values["battery"] = device.model.battery_percentage(
+                                float(bat_data)
+                            )
 
-                        sensors.update(
-                            {
-                                "illuminance": command_sensor_data.get("illuminance"),
-                                "battery": bat_pct,
-                            }
-                        )
+                        if illuminance := command_sensor_data.get("illuminance"):
+                            new_values["illuminance"] = illuminance
+
+                        sensors.update(new_values)
 
                     # Stop notification handler
                     await client.stop_notify(characteristic)
@@ -673,11 +671,15 @@ class AirthingsBluetoothDeviceData:
         device = AirthingsDevice()
         loop = asyncio.get_running_loop()
         disconnect_future = loop.create_future()
-        client: BleakClientWithServiceCache = await establish_connection(  # type: ignore[assignment] # pylint: disable=line-too-long
-            BleakClientWithServiceCache,
-            ble_device,
-            ble_device.address,
-            disconnected_callback=partial(self._handle_disconnect, disconnect_future),
+        client: BleakClientWithServiceCache = (
+            await establish_connection(  # pylint: disable=line-too-long
+                BleakClientWithServiceCache,
+                ble_device,
+                ble_device.address,
+                disconnected_callback=partial(
+                    self._handle_disconnect, disconnect_future
+                ),
+            )
         )
         try:
             async with interrupt(

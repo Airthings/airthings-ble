@@ -1,5 +1,3 @@
-import pytest
-
 from airthings_ble.const import CO2_MAX, PERCENTAGE_MAX, RADON_MAX
 from airthings_ble.parser import validate_value
 

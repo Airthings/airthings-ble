@@ -1,7 +1,5 @@
 import logging
 
-import pytest
-
 from airthings_ble.parser import (
     WaveMiniCommandDecode,
     WaveRadonAndPlusCommandDecode,
@@ -9,8 +7,6 @@ from airthings_ble.parser import (
     _decode_wave_mini,
     _decode_wave_plus,
     _decode_wave_radon,
-    get_absolute_pressure,
-    get_radon_level,
 )
 
 _LOGGER = logging.getLogger(__name__)

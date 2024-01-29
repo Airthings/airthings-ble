@@ -11,28 +11,30 @@ class AirthingsDeviceType(Enum):
     WAVE_PLUS = "2930"
     WAVE_RADON = "2950"
 
-    def __new__(cls, value):
+    def __new__(cls, value: str) -> "AirthingsDeviceType":
         """Create new device type."""
         obj = object.__new__(cls)
         obj._value_ = value
-        obj._raw_value = value
         return obj
 
     @classmethod
-    def from_raw_value(cls, raw_value):
+    def from_raw_value(cls, raw_value: str) -> "AirthingsDeviceType":
         """Get device type from raw value."""
+
         for member in cls.__members__.values():
-            if member.raw_value == raw_value:
+            if member.value == raw_value:
                 return member
-        return cls.UNKNOWN
+        unknown = cls.UNKNOWN
+        unknown._value_ = raw_value
+        return unknown
 
     @property
-    def raw_value(self):
+    def raw_value(self) -> str:
         """Get raw value."""
-        return self._raw_value
+        return self._value_
 
     @property
-    def product_name(self):
+    def product_name(self) -> str:
         """Get product name."""
         if self == AirthingsDeviceType.WAVE_GEN_1:
             return "Wave Gen 1"
