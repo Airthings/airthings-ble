@@ -247,7 +247,9 @@ class CommandDecode:
     format_type: str
 
     def decode_data(
-        self, logger: Logger, raw_data: bytearray | None  # pylint: disable=unused-argument
+        self,
+        logger: Logger,
+        raw_data: bytearray | None,  # pylint: disable=unused-argument
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
         logger.debug("Command decoder not implemented, pass")
@@ -456,7 +458,7 @@ class AirthingsDeviceInfo:
     def friendly_name(self) -> str:
         """Generate a name for the device."""
 
-        return f"Airthings {self.model.product_name()}"
+        return f"Airthings {self.model.product_name}"
 
 
 @dataclasses.dataclass
@@ -470,7 +472,7 @@ class AirthingsDevice(AirthingsDeviceInfo):
     def friendly_name(self) -> str:
         """Generate a name for the device."""
 
-        return f"Airthings {self.model.product_name()}"
+        return f"Airthings {self.model.product_name}"
 
 
 # pylint: disable=too-many-locals
@@ -514,7 +516,7 @@ class AirthingsBluetoothDeviceData:
                 )
 
         characteristics = _CHARS_BY_MODELS.get(
-            device_info.model.value, device_info_characteristics
+            device_info.model.raw_value, device_info_characteristics
         )
         for characteristic in characteristics:
             if did_first_sync and characteristic.name != "firmware_rev":
@@ -546,7 +548,7 @@ class AirthingsBluetoothDeviceData:
                 )
 
         if (
-            device_info.model.value == AirthingsDeviceType.WAVE_GEN_1
+            device_info.model.raw_value == AirthingsDeviceType.WAVE_GEN_1
             and device_info.name
             and not device_info.identifier
         ):
@@ -624,9 +626,6 @@ class AirthingsBluetoothDeviceData:
                 if uuid_str in command_decoders:
                     decoder = command_decoders[uuid_str]
                     command_data_receiver = decoder.make_data_receiver()
-
-                    self.logger.debug("Model: %s", device.model.name)
-                    self.logger.debug("Command: %s", decoder.cmd.hex())
 
                     # Set up the notification handlers
                     await client.start_notify(characteristic, command_data_receiver)
