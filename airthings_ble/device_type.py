@@ -2,11 +2,30 @@ from enum import Enum
 
 
 class AirthingsDeviceType(Enum):
+    UNKNOWN = 0
     WAVE_GEN_1 = "2900"
     WAVE_MINI = "2920"
     WAVE_PLUS = "2930"
     WAVE_RADON = "2950"
 
+    def __new__(cls, value):
+        obj = object.__new__(cls)
+        obj._value_ = value
+        obj._raw_value = value
+        return obj
+
+    @classmethod
+    def from_raw_value(cls, raw_value):
+        for member in cls.__members__.values():
+            if member.raw_value == raw_value:
+                return member
+        return cls.UNKNOWN
+
+    @property
+    def raw_value(self):
+        return self._raw_value
+
+    @property
     def product_name(self):
         if self == AirthingsDeviceType.WAVE_GEN_1:
             return "Wave Gen 1"

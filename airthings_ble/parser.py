@@ -225,7 +225,6 @@ def _decode_wave_illum_accel(
         vals = _decode_base(name, format_type, scale)(raw_data)
         val = vals[name]
         data: dict[str, float | None | str] = {}
-        # data["illuminance"] = validate_value(val[0] * scale, max_value=PERCENTAGE_MAX)
         data["illuminance"] = val[0] * scale
         data["accelerometer"] = str(val[1] * scale)
         return data
@@ -248,13 +247,13 @@ class CommandDecode:
     format_type: str
 
     def decode_data(
-        self, logger: Logger, raw_data: bytearray | None
+        self, logger: Logger, raw_data: bytearray | None  # pylint: disable=unused-argument
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
         logger.debug("Command decoder not implemented, pass")
-        pass
 
     def validate_data(self, logger: Logger, raw_data: bytearray | None) -> None:
+        """Validate data. Make sure the data is for the command."""
         if raw_data is None:
             logger.debug("Validate data: No data received")
             return None
@@ -476,6 +475,7 @@ class AirthingsDevice(AirthingsDeviceInfo):
 
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-branches
+# pylint: disable=too-few-public-methods
 class AirthingsBluetoothDeviceData:
     """Data for Airthings BLE sensors."""
 
@@ -505,16 +505,12 @@ class AirthingsBluetoothDeviceData:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 return
 
-            try:
-                self.logger.debug("Model number: %s", data.decode("utf-8"))
-                device_info.model = AirthingsDeviceType(data.decode("utf-8"))
-            except ValueError:
-                device_info.model = None
-                device_info.model_raw = data.decode("utf-8")
+            device_info.model = AirthingsDeviceType.from_raw_value(data.decode("utf-8"))
+            if device_info.model == AirthingsDeviceType.UNKNOWN:
                 self.logger.warning(
                     "Could not map model number to model name, "
                     "most likely an unsupported device: %s",
-                    device_info.model,
+                    data.decode("utf-8"),
                 )
 
         characteristics = _CHARS_BY_MODELS.get(
@@ -660,6 +656,7 @@ class AirthingsBluetoothDeviceData:
 
                         sensors.update(
                             {
+                                "illuminance": command_sensor_data.get("illuminance"),
                                 "battery": bat_pct,
                             }
                         )
