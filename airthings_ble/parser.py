@@ -272,12 +272,6 @@ class CommandDecode:
             )
             return None
 
-        logger.debug(
-            "Result for command received, %s: %s",
-            cmd.hex(),
-            raw_data.hex(),
-        )
-
         if len(raw_data[2:]) != struct.calcsize(self.format_type):
             logger.warning(
                 "Wrong length data received (%s) versus expected (%s)",
