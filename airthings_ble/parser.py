@@ -152,7 +152,7 @@ def _decode_wave_plus(
     return handler
 
 
-def _decode_wave_2(
+def _decode_wave_radon(
     name: str, format_type: str, scale: float
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     def handler(raw_data: bytearray) -> dict[str, float | None | str]:
@@ -289,7 +289,7 @@ class CommandDecode:
         return _NotificationReceiver(struct.calcsize(self.format_type))
 
 
-class WavePlusCommandDecode(CommandDecode):
+class WaveRadonAndPlusCommandDecode(CommandDecode):
     """Decoder for the Wave Plus command response"""
 
     def __init__(self):
@@ -305,28 +305,6 @@ class WavePlusCommandDecode(CommandDecode):
             res = {}
             res["battery"] = val[13] / 1000.0
             logger.debug("Battery voltage: %s", res["battery"])
-            return res
-
-        return None
-
-
-class WaveRadonCommandDecode(CommandDecode):
-    """Decoder for the Wave Radon command response"""
-
-    def __init__(self):
-        """Initialize command decoder"""
-        self.format_type = "<L2BH2B9H"
-
-    def decode_data(
-        self, logger: Logger, raw_data: bytearray | None
-    ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
-
-        if val := self.validate_data(logger, raw_data):
-            res = {}
-            res["battery"] = val[13] / 1000.0
-            logger.debug("Battery voltage: %s", res["battery"])
-
             return res
 
         return None
@@ -437,7 +415,7 @@ sensor_decoders: dict[
     str(CHAR_UUID_TEMPERATURE): _decode_attr(
         name="temperature", format_type="h", scale=1.0 / 100.0
     ),
-    str(CHAR_UUID_WAVE_2_DATA): _decode_wave_2(
+    str(CHAR_UUID_WAVE_2_DATA): _decode_wave_radon(
         name="Wave2", format_type="<4B8H", scale=1.0
     ),
     str(CHAR_UUID_WAVE_PLUS_DATA): _decode_wave_plus(
@@ -449,8 +427,8 @@ sensor_decoders: dict[
 }
 
 command_decoders: dict[str, CommandDecode] = {
-    str(COMMAND_UUID_WAVE_2): WaveRadonCommandDecode(),
-    str(COMMAND_UUID_WAVE_PLUS): WavePlusCommandDecode(),
+    str(COMMAND_UUID_WAVE_2): WaveRadonAndPlusCommandDecode(),
+    str(COMMAND_UUID_WAVE_PLUS): WaveRadonAndPlusCommandDecode(),
     str(COMMAND_UUID_WAVE_MINI): WaveMiniCommandDecode(),
 }
 
