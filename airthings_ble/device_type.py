@@ -14,7 +14,7 @@ class AirthingsDeviceType(Enum):
     def __new__(cls, value: str) -> "AirthingsDeviceType":
         """Create new device type."""
         obj = object.__new__(cls)
-        obj._value_ = value
+        obj.raw_value = value
         return obj
 
     @classmethod
@@ -25,13 +25,8 @@ class AirthingsDeviceType(Enum):
             if member.value == raw_value:
                 return member
         unknown = cls.UNKNOWN
-        unknown._value_ = raw_value
+        unknown.raw_value = raw_value
         return unknown
-
-    @property
-    def raw_value(self) -> str:
-        """Get raw value."""
-        return self._value_
 
     @property
     def product_name(self) -> str:

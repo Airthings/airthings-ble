@@ -253,7 +253,6 @@ class CommandDecode:
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
         logger.debug("Command decoder not implemented, pass")
-        return None
 
     def validate_data(
         self, logger: Logger, raw_data: bytearray | None
