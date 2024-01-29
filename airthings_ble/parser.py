@@ -393,10 +393,7 @@ def get_absolute_pressure(elevation: int, data: float) -> float:
     return data + round(offset, 2)
 
 
-sensor_decoders: dict[
-    str,
-    Callable[[bytearray], dict[str, float | None | str]],
-] = {
+sensor_decoders: dict[str, Callable[[bytearray], dict[str, float | None | str]],] = {
     str(CHAR_UUID_DATETIME): _decode_wave(name="date_time", format_type="H5B", scale=0),
     str(CHAR_UUID_HUMIDITY): _decode_attr(
         name="humidity",
