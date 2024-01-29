@@ -1,4 +1,5 @@
 """Airthings device types."""
+
 from enum import Enum
 
 

@@ -673,7 +673,7 @@ class AirthingsBluetoothDeviceData:
         disconnect_future = loop.create_future()
         client: BleakClientWithServiceCache = (
             await establish_connection(  # pylint: disable=line-too-long
-                BleakClientWithServiceCache,
+                BleakClientWithServiceCache,  # type: ignore
                 ble_device,
                 ble_device.address,
                 disconnected_callback=partial(
