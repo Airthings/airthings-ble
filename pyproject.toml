@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "airthings-ble"
-version = "v0.6.0"
+version = "v0.6.1"
 description = "Manage Airthings BLE devices"
 authors = ["Vincent Giorgi", "Ståle Storø Hauknes"]
 license = "Apache Software License 2.0"
