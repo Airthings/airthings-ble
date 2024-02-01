@@ -538,11 +538,11 @@ class AirthingsBluetoothDeviceData:
                     sensors.update(sensor_data)
 
                     # manage radon values
-                    if d := sensor_data.get("radon_1day_avg") is not None:
+                    if (d := sensor_data.get("radon_1day_avg")) is not None:
                         sensors["radon_1day_level"] = get_radon_level(float(d))
                         if not self.is_metric:
                             sensors["radon_1day_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
-                    if d := sensor_data.get("radon_longterm_avg") is not None:
+                    if (d := sensor_data.get("radon_longterm_avg")) is not None:
                         sensors["radon_longterm_level"] = get_radon_level(float(d))
                         if not self.is_metric:
                             sensors["radon_longterm_avg"] = (
@@ -550,7 +550,7 @@ class AirthingsBluetoothDeviceData:
                             )
 
                     # rel to abs pressure
-                    if pressure := sensor_data.get("rel_atm_pressure") is not None:
+                    if (pressure := sensor_data.get("rel_atm_pressure")) is not None:
                         sensors["pressure"] = (
                             get_absolute_pressure(self.elevation, float(pressure))
                             if self.elevation is not None
