@@ -2,10 +2,10 @@
 name = "airthings-ble"
 version = "v0.6.0"
 description = "Manage Airthings BLE devices"
-authors = ["Vincent Giorgi"]
+authors = ["Vincent Giorgi", "Ståle Storø Hauknes"]
 license = "Apache Software License 2.0"
 readme = "README.md"
-repository = "https://github.com/vincegio/airthings-ble"
+repository = "https://github.com/Airthings/airthings-ble"
 documentation = "https://airthings-ble.readthedocs.io"
 classifiers = [
     "Development Status :: 2 - Pre-Alpha",
@@ -19,8 +19,7 @@ packages = [
 ]
 
 [tool.poetry.urls]
-"Bug Tracker" = "https://github.com/vincegio/airthings-ble/issues"
-"Changelog" = "https://github.com/vincegio/airthings-ble/blob/main/CHANGELOG.md"
+"Bug Tracker" = "https://github.com/Airthings/airthings-ble/issues"
 
 [tool.poetry.dependencies]
 python = "^3.9"
