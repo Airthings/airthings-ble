@@ -3,7 +3,7 @@ name: Publish to PyPI and GitHub
 on:
   workflow_dispatch:
     inputs:
-      tag: 
+      tag:
         description: New version tag
         required: true
 
@@ -46,7 +46,7 @@ jobs:
           "
 
       - name: Update __init__.py version
-        run: | 
+        run: |
           version="${{ github.event.inputs.tag }}"
           file="airthings_ble/__init__.py"
           sed -i "s/__version__\\s*=\\s*[\"'].*[\"']/__version__ = \"$version\"/" $file

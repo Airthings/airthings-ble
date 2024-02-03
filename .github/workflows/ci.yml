@@ -1,0 +1,57 @@
+name: CI
+
+on:
+  pull_request:
+
+# Python Versions Reference: https://github.com/home-assistant/architecture/blob/master/adr/0002-minimum-supported-python-version.md
+
+jobs:
+  test:
+    strategy:
+      matrix:
+        python-version: [3.11, 3.12]
+    name: Run tests for ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: snok/install-poetry@v1
+
+      - name: Install Dependencies
+        run: poetry install
+
+      - name: Run tests
+        run: poetry run pytest
+
+  lint:
+    strategy:
+      matrix:
+        python-version: [3.12] # Linting is only required for the latest Python version
+    name: Lint code for ${{ matrix.python-version }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - uses: snok/install-poetry@v1
+
+      - name: Install Dependencies
+        run: poetry install
+
+      - name: Check formatting
+        run: poetry run black --check airthings_ble
+
+      - name: Check code style
+        run: poetry run pylint airthings_ble
+
+      - name: Check types
+        run: poetry run mypy airthings_ble
