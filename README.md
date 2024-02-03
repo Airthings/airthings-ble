@@ -22,6 +22,9 @@ Run tests:
 poetry run pytest
 ```
 
+See [this wiki page](https://github.com/Airthings/airthings-ble/wiki/Testing-with-Home-Assistant) for more details
+on how to test the library with HA.
+
 ## License
 
 This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details. 
