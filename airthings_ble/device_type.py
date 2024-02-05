@@ -44,40 +44,40 @@ class AirthingsDeviceType(Enum):
             return "Wave Radon"
         return "Unknown"
 
-    def battery_percentage(self, vin: float) -> int:
+    def battery_percentage(self, voltage: float) -> int:
         """Calculate battery percentage based on voltage."""
         if self == AirthingsDeviceType.WAVE_MINI:
-            return self._battery_percentage_wave_mini(vin)
-        return self._battery_percentage_wave_radon_and_plus(vin)
+            return self._battery_percentage_wave_mini(voltage)
+        return self._battery_percentage_wave_radon_and_plus(voltage)
 
     # pylint: disable=too-many-return-statements
-    def _battery_percentage_wave_radon_and_plus(self, vin: float) -> int:
-        if vin >= 3.00:
+    def _battery_percentage_wave_radon_and_plus(self, voltage: float) -> int:
+        if voltage >= 3.00:
             return 100
-        if 2.80 <= vin < 3.00:
-            return int((vin - 2.80) / (3.00 - 2.80) * (100 - 81) + 81)
-        if 2.60 <= vin < 2.80:
-            return int((vin - 2.60) / (2.80 - 2.60) * (81 - 53) + 53)
-        if 2.50 <= vin < 2.60:
-            return int((vin - 2.50) / (2.60 - 2.50) * (53 - 28) + 28)
-        if 2.20 <= vin < 2.50:
-            return int((vin - 2.20) / (2.50 - 2.20) * (28 - 5) + 5)
-        if 2.10 <= vin < 2.20:
-            return int((vin - 2.10) / (2.20 - 2.10) * (5 - 0) + 0)
+        if 2.80 <= voltage < 3.00:
+            return int((voltage - 2.80) / (3.00 - 2.80) * (100 - 81) + 81)
+        if 2.60 <= voltage < 2.80:
+            return int((voltage - 2.60) / (2.80 - 2.60) * (81 - 53) + 53)
+        if 2.50 <= voltage < 2.60:
+            return int((voltage - 2.50) / (2.60 - 2.50) * (53 - 28) + 28)
+        if 2.20 <= voltage < 2.50:
+            return int((voltage - 2.20) / (2.50 - 2.20) * (28 - 5) + 5)
+        if 2.10 <= voltage < 2.20:
+            return int((voltage - 2.10) / (2.20 - 2.10) * (5 - 0) + 0)
         return 0
 
     # pylint: disable=too-many-return-statements
-    def _battery_percentage_wave_mini(self, vin: float) -> int:
-        if vin >= 4.50:
+    def _battery_percentage_wave_mini(self, voltage: float) -> int:
+        if voltage >= 4.50:
             return 100
-        if 4.20 <= vin < 4.50:
-            return int((vin - 4.20) / (4.50 - 4.20) * (100 - 85) + 85)
-        if 3.90 <= vin < 4.20:
-            return int((vin - 3.90) / (4.20 - 3.90) * (85 - 62) + 62)
-        if 3.75 <= vin < 3.90:
-            return int((vin - 3.75) / (3.90 - 3.75) * (62 - 42) + 42)
-        if 3.30 <= vin < 3.75:
-            return int((vin - 3.30) / (3.75 - 3.30) * (42 - 23) + 23)
-        if 2.40 <= vin < 3.30:
-            return int((vin - 2.40) / (3.30 - 2.40) * (23 - 0) + 0)
+        if 4.20 <= voltage < 4.50:
+            return int((voltage - 4.20) / (4.50 - 4.20) * (100 - 85) + 85)
+        if 3.90 <= voltage < 4.20:
+            return int((voltage - 3.90) / (4.20 - 3.90) * (85 - 62) + 62)
+        if 3.75 <= voltage < 3.90:
+            return int((voltage - 3.75) / (3.90 - 3.75) * (62 - 42) + 42)
+        if 3.30 <= voltage < 3.75:
+            return int((voltage - 3.30) / (3.75 - 3.30) * (42 - 23) + 23)
+        if 2.40 <= voltage < 3.30:
+            return int((voltage - 2.40) / (3.30 - 2.40) * (23 - 0) + 0)
         return 0
