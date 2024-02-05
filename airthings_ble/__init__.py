@@ -1,4 +1,5 @@
 """Parser for Airthings BLE advertisements."""
+
 from __future__ import annotations
 
 from .parser import AirthingsBluetoothDeviceData, AirthingsDevice
