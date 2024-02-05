@@ -47,42 +47,67 @@ class AirthingsDeviceType(Enum):
     def battery_percentage(self, voltage: float) -> int:
         """Calculate battery percentage based on voltage."""
         if self == AirthingsDeviceType.WAVE_MINI:
-            return self._battery_percentage_wave_mini(voltage)
-        return self._battery_percentage_wave_radon_and_plus(voltage)
+            return round(self._battery_percentage_wave_mini(voltage))
+        return round(self._battery_percentage_wave_radon_and_plus(voltage))
 
     # pylint: disable=too-many-return-statements
-    def _battery_percentage_wave_radon_and_plus(self, voltage: float) -> int:
+    def _battery_percentage_wave_radon_and_plus(self, voltage: float) -> float:
         if voltage >= 3.00:
             return 100
         if 2.80 <= voltage < 3.00:
-            return int(self._interpolate(voltage, 2.80, 3.00, 81, 100))
+            return self._interpolate(
+                voltage, voltage_range=(2.80, 3.00), percentage_range=(81, 100)
+            )
         if 2.60 <= voltage < 2.80:
-            return int(self._interpolate(voltage, 2.60, 2.80, 53, 81))
+            return self._interpolate(
+                voltage, voltage_range=(2.60, 2.80), percentage_range=(53, 81)
+            )
         if 2.50 <= voltage < 2.60:
-            return int(self._interpolate(voltage, 2.50, 2.60, 28, 53))
+            return self._interpolate(
+                voltage, voltage_range=(2.50, 2.60), percentage_range=(28, 53)
+            )
         if 2.20 <= voltage < 2.50:
-            return int(self._interpolate(voltage, 2.20, 2.50, 5, 28))
+            return self._interpolate(
+                voltage, voltage_range=(2.20, 2.50), percentage_range=(5, 28)
+            )
         if 2.10 <= voltage < 2.20:
-            return int(self._interpolate(voltage, 2.10, 2.20, 0, 5))
+            return self._interpolate(
+                voltage, voltage_range=(2.10, 2.20), percentage_range=(0, 5)
+            )
         return 0
 
     # pylint: disable=too-many-return-statements
-    def _battery_percentage_wave_mini(self, voltage: float) -> int:
+    def _battery_percentage_wave_mini(self, voltage: float) -> float:
         if voltage >= 4.50:
             return 100
         if 4.20 <= voltage < 4.50:
-            return int(self._interpolate(voltage, 4.20, 4.50, 85, 100))
+            return self._interpolate(
+                voltage=voltage, voltage_range=(4.20, 4.50), percentage_range=(85, 100)
+            )
         if 3.90 <= voltage < 4.20:
-            return int(self._interpolate(voltage, 3.90, 4.20, 62, 85))
+            return self._interpolate(
+                voltage=voltage, voltage_range=(3.90, 4.20), percentage_range=(62, 85)
+            )
         if 3.75 <= voltage < 3.90:
-            return int(self._interpolate(voltage, 3.75, 3.90, 42, 62))
+            return self._interpolate(
+                voltage=voltage, voltage_range=(3.75, 3.90), percentage_range=(42, 62)
+            )
         if 3.30 <= voltage < 3.75:
-            return int(self._interpolate(voltage, 3.30, 3.75, 23, 42))
+            return self._interpolate(
+                voltage=voltage, voltage_range=(3.30, 3.75), percentage_range=(23, 42)
+            )
         if 2.40 <= voltage < 3.30:
-            return int(self._interpolate(voltage, 2.40, 3.30, 0, 23))
+            return self._interpolate(
+                voltage=voltage, voltage_range=(2.40, 3.30), percentage_range=(0, 23)
+            )
         return 0
 
     def _interpolate(
-        self, x: float, x0: float, x1: float, y0: float, y1: float
+        self,
+        voltage: float,
+        voltage_range: tuple[float, float],
+        percentage_range: tuple[int, int],
     ) -> float:
-        return (x - x0) / (x1 - x0) * (y1 - y0) + y0
+        return (voltage - voltage_range[0]) / (voltage_range[1] - voltage_range[0]) * (
+            percentage_range[1] - percentage_range[0]
+        ) + percentage_range[0]
