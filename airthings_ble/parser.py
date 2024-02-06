@@ -144,7 +144,7 @@ def _decode_wave_plus(
         data["temperature"] = validate_value(
             value=val[6] / 100.0, max_value=TEMPERATURE_MAX
         )
-        data["rel_atm_pressure"] = float(val[7] / 50.0)
+        data["pressure"] = float(val[7] / 50.0)
         data["co2"] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
         data["voc"] = validate_value(value=val[9] * 1.0, max_value=VOC_MAX)
         return data
@@ -185,7 +185,7 @@ def _decode_wave_mini(
         data["temperature"] = validate_value(
             value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
         )
-        data["rel_atm_pressure"] = float(val[3] / 50.0)
+        data["pressure"] = float(val[3] / 50.0)
         data["humidity"] = validate_value(
             value=val[4] / 100.0, max_value=PERCENTAGE_MAX
         )
@@ -373,19 +373,6 @@ def get_radon_level(data: float) -> str:
     else:
         radon_level = HIGH[2]
     return radon_level
-
-
-# pylint: disable=invalid-name
-def get_absolute_pressure(elevation: int, data: float) -> float:
-    """Returns an absolute pressure calculated from the given elevation"""
-    p0 = 101325  # Pa
-    g = 9.80665  # m/s^2
-    M = 0.02896968  # kg/mol
-    T0 = 288.16  # K
-    R0 = 8.314462618  # J/(mol K)
-    h = elevation  # m
-    offset = (p0 - (p0 * exp(-g * h * M / (T0 * R0)))) / 100.0  # mbar
-    return data + round(offset, 2)
 
 
 sensor_decoders: dict[
@@ -607,16 +594,6 @@ class AirthingsBluetoothDeviceData:
                             sensors["radon_longterm_avg"] = (
                                 float(d) * BQ_TO_PCI_MULTIPLIER
                             )
-
-                    # Relative to absulute pressure
-                    if (pressure := sensor_data.get("rel_atm_pressure")) is not None:
-                        sensors["pressure"] = (
-                            get_absolute_pressure(self.elevation, float(pressure))
-                            if self.elevation is not None
-                            else pressure
-                        )
-                    # Cleanup
-                    sensors.pop("rel_atm_pressure", None)
 
                 if uuid_str in command_decoders:
                     decoder = command_decoders[uuid_str]
