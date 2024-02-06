@@ -11,7 +11,6 @@ from collections import namedtuple
 from datetime import datetime
 from functools import partial
 from logging import Logger
-from math import exp
 from typing import Any, Callable, Optional, Tuple
 
 from async_interrupt import interrupt
