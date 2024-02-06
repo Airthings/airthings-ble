@@ -466,12 +466,10 @@ class AirthingsBluetoothDeviceData:
     def __init__(
         self,
         logger: Logger,
-        elevation: int | None = None,
         is_metric: bool = True,
     ) -> None:
         self.logger = logger
         self.is_metric = is_metric
-        self.elevation = elevation
         self.device_info = AirthingsDeviceInfo()
 
     async def _get_device_characteristics(
