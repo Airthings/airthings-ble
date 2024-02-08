@@ -39,7 +39,7 @@ def test_wave_plus_sensor_data():
     assert decoded_data["voc"] == 108
     assert decoded_data["co2"] == 797
     assert decoded_data["illuminance_pct"] == 13
-    assert decoded_data["rel_atm_pressure"] == 999.92
+    assert decoded_data["pressure"] == 999.92
 
 
 def test_wave_radon_sensor_data():
@@ -76,10 +76,10 @@ def test_wave_mini_sensor_data():
     )
 
     assert decoded_data["humidity"] == 28.29
-    assert decoded_data["rel_atm_pressure"] == 1000.64
+    assert decoded_data["pressure"] == 1000.64
     assert decoded_data["temperature"] == 25.32
     assert decoded_data["voc"] == 301.0
-    assert decoded_data["rel_atm_pressure"] == 1000.64
+    assert decoded_data["pressure"] == 1000.64
 
 
 def test_wave_gen_1_illuminance_and_accelerometer():
