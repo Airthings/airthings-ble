@@ -237,8 +237,8 @@ def validate_value(value: float, max_value: float) -> Optional[float]:
 
 def illuminance_converter(value: float | int) -> Optional[int]:
     """Convert illuminance from a 8-bit value to percentage."""
-    if value := validate_value(value, 255):
-        return int(value * 100 / PERCENTAGE_MAX)
+    if (value := validate_value(value, 255)) is not None:
+        return int(value / 255 * PERCENTAGE_MAX)
     return None
 
 

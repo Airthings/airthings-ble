@@ -38,7 +38,7 @@ def test_wave_plus_sensor_data():
     assert decoded_data["temperature"] == 24.93
     assert decoded_data["voc"] == 108
     assert decoded_data["co2"] == 797
-    assert decoded_data["illuminance"] == 13
+    assert decoded_data["illuminance"] == 5
     assert decoded_data["pressure"] == 999.92
 
 
@@ -90,4 +90,4 @@ def test_wave_gen_1_illuminance_and_accelerometer():
         name="illuminance_accelerometer", format_type="BB", scale=1.0
     )(raw_data)
 
-    assert decoded_data["illuminance"] == 178.0
+    assert decoded_data["illuminance"] == 69
