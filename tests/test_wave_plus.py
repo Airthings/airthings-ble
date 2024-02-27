@@ -38,7 +38,7 @@ def test_wave_plus_sensor_data():
     assert decoded_data["temperature"] == 24.93
     assert decoded_data["voc"] == 108
     assert decoded_data["co2"] == 797
-    assert decoded_data["illuminance_pct"] == 13
+    assert decoded_data["illuminance"] == 13
     assert decoded_data["pressure"] == 999.92
 
 
