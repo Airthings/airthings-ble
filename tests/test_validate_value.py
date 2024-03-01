@@ -1,5 +1,5 @@
 from airthings_ble.const import CO2_MAX, PERCENTAGE_MAX, RADON_MAX
-from airthings_ble.parser import validate_value
+from airthings_ble.parser import validate_value, illuminance_converter
 
 
 def test_validate_value_humidity():
@@ -30,3 +30,9 @@ def test_validate_value_co2():
     invalid_co2_values = [-1, 65535]
     for value in invalid_co2_values:
         assert validate_value(value=value, max_value=CO2_MAX) is None
+
+
+def test_validate_value_illuminance():
+    assert illuminance_converter(0) == 0
+    assert illuminance_converter(255) == 100
+    assert illuminance_converter(256) == None

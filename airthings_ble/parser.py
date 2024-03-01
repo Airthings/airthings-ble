@@ -135,9 +135,7 @@ def _decode_wave_plus(
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
         data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
-        data["illuminance_pct"] = validate_value(
-            value=val[2] * 1.0, max_value=PERCENTAGE_MAX
-        )
+        data["illuminance"] = illuminance_converter(value=val[2])
         data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
         data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
         data["temperature"] = validate_value(
@@ -159,9 +157,7 @@ def _decode_wave_radon(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["illuminance_pct"] = validate_value(
-            value=val[2] * 1.0, max_value=PERCENTAGE_MAX
-        )
+        data["illuminance"] = illuminance_converter(value=val[2])
         data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
         data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
         data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
@@ -224,7 +220,7 @@ def _decode_wave_illum_accel(
         vals = _decode_base(name, format_type, scale)(raw_data)
         val = vals[name]
         data: dict[str, float | None | str] = {}
-        data["illuminance"] = val[0] * scale
+        data["illuminance"] = illuminance_converter(val[0] * scale)
         data["accelerometer"] = str(val[1] * scale)
         return data
 
@@ -236,6 +232,13 @@ def validate_value(value: float, max_value: float) -> Optional[float]:
     min_value = 0
     if min_value <= value <= max_value:
         return value
+    return None
+
+
+def illuminance_converter(value: float) -> Optional[int]:
+    """Convert illuminance from a 8-bit value to percentage."""
+    if (validated := validate_value(value, max_value=255)) is not None:
+        return int(validated / 255 * PERCENTAGE_MAX)
     return None
 
 
@@ -575,8 +578,6 @@ class AirthingsBluetoothDeviceData:
                     # Skipping for now
                     if "date_time" in sensor_data:
                         sensor_data.pop("date_time")
-                    if "illuminance_pct" in sensor_data:
-                        sensor_data.pop("illuminance_pct")
 
                     sensors.update(sensor_data)
 
