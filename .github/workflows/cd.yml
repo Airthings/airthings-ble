@@ -9,7 +9,7 @@ on:
 
 jobs:
   final-linting:
-    uses: ./.github/workflows/lint.yml
+    uses: ./.github/workflows/ci.yml
   build-publish:
     name: Build and publish to PyPI
     runs-on: ubuntu-latest
