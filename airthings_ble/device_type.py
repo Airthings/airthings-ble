@@ -11,6 +11,7 @@ class AirthingsDeviceType(Enum):
     WAVE_MINI = "2920"
     WAVE_PLUS = "2930"
     WAVE_RADON = "2950"
+    WAVE_ENHANCE = "3210"
 
     raw_value: str  # pylint: disable=invalid-name
 
@@ -42,6 +43,8 @@ class AirthingsDeviceType(Enum):
             return "Wave Plus"
         if self == AirthingsDeviceType.WAVE_RADON:
             return "Wave Radon"
+        if self == AirthingsDeviceType.WAVE_ENHANCE:
+            return "Wave Enhance"
         return "Unknown"
 
     def battery_percentage(self, voltage: float) -> int:
