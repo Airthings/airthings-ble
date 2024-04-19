@@ -46,7 +46,7 @@ def test_battery_calculation():
     assert AirthingsDeviceType.WAVE_MINI.battery_percentage(2.4) == 0
     assert AirthingsDeviceType.WAVE_MINI.battery_percentage(2.3) == 0
 
-    # Repeat for the Wave Plus and Radon, which have the same battery voltage range.
+    # Repeat for the rest of the devices since they have the same amount of batteries.
     # Max voltage is 3.0V, min voltage is 2.1V.
     assert AirthingsDeviceType.WAVE_PLUS.battery_percentage(3.2) == 100
     assert AirthingsDeviceType.WAVE_PLUS.battery_percentage(3.0) == 100
