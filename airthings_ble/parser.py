@@ -19,6 +19,7 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .const import (
+    MAX_UPDATE_ATTEMPTS,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -637,6 +638,24 @@ class AirthingsBluetoothDeviceData:
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
+        for attempt in range(MAX_UPDATE_ATTEMPTS):
+            is_final_attempt = attempt == MAX_UPDATE_ATTEMPTS - 1
+            try:
+                return await self._update_device(ble_device)
+            except DisconnectedError:
+                if is_final_attempt:
+                    raise
+                self.logger.debug(
+                    "Unexpectedly disconnected from %s", ble_device.address
+                )
+            except BleakError as err:
+                if is_final_attempt:
+                    raise
+                self.logger.debug("Bleak error: %s", err)
+        raise RuntimeError("Should not reach this point")
+
+    async def _update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
+        """Connects to the device through BLE and retrieves relevant data"""
         device = AirthingsDevice()
         loop = asyncio.get_running_loop()
         disconnect_future = loop.create_future()
@@ -663,8 +682,7 @@ class AirthingsBluetoothDeviceData:
                 # Clear the char cache since a char is likely
                 # missing from the cache
                 await client.clear_cache()
-        except DisconnectedError:
-            self.logger.debug("Unexpectedly disconnected from %s", client.address)
+            raise
         finally:
             await client.disconnect()
 
