@@ -342,7 +342,8 @@ class _NotificationReceiver:
     def __init__(self, message_size: int):
         self.message = None
         self._message_size = message_size
-        self._event = asyncio.Event()
+        self._loop = asyncio.get_running_loop()
+        self._future: asyncio.Future[None] = self._loop.create_future()
 
     def _full_message_received(self) -> bool:
         return self.message is not None and len(self.message) >= self._message_size
@@ -353,15 +354,25 @@ class _NotificationReceiver:
         elif not self._full_message_received():
             self.message += data
         if self._full_message_received():
-            self._event.set()
+            self._future.set_result(None)
 
-    async def wait_for_message(self) -> None:
+    def _on_timeout(self) -> None:
+        if not self._future.done():
+            self._future.set_exception(
+                asyncio.TimeoutError("Timeout waiting for message")
+            )
+
+    async def wait_for_message(self, timeout: float) -> None:
         """Waits until the full message is received.
 
         If the full message has already been received, this method returns immediately.
         """
         if not self._full_message_received():
-            await self._event.wait()
+            timer_handle = self._loop.call_later(timeout, self._on_timeout)
+            try:
+                await self._future
+            finally:
+                timer_handle.cancel()
 
 
 def get_radon_level(data: float) -> str:
@@ -603,8 +614,7 @@ class AirthingsBluetoothDeviceData:
                     await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
                     # Wait for up to one second to see if a callback comes in.
                     try:
-                        async with asyncio_timeout(1):
-                            await command_data_receiver.wait_for_message()
+                        await command_data_receiver.wait_for_message(5)
                     except asyncio.TimeoutError:
                         self.logger.warning("Timeout getting command data.")
 
