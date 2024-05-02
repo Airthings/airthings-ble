@@ -5,6 +5,6 @@ from __future__ import annotations
 from .device_type import AirthingsDeviceType
 from .parser import AirthingsBluetoothDeviceData, AirthingsDevice
 
-__version__ = "0.7.1"
+__version__ = "0.8.0"
 
 __all__ = ["AirthingsBluetoothDeviceData", "AirthingsDevice", "AirthingsDeviceType"]
