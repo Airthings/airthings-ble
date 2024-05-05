@@ -19,7 +19,7 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .const import (
-    MAX_UPDATE_ATTEMPTS,
+    DEFAULT_MAX_UPDATE_ATTEMPTS,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -481,10 +481,17 @@ class AirthingsBluetoothDeviceData:
         self,
         logger: Logger,
         is_metric: bool = True,
+        max_attempts: int = DEFAULT_MAX_UPDATE_ATTEMPTS,
     ) -> None:
+        """Initialize the Airthings BLE sensor data object."""
         self.logger = logger
         self.is_metric = is_metric
         self.device_info = AirthingsDeviceInfo()
+        self.max_attempts = max_attempts
+
+    def set_max_attempts(self, max_attempts: int) -> None:
+        """Set the number of attempts."""
+        self.max_attempts = max_attempts
 
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
@@ -648,8 +655,8 @@ class AirthingsBluetoothDeviceData:
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
-        for attempt in range(MAX_UPDATE_ATTEMPTS):
-            is_final_attempt = attempt == MAX_UPDATE_ATTEMPTS - 1
+        for attempt in range(self.max_attempts):
+            is_final_attempt = attempt == self.max_attempts - 1
             try:
                 return await self._update_device(ble_device)
             except DisconnectedError:
