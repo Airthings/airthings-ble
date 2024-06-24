@@ -3,7 +3,6 @@ name = "airthings-ble"
 version = "0.9.0"
 description = "Manage Airthings BLE devices"
 authors = ["Vincent Giorgi", "Ståle Storø Hauknes"]
-license = "Apache Software License 2.0"
 readme = "README.md"
 repository = "https://github.com/Airthings/airthings-ble"
 documentation = "https://airthings-ble.readthedocs.io"
@@ -13,6 +12,7 @@ classifiers = [
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries",
+    "License :: OSI Approved :: MIT License",
 ]
 packages = [
     { include = "airthings_ble" },
