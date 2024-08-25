@@ -1,7 +1,17 @@
 # airthings-ble
 
 Library to control Airthings devices through BLE, primarily meant to be used in
-the [Home Assistant integration](https://www.home-assistant.io/integrations/airthings_ble/).
+the [Home Assistant integration](https://www.home-assistant.io/integrations/airthings_ble/). 
+
+The integration supports the following devices:
+
+- [Wave Plus](https://www.airthings.com/en/wave-plus)
+- [Wave Mini](https://www.airthings.com/en/wave-mini)
+- [Wave Radon](https://www.airthings.com/en/wave-radon)
+- Wave Gen 1
+
+Although some other devices have BLE capabilities, those devices use BLE for onboarding and configuration.
+It is not possible to fetch sensor data using this library.
 
 ## Getting Started
 
