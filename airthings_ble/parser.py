@@ -19,6 +19,7 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from .const import (
+    DEFAULT_MAX_UPDATE_ATTEMPTS,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -342,7 +343,8 @@ class _NotificationReceiver:
     def __init__(self, message_size: int):
         self.message = None
         self._message_size = message_size
-        self._event = asyncio.Event()
+        self._loop = asyncio.get_running_loop()
+        self._future: asyncio.Future[None] = self._loop.create_future()
 
     def _full_message_received(self) -> bool:
         return self.message is not None and len(self.message) >= self._message_size
@@ -353,15 +355,25 @@ class _NotificationReceiver:
         elif not self._full_message_received():
             self.message += data
         if self._full_message_received():
-            self._event.set()
+            self._future.set_result(None)
 
-    async def wait_for_message(self) -> None:
+    def _on_timeout(self) -> None:
+        if not self._future.done():
+            self._future.set_exception(
+                asyncio.TimeoutError("Timeout waiting for message")
+            )
+
+    async def wait_for_message(self, timeout: float) -> None:
         """Waits until the full message is received.
 
         If the full message has already been received, this method returns immediately.
         """
         if not self._full_message_received():
-            await self._event.wait()
+            timer_handle = self._loop.call_later(timeout, self._on_timeout)
+            try:
+                await self._future
+            finally:
+                timer_handle.cancel()
 
 
 def get_radon_level(data: float) -> str:
@@ -469,10 +481,17 @@ class AirthingsBluetoothDeviceData:
         self,
         logger: Logger,
         is_metric: bool = True,
+        max_attempts: int = DEFAULT_MAX_UPDATE_ATTEMPTS,
     ) -> None:
+        """Initialize the Airthings BLE sensor data object."""
         self.logger = logger
         self.is_metric = is_metric
         self.device_info = AirthingsDeviceInfo()
+        self.max_attempts = max_attempts
+
+    def set_max_attempts(self, max_attempts: int) -> None:
+        """Set the number of attempts."""
+        self.max_attempts = max_attempts
 
     async def _get_device_characteristics(
         self, client: BleakClient, device: AirthingsDevice
@@ -603,8 +622,7 @@ class AirthingsBluetoothDeviceData:
                     await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
                     # Wait for up to one second to see if a callback comes in.
                     try:
-                        async with asyncio_timeout(1):
-                            await command_data_receiver.wait_for_message()
+                        await command_data_receiver.wait_for_message(5)
                     except asyncio.TimeoutError:
                         self.logger.warning("Timeout getting command data.")
 
@@ -637,6 +655,24 @@ class AirthingsBluetoothDeviceData:
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
+        for attempt in range(self.max_attempts):
+            is_final_attempt = attempt == self.max_attempts - 1
+            try:
+                return await self._update_device(ble_device)
+            except DisconnectedError:
+                if is_final_attempt:
+                    raise
+                self.logger.debug(
+                    "Unexpectedly disconnected from %s", ble_device.address
+                )
+            except BleakError as err:
+                if is_final_attempt:
+                    raise
+                self.logger.debug("Bleak error: %s", err)
+        raise RuntimeError("Should not reach this point")
+
+    async def _update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
+        """Connects to the device through BLE and retrieves relevant data"""
         device = AirthingsDevice()
         loop = asyncio.get_running_loop()
         disconnect_future = loop.create_future()
@@ -663,8 +699,7 @@ class AirthingsBluetoothDeviceData:
                 # Clear the char cache since a char is likely
                 # missing from the cache
                 await client.clear_cache()
-        except DisconnectedError:
-            self.logger.debug("Unexpectedly disconnected from %s", client.address)
+            raise
         finally:
             await client.disconnect()
 
