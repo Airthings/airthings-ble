@@ -1,6 +1,11 @@
 """Airthings device types."""
 
 from enum import Enum
+import logging
+import re
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 class AirthingsDeviceType(Enum):
@@ -118,3 +123,36 @@ class AirthingsDeviceType(Enum):
         return (voltage - voltage_range[0]) / (voltage_range[1] - voltage_range[0]) * (
             percentage_range[1] - percentage_range[0]
         ) + percentage_range[0]
+    
+    def need_firmware_upgrade(self, version: str) -> bool:
+        """Check if the device needs an update. We only check for Wave Enhance."""
+        # If not a Tern EU or US
+        if (
+            self == AirthingsDeviceType.WAVE_ENHANCE_EU
+            or self == AirthingsDeviceType.WAVE_ENHANCE_US
+        ):
+            _LOGGER.debug("Checking if Wave Enhance is up to date")
+            return self._wave_enhance_need_firmware_upgrade(version)
+
+        _LOGGER.debug("No need to check for firmware update")
+        return False
+    
+    def _wave_enhance_need_firmware_upgrade(self, version: str) -> bool:
+        # TODO: Move to different place
+        """Check if the version of a Wave Enhance is 2.6.0 or higher."""
+        # Example of a Tern version: T-SUB-2.6.1-master+0
+        pattern = r"T-SUB-(\d+\.\d+\.\d+)"
+
+        # Check if we have a match, or else return False
+        match = re.findall(pattern, version)
+        if not match:
+            _LOGGER.debug("Invalid version string: %s", version)
+            return False
+
+        # Split the version into major, minor and patch
+        semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
+        major, minor, patch = semantic_version.match(match[0]).groups()
+
+        _LOGGER.debug("Version: %s.%s.%s", major, minor, patch)
+
+        return not (int(major) >= 2 and int(minor) >= 6 and int(patch) >= 1)

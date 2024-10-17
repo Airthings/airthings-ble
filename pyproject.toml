@@ -29,6 +29,7 @@ bleak = ">=0.15.1"
 bleak-retry-connector = ">=1.8.0"
 async-interrupt = ">=1.1.1"
 async-timeout = {version = ">=4.0.1", markers = "python_version < \"3.11\""}
+cbor2 = ">=5.6.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^8.0"
