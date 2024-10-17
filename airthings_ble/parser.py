@@ -44,6 +44,7 @@ from .const import (
     LOW,
     MODERATE,
     PERCENTAGE_MAX,
+    PRESSURE_MAX,
     RADON_MAX,
     TEMPERATURE_MAX,
     UPDATE_TIMEOUT,
@@ -142,7 +143,7 @@ def _decode_wave_plus(
         data["temperature"] = validate_value(
             value=val[6] / 100.0, max_value=TEMPERATURE_MAX
         )
-        data["pressure"] = float(val[7] / 50.0)
+        data["pressure"] = validate_value(val[7] / 50.0, max_value=PRESSURE_MAX)
         data["co2"] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
         data["voc"] = validate_value(value=val[9] * 1.0, max_value=VOC_MAX)
         return data
