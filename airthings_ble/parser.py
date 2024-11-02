@@ -40,15 +40,15 @@ from .const import (
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
-    HIGH,
-    LOW,
-    MODERATE,
     PERCENTAGE_MAX,
     PRESSURE_MAX,
+    RADON_HIGH,
+    RADON_LOW,
     RADON_MAX,
+    RADON_MODERATE,
+    RADON_VERY_LOW,
     TEMPERATURE_MAX,
     UPDATE_TIMEOUT,
-    VERY_LOW,
     VOC_MAX,
 )
 from .device_type import AirthingsDeviceType
@@ -379,14 +379,14 @@ class _NotificationReceiver:
 
 def get_radon_level(data: float) -> str:
     """Returns the applicable radon level"""
-    if data <= VERY_LOW[1]:
-        radon_level = VERY_LOW[2]
-    elif data <= LOW[1]:
-        radon_level = LOW[2]
-    elif data <= MODERATE[1]:
-        radon_level = MODERATE[2]
+    if data <= RADON_VERY_LOW[1]:
+        radon_level = RADON_VERY_LOW[2]
+    elif data <= RADON_LOW[1]:
+        radon_level = RADON_LOW[2]
+    elif data <= RADON_MODERATE[1]:
+        radon_level = RADON_MODERATE[2]
     else:
-        radon_level = HIGH[2]
+        radon_level = RADON_HIGH[2]
     return radon_level
 
 
