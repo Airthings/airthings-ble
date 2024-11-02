@@ -45,6 +45,18 @@ RADON_LOW = (50, 99, "low")
 RADON_MODERATE = (100, 299, "moderate")
 RADON_HIGH = (300, None, "high")
 
+"""
+0 - 249 ppb
+The VOC contents in the air are low.
+250 - 1999 ppb
+Look for VOC sources if this average level persists for a month
+2000 ppb and up
+The VOC contents are very high - consider taking action/ventilating right now
+"""
+VOC_LOW = (0, 249, "low")
+VOC_MODERATE = (250, 1999, "moderate")
+VOC_VERY_HIGH = (2000, None, "very high")
+
 BQ_TO_PCI_MULTIPLIER = 0.027
 
 CO2_MAX = 65534

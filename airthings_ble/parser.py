@@ -49,7 +49,10 @@ from .const import (
     RADON_VERY_LOW,
     TEMPERATURE_MAX,
     UPDATE_TIMEOUT,
+    VOC_LOW,
     VOC_MAX,
+    VOC_MODERATE,
+    VOC_VERY_HIGH,
 )
 from .device_type import AirthingsDeviceType
 
@@ -389,6 +392,15 @@ def get_radon_level(data: float) -> str:
         radon_level = RADON_HIGH[2]
     return radon_level
 
+def get_voc_level(data: float) -> str:
+    """Returns the applicable voc level"""
+    if data <= VOC_LOW[1]:
+        voc_level = VOC_LOW[2]
+    elif data <= VOC_MODERATE[1]:
+        voc_level = VOC_MODERATE[2]
+    else:
+        voc_level = VOC_VERY_HIGH[2]
+    return voc_level
 
 sensor_decoders: dict[
     str,
@@ -612,6 +624,9 @@ class AirthingsBluetoothDeviceData:
                             sensors["radon_longterm_avg"] = (
                                 float(d) * BQ_TO_PCI_MULTIPLIER
                             )
+
+                    if (d := sensor_data.get("voc")) is not None:
+                        sensors["voc_level"] = get_voc_level(float(d))
 
                 if uuid_str in command_decoders:
                     decoder = command_decoders[uuid_str]
