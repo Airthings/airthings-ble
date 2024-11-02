@@ -57,6 +57,30 @@ VOC_LOW = (0, 249, "low")
 VOC_MODERATE = (250, 1999, "moderate")
 VOC_VERY_HIGH = (2000, None, "very high")
 
+"""
+250 - 399 ppm
+Normal background concentration in outdoor ambient air
+400 - 999 ppm
+Concentrations typical of occupied indoor spaces with good air exchange.
+1000 - 1999 ppm
+Complaints of drowsiness and poor air
+2000 - 4999 ppm
+Headaches, sleepiness and stagnant, stale, stuffy air. Poor concentration, loss
+of attention, increased heart rate and slight nausea.
+5000 - 39999 ppm
+Extremely high
+40000 and up
+Exposure may lead to serious oxygen deprivation resulting in permanent brain
+damage, coma and even death.
+"""
+CO2_LOW = (0, 249, "low")
+CO2_OUTDOOR_NORMAL = (250, 399, "outdoor normal")
+CO2_INDOOR_NORMAL = (400, 999, "indoor normal")
+CO2_HIGH = (1000, 1999, "high")
+CO2_VERY_HIGH = (2000, 4999, "very high")
+CO2_EXTREMELLY_HIGH = (5000, 39999, "extremelly high")
+CO2_CRITICAL = (40000, None, "critical")
+
 BQ_TO_PCI_MULTIPLIER = 0.027
 
 CO2_MAX = 65534
