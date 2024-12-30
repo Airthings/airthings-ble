@@ -501,9 +501,17 @@ class AirthingsDeviceInfo:
         return f"Airthings {self.model.product_name}"
 
 
+class AirthingsFirmware:
+    need_fw_upgrade = False
+    current_firmware = ""
+    needed_firmware = ""
+
+
 @dataclasses.dataclass
 class AirthingsDevice(AirthingsDeviceInfo):
     """Response data with information about the Airthings device"""
+
+    firmware = AirthingsFirmware()
 
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
@@ -515,19 +523,11 @@ class AirthingsDevice(AirthingsDeviceInfo):
         return f"Airthings {self.model.product_name}"
 
 
-class AirthingsFirmware:
-    need_fw_upgrade = False
-    current_firmware = ""
-    needed_firmware = ""
-
-
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-branches
 # pylint: disable=too-few-public-methods
 class AirthingsBluetoothDeviceData:
     """Data for Airthings BLE sensors."""
-
-    firmware = AirthingsFirmware()
 
     def __init__(
         self,
@@ -550,7 +550,7 @@ class AirthingsBluetoothDeviceData:
         device_info.address = client.address
         did_first_sync = device_info.did_first_sync
 
-        self.firmware.current_firmware = device_info.sw_version
+        device.firmware.current_firmware = device_info.sw_version
 
         # We need to fetch model to determ what to fetch.
         if not did_first_sync:
@@ -660,10 +660,10 @@ class AirthingsBluetoothDeviceData:
                 ):
                     _LOGGER.warning(
                         "The firmware for this Wave Enhance is not up to date, "
-                        "please update to 2.6.1 or higher using the Airthings app."
+                        "please update to 2.6.1 or newer using the Airthings app."
                     )
-                    self.firmware.need_fw_upgrade = True
-                    self.firmware.needed_firmware = "2.6.1"
+                    device.firmware.need_fw_upgrade = True
+                    device.firmware.needed_firmware = "2.6.1"
                     return
 
                 decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
