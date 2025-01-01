@@ -44,6 +44,7 @@ class WaveEnhanceRequest:
 
 class WaveEnhanceResponse:
     """Response from a Wave Enhance"""
+
     _header = bytearray.fromhex("1001000345")
     response: bytes
     random_bytes: bytes
@@ -108,11 +109,11 @@ class WaveEnhanceResponse:
             )
             raise ValueError("Invalid response path length")
 
-        if self.response[11: 11 + path_length] != self.path:
+        if self.response[11 : 11 + path_length] != self.path:
             self.logger.debug(
                 "Invalid response path, expected %s, but got %s",
                 self.path,
-                self.response[11: 11 + path_length],
+                self.response[11 : 11 + path_length],
             )
             raise ValueError("Invalid response path")
 

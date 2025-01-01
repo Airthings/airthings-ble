@@ -790,8 +790,7 @@ class AirthingsBluetoothDeviceData:
                             self.logger.warning("Timeout getting command data.")
 
                         command_sensor_data = decoder.decode_data(
-                            logger=self.logger,
-                            raw_data=command_data_receiver.message
+                            logger=self.logger, raw_data=command_data_receiver.message
                         )
                         if command_sensor_data is not None:
                             new_values: dict[str, float | str | None] = {}
@@ -828,7 +827,9 @@ class AirthingsBluetoothDeviceData:
             except DisconnectedError:
                 if is_final_attempt:
                     raise
-                self.logger.debug("Unexpectedly disconnected from %s", ble_device.address)
+                self.logger.debug(
+                    "Unexpectedly disconnected from %s", ble_device.address
+                )
             except BleakError as err:
                 if is_final_attempt:
                     raise
