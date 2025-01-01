@@ -1,4 +1,4 @@
-from airthings_ble.const import CO2_MAX, PERCENTAGE_MAX, RADON_MAX
+from airthings_ble.const import CO2_MAX, PERCENTAGE_MAX, PRESSURE_MAX, RADON_MAX
 from airthings_ble.parser import validate_value, illuminance_converter
 
 
@@ -36,3 +36,11 @@ def test_validate_value_illuminance():
     assert illuminance_converter(0) == 0
     assert illuminance_converter(255) == 100
     assert illuminance_converter(256) is None
+
+
+def test_validata_value_pressure():
+    assert validate_value(value=0.0, max_value=PRESSURE_MAX) == 0
+    assert validate_value(value=1310.0, max_value=PRESSURE_MAX) == 1310
+    assert validate_value(value=1311.0, max_value=PRESSURE_MAX) is None
+    assert validate_value(value=-1.0, max_value=PRESSURE_MAX) is None
+    assert validate_value(value=65535.0, max_value=PRESSURE_MAX) is None
