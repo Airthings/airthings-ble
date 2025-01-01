@@ -145,6 +145,10 @@ class AirthingsDeviceType(Enum):
             return False
 
         semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-        major, minor, patch = semantic_version.match(match[0]).groups()
+        match_obj = semantic_version.match(match[0])
+        if not match_obj:
+            _LOGGER.warning("Invalid semantic version string: %s", match[0])
+            return False
+        major, minor, patch = match_obj.groups()
 
         return not (int(major) >= 2 and int(minor) >= 6 and int(patch) >= 1)

@@ -67,7 +67,7 @@ class WaveEnhanceResponse:
             raise ValueError("Response cannot be None")
         self.response = response
         self.random_bytes = random_bytes
-        self.path = path.as_bytes()
+        self.path = path
 
     def parse(self) -> dict[str, float | str | None] | None:
         if self.response[0:5] != self._header:
@@ -106,18 +106,18 @@ class WaveEnhanceResponse:
             raise ValueError("Invalid response element")
 
         path_length = self.response[10] - 0x60
-        if path_length != len(self.path):
+        if path_length != len(self.path.as_bytes()):
             self.logger.debug(
                 "Invalid path length, expected %d, but got %d",
-                len(self.path),
+                len(self.path.as_bytes()),
                 path_length,
             )
             raise ValueError("Invalid response path length")
 
-        if self.response[11 : 11 + path_length] != self.path:
+        if self.response[11 : 11 + path_length] != self.path.as_bytes():
             self.logger.debug(
                 "Invalid response path, expected %s, but got %s",
-                self.path,
+                self.path.as_bytes(),
                 self.response[11 : 11 + path_length],
             )
             raise ValueError("Invalid response path")
