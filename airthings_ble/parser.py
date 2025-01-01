@@ -357,6 +357,7 @@ class WaveEnhanceCommandDecode(CommandDecode):
         logger.debug("Wave Enhanche raw data response: %s", raw_data)
         try:
             response = WaveEnhanceResponse(
+                logger=logger,
                 response=raw_data,
                 random_bytes=self.request.random_bytes,
                 path=self.request.url,
@@ -658,7 +659,7 @@ class AirthingsBluetoothDeviceData:
                 if self.device_info.model.need_firmware_upgrade(
                     self.device_info.sw_version
                 ):
-                    _LOGGER.warning(
+                    self.logger.warning(
                         "The firmware for this Wave Enhance is not up to date, "
                         "please update to 2.6.1 or newer using the Airthings app."
                     )
@@ -687,9 +688,12 @@ class AirthingsBluetoothDeviceData:
                 try:
                     await command_data_receiver.wait_for_message(5)
                 except asyncio.TimeoutError:
-                    _LOGGER.warning("Timeout getting command data.")
+                    self.logger.warning("Timeout getting command data.")
 
-                command_sensor_data = decoder.decode_data(command_data_receiver.message)
+                command_sensor_data = decoder.decode_data(
+                    logger=self.logger,
+                    raw_data=command_data_receiver.message,
+                )
 
                 if command_sensor_data is not None:
                     new_values: dict[str, float | str | None] = {}
@@ -723,7 +727,7 @@ class AirthingsBluetoothDeviceData:
                     if (pressure := command_sensor_data.get("PRS")) is not None:
                         new_values["pressure"] = pressure / (64 * 100)
 
-                    _LOGGER.debug("Sensor values: %s", new_values)
+                    self.logger.debug("Sensor values: %s", new_values)
 
                     sensors.update(new_values)
 
@@ -741,7 +745,7 @@ class AirthingsBluetoothDeviceData:
                         try:
                             data = await client.read_gatt_char(characteristic)
                         except BleakError as err:
-                            _LOGGER.debug(
+                            self.logger.debug(
                                 "Get service characteristics exception: %s", err
                             )
                             continue
@@ -782,10 +786,11 @@ class AirthingsBluetoothDeviceData:
                         try:
                             await command_data_receiver.wait_for_message(5)
                         except asyncio.TimeoutError:
-                            _LOGGER.warning("Timeout getting command data.")
+                            self.logger.warning("Timeout getting command data.")
 
                         command_sensor_data = decoder.decode_data(
-                            command_data_receiver.message
+                            logger=self.logger,
+                            raw_data=command_data_receiver.message
                         )
                         if command_sensor_data is not None:
                             new_values: dict[str, float | str | None] = {}
@@ -822,11 +827,11 @@ class AirthingsBluetoothDeviceData:
             except DisconnectedError:
                 if is_final_attempt:
                     raise
-                _LOGGER.debug("Unexpectedly disconnected from %s", ble_device.address)
+                self.logger.debug("Unexpectedly disconnected from %s", ble_device.address)
             except BleakError as err:
                 if is_final_attempt:
                     raise
-                _LOGGER.debug("Bleak error: %s", err)
+                self.logger.debug("Bleak error: %s", err)
         raise RuntimeError("Should not reach this point")
 
     async def _update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
