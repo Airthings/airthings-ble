@@ -130,10 +130,8 @@ class AirthingsDeviceType(Enum):
             self == AirthingsDeviceType.WAVE_ENHANCE_EU
             or self == AirthingsDeviceType.WAVE_ENHANCE_US
         ):
-            _LOGGER.info("Checking if Wave Enhance is up to date")
             return self._wave_enhance_need_firmware_upgrade(version)
 
-        _LOGGER.debug("No need to check for firmware update")
         return False
 
     def _wave_enhance_need_firmware_upgrade(self, version: str) -> bool:
@@ -148,12 +146,5 @@ class AirthingsDeviceType(Enum):
 
         semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
         major, minor, patch = semantic_version.match(match[0]).groups()
-
-        _LOGGER.warning(
-            "No need for firmware upgrade, current firmware: %s.%s.%s",
-            major,
-            minor,
-            patch,
-        )
 
         return not (int(major) >= 2 and int(minor) >= 6 and int(patch) >= 1)
