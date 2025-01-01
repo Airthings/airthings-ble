@@ -20,7 +20,6 @@ def test_wave_plus_sensor_data():
     """Test wave plus sensor data."""
     raw_data = bytearray.fromhex("01380d800b002200bd094cc31d036c0000007d05")
 
-    # Call the function
     decoded_data = _decode_wave_plus(name="Plus", format_type="<4B8H", scale=1.0)(
         raw_data
     )

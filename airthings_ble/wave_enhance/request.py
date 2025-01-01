@@ -124,9 +124,11 @@ class WaveEnhanceResponse:
             decoded_data = cbor2.loads(data_bytes)
             self.logger.debug("Decoded data: %s", decoded_data)
 
-            # TODO: Validate data type
-            self.logger.debug("Parsed data is type: %s", type(decoded_data))
-
+            if not isinstance(decoded_data, dict):
+                self.logger.error(
+                    "Parsed data is not a dictionary, but a %s", type(decoded_data)
+                )
+                raise ValueError("Invalid response data type")
             return decoded_data
         except ValueError as e:
             self.logger.error(f"Failed to parse response: {e}")
