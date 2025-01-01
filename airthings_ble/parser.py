@@ -498,7 +498,8 @@ class AirthingsDeviceInfo:
         return f"Airthings {self.model.product_name}"
 
 
-class AirthingsFirmware:
+class AirthingsFirmware:  # pylint: disable=too-few-public-methods
+    """Firmware information for the Airthings device."""
     need_fw_upgrade = False
     current_firmware = ""
     needed_firmware = ""
@@ -640,12 +641,7 @@ class AirthingsBluetoothDeviceData:
     ) -> None:
         svcs = client.services
         sensors = device.sensors
-        for service in svcs:
-            is_tern = (
-                device.model == AirthingsDeviceType.WAVE_ENHANCE_EU
-                or device.model == AirthingsDeviceType.WAVE_ENHANCE_US
-            )
-
+        for service in svcs:  # pylint: disable=too-many-nested-blocks
             if (
                 (
                     str(COMMAND_UUID_WAVE_ENHANCE)
@@ -655,36 +651,63 @@ class AirthingsBluetoothDeviceData:
                     str(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
                     in (str(x.uuid) for x in service.characteristics)
                 )
-                and is_tern
+                and device.model in (
+                    AirthingsDeviceType.WAVE_ENHANCE_EU,
+                    AirthingsDeviceType.WAVE_ENHANCE_US,
+                )
             ):
-                if self.device_info.model.need_firmware_upgrade(
-                    self.device_info.sw_version
-                ):
-                    self.logger.warning(
-                        "The firmware for this Wave Enhance is not up to date, "
-                        "please update to 2.6.1 or newer using the Airthings app."
-                    )
-                    device.firmware = AirthingsFirmware(
-                        need_fw_upgrade=True,
-                        current_firmware=device.sw_version,
-                        needed_firmware="2.6.1",
-                    )
-                    return
+                await self._wave_enhance_sensor_data(client, device, sensors, service)
+            else:
+                await self._wave_sensor_data(client, device, sensors, service)
 
-                decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
+    async def _wave_sensor_data(self, client, device, sensors, service):
+        for characteristic in service.characteristics:
+            uuid = characteristic.uuid
+            uuid_str = str(uuid)
+            if (
+                uuid in sensors_characteristics_uuid_str
+                and uuid_str in sensor_decoders
+            ):
+                try:
+                    data = await client.read_gatt_char(characteristic)
+                except BleakError as err:
+                    self.logger.debug(
+                        "Get service characteristics exception: %s", err
+                    )
+                    continue
 
+                sensor_data = sensor_decoders[uuid_str](data)
+
+                # Skipping for now
+                if "date_time" in sensor_data:
+                    sensor_data.pop("date_time")
+
+                sensors.update(sensor_data)
+
+                # Manage radon values
+                if (d := sensor_data.get("radon_1day_avg")) is not None:
+                    sensors["radon_1day_level"] = get_radon_level(float(d))
+                    if not self.is_metric:
+                        sensors["radon_1day_avg"] = (
+                            float(d) * BQ_TO_PCI_MULTIPLIER
+                        )
+                if (d := sensor_data.get("radon_longterm_avg")) is not None:
+                    sensors["radon_longterm_level"] = get_radon_level(float(d))
+                    if not self.is_metric:
+                        sensors["radon_longterm_avg"] = (
+                            float(d) * BQ_TO_PCI_MULTIPLIER
+                        )
+
+            if uuid_str in command_decoders:
+                decoder = command_decoders[uuid_str]
                 command_data_receiver = decoder.make_data_receiver()
 
-                atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
-                atom_notify = service.get_characteristic(
-                    COMMAND_UUID_WAVE_ENHANCE_NOTIFY
-                )
-
                 # Set up the notification handlers
-                await client.start_notify(atom_notify, command_data_receiver)
-
+                await client.start_notify(characteristic, command_data_receiver)
                 # send command to this 'indicate' characteristic
-                await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
+                await client.write_gatt_char(
+                    characteristic, bytearray(decoder.cmd)
+                )
                 # Wait for up to one second to see if a callback comes in.
                 try:
                     await command_data_receiver.wait_for_message(5)
@@ -692,123 +715,106 @@ class AirthingsBluetoothDeviceData:
                     self.logger.warning("Timeout getting command data.")
 
                 command_sensor_data = decoder.decode_data(
-                    logger=self.logger,
-                    raw_data=command_data_receiver.message,
+                    logger=self.logger, raw_data=command_data_receiver.message
                 )
-
                 if command_sensor_data is not None:
                     new_values: dict[str, float | str | None] = {}
 
-                    if (bat_data := command_sensor_data.get("BAT")) is not None:
+                    if (
+                        bat_data := command_sensor_data.get("battery")
+                    ) is not None:
                         new_values["battery"] = device.model.battery_percentage(
                             float(bat_data)
                         )
 
-                    if (lux := command_sensor_data.get("LUX")) is not None:
-                        new_values["lux"] = lux
-
-                    if (co2 := command_sensor_data.get("CO2")) is not None:
-                        new_values["co2"] = co2
-
-                    if (voc := command_sensor_data.get("VOC")) is not None:
-                        new_values["voc"] = voc
-
-                    if (hum := command_sensor_data.get("HUM")) is not None:
-                        new_values["humidity"] = hum / 100.0
-
-                    if (temperature := command_sensor_data.get("TMP")) is not None:
-                        # Temperature reported as kelvin
-                        new_values["temperature"] = round(
-                            temperature / 100.0 - 273.15, 2
-                        )
-
-                    if (noise := command_sensor_data.get("NOI")) is not None:
-                        new_values["noise"] = noise
-
-                    if (pressure := command_sensor_data.get("PRS")) is not None:
-                        new_values["pressure"] = pressure / (64 * 100)
-
-                    self.logger.debug("Sensor values: %s", new_values)
+                    if illuminance := command_sensor_data.get("illuminance"):
+                        new_values["illuminance"] = illuminance
 
                     sensors.update(new_values)
 
                 # Stop notification handler
-                await client.stop_notify(atom_notify)
+                await client.stop_notify(characteristic)
 
-            else:
-                for characteristic in service.characteristics:
-                    uuid = characteristic.uuid
-                    uuid_str = str(uuid)
-                    if (
-                        uuid in sensors_characteristics_uuid_str
-                        and uuid_str in sensor_decoders
-                    ):
-                        try:
-                            data = await client.read_gatt_char(characteristic)
-                        except BleakError as err:
-                            self.logger.debug(
-                                "Get service characteristics exception: %s", err
-                            )
-                            continue
+    async def _wave_enhance_sensor_data(
+        self, client, device, sensors, service
+    ) -> None:
+        if self.device_info.model.need_firmware_upgrade(
+                    self.device_info.sw_version
+                ):
+            self.logger.warning(
+                        "The firmware for this Wave Enhance is not up to date, "
+                        "please update to 2.6.1 or newer using the Airthings app."
+                    )
+            device.firmware = AirthingsFirmware(
+                        need_fw_upgrade=True,
+                        current_firmware=device.sw_version,
+                        needed_firmware="2.6.1",
+                    )
+            return
 
-                        sensor_data = sensor_decoders[uuid_str](data)
+        decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
 
-                        # Skipping for now
-                        if "date_time" in sensor_data:
-                            sensor_data.pop("date_time")
+        command_data_receiver = decoder.make_data_receiver()
 
-                        sensors.update(sensor_data)
+        atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
+        atom_notify = service.get_characteristic(
+            COMMAND_UUID_WAVE_ENHANCE_NOTIFY
+        )
 
-                        # Manage radon values
-                        if (d := sensor_data.get("radon_1day_avg")) is not None:
-                            sensors["radon_1day_level"] = get_radon_level(float(d))
-                            if not self.is_metric:
-                                sensors["radon_1day_avg"] = (
-                                    float(d) * BQ_TO_PCI_MULTIPLIER
-                                )
-                        if (d := sensor_data.get("radon_longterm_avg")) is not None:
-                            sensors["radon_longterm_level"] = get_radon_level(float(d))
-                            if not self.is_metric:
-                                sensors["radon_longterm_avg"] = (
-                                    float(d) * BQ_TO_PCI_MULTIPLIER
-                                )
+        # Set up the notification handlers
+        await client.start_notify(atom_notify, command_data_receiver)
 
-                    if uuid_str in command_decoders:
-                        decoder = command_decoders[uuid_str]
-                        command_data_receiver = decoder.make_data_receiver()
+        # send command to this 'indicate' characteristic
+        await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
+        # Wait for up to one second to see if a callback comes in.
+        try:
+            await command_data_receiver.wait_for_message(5)
+        except asyncio.TimeoutError:
+            self.logger.warning("Timeout getting command data.")
 
-                        # Set up the notification handlers
-                        await client.start_notify(characteristic, command_data_receiver)
-                        # send command to this 'indicate' characteristic
-                        await client.write_gatt_char(
-                            characteristic, bytearray(decoder.cmd)
-                        )
-                        # Wait for up to one second to see if a callback comes in.
-                        try:
-                            await command_data_receiver.wait_for_message(5)
-                        except asyncio.TimeoutError:
-                            self.logger.warning("Timeout getting command data.")
+        command_sensor_data = decoder.decode_data(
+                    logger=self.logger,
+                    raw_data=command_data_receiver.message,
+                )
 
-                        command_sensor_data = decoder.decode_data(
-                            logger=self.logger, raw_data=command_data_receiver.message
-                        )
-                        if command_sensor_data is not None:
-                            new_values: dict[str, float | str | None] = {}
+        if command_sensor_data is not None:
+            new_values: dict[str, float | str | None] = {}
 
-                            if (
-                                bat_data := command_sensor_data.get("battery")
-                            ) is not None:
-                                new_values["battery"] = device.model.battery_percentage(
-                                    float(bat_data)
-                                )
+            if (bat_data := command_sensor_data.get("BAT")) is not None:
+                new_values["battery"] = device.model.battery_percentage(
+                    float(bat_data)
+                )
 
-                            if illuminance := command_sensor_data.get("illuminance"):
-                                new_values["illuminance"] = illuminance
+            if (lux := command_sensor_data.get("LUX")) is not None:
+                new_values["lux"] = lux
 
-                            sensors.update(new_values)
+            if (co2 := command_sensor_data.get("CO2")) is not None:
+                new_values["co2"] = co2
 
-                        # Stop notification handler
-                        await client.stop_notify(characteristic)
+            if (voc := command_sensor_data.get("VOC")) is not None:
+                new_values["voc"] = voc
+
+            if (hum := command_sensor_data.get("HUM")) is not None:
+                new_values["humidity"] = hum / 100.0
+
+            if (temperature := command_sensor_data.get("TMP")) is not None:
+                # Temperature reported as kelvin
+                new_values["temperature"] = round(
+                    temperature / 100.0 - 273.15, 2
+                )
+
+            if (noise := command_sensor_data.get("NOI")) is not None:
+                new_values["noise"] = noise
+
+            if (pressure := command_sensor_data.get("PRS")) is not None:
+                new_values["pressure"] = pressure / (64 * 100)
+
+            self.logger.debug("Sensor values: %s", new_values)
+
+            sensors.update(new_values)
+
+        # Stop notification handler
+        await client.stop_notify(atom_notify)
 
     def _handle_disconnect(
         self, disconnect_future: asyncio.Future[bool], client: BleakClient

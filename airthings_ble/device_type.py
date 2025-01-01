@@ -49,9 +49,9 @@ class AirthingsDeviceType(Enum):
             return "Wave Plus"
         if self == AirthingsDeviceType.WAVE_RADON:
             return "Wave Radon"
-        if (
-            self == AirthingsDeviceType.WAVE_ENHANCE_EU
-            or self == AirthingsDeviceType.WAVE_ENHANCE_US
+        if self in (
+            AirthingsDeviceType.WAVE_ENHANCE_EU,
+            AirthingsDeviceType.WAVE_ENHANCE_US
         ):
             return "Wave Enhance"
         return "Unknown"
@@ -126,9 +126,9 @@ class AirthingsDeviceType(Enum):
 
     def need_firmware_upgrade(self, version: str) -> bool:
         """Check if the device needs an update."""
-        if (
-            self == AirthingsDeviceType.WAVE_ENHANCE_EU
-            or self == AirthingsDeviceType.WAVE_ENHANCE_US
+        if self in (
+            AirthingsDeviceType.WAVE_ENHANCE_EU,
+            AirthingsDeviceType.WAVE_ENHANCE_US
         ):
             return self._wave_enhance_need_firmware_upgrade(version)
 
