@@ -59,8 +59,8 @@ class AirthingsDeviceType(Enum):
     def battery_percentage(self, voltage: float) -> int:
         """Calculate battery percentage based on voltage."""
         if self == AirthingsDeviceType.WAVE_MINI:
-            return round(self._two_batteries(voltage))
-        return round(self._three_batteries(voltage))
+            return round(self._three_batteries(voltage))
+        return round(self._two_batteries(voltage))
 
     # pylint: disable=too-many-return-statements
     def _two_batteries(self, voltage: float) -> float:
