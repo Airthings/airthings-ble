@@ -17,6 +17,7 @@ from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
+from bleak.backends.service import BleakGATTService
 
 from airthings_ble.wave_enhance.request import (
     WaveEnhanceRequest,
@@ -662,7 +663,13 @@ class AirthingsBluetoothDeviceData:
             else:
                 await self._wave_sensor_data(client, device, sensors, service)
 
-    async def _wave_sensor_data(self, client, device, sensors, service):
+    async def _wave_sensor_data(
+        self,
+        client: BleakClient,
+        device: AirthingsDevice,
+        sensors: dict[str, str | float | None],
+        service: BleakGATTService,
+    ) -> None:
         for characteristic in service.characteristics:
             uuid = characteristic.uuid
             uuid_str = str(uuid)
@@ -724,7 +731,14 @@ class AirthingsBluetoothDeviceData:
                 # Stop notification handler
                 await client.stop_notify(characteristic)
 
-    async def _wave_enhance_sensor_data(self, client, device, sensors, service) -> None:
+    async def _wave_enhance_sensor_data(
+        self,
+        client: BleakClient,
+        device: AirthingsDevice,
+        sensors: dict[str, str | float | None],
+        service: BleakGATTService,
+    ) -> None:
+        """Get sensor data from the Wave Enhance."""
         if self.device_info.model.need_firmware_upgrade(self.device_info.sw_version):
             self.logger.warning(
                 "The firmware for this Wave Enhance is not up to date, "
@@ -743,6 +757,10 @@ class AirthingsBluetoothDeviceData:
 
         atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
         atom_notify = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
+
+        if atom_write is None or atom_notify is None:
+            self.logger.error("Missing characteristics for Wave Enhance")
+            raise ValueError("Missing characteristics for Wave Enhance")
 
         # Set up the notification handlers
         await client.start_notify(atom_notify, command_data_receiver)
@@ -776,17 +794,19 @@ class AirthingsBluetoothDeviceData:
                 new_values["voc"] = voc
 
             if (hum := command_sensor_data.get("HUM")) is not None:
-                new_values["humidity"] = hum / 100.0
+                new_values["humidity"] = float(hum) / 100.0
 
             if (temperature := command_sensor_data.get("TMP")) is not None:
                 # Temperature reported as kelvin
-                new_values["temperature"] = round(temperature / 100.0 - 273.15, 2)
+                new_values["temperature"] = round(
+                    float(temperature) / 100.0 - 273.15, 2
+                )
 
             if (noise := command_sensor_data.get("NOI")) is not None:
                 new_values["noise"] = noise
 
             if (pressure := command_sensor_data.get("PRS")) is not None:
-                new_values["pressure"] = pressure / (64 * 100)
+                new_values["pressure"] = float(pressure) / (64 * 100)
 
             self.logger.debug("Sensor values: %s", new_values)
 
