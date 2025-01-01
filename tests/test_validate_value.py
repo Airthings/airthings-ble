@@ -35,4 +35,4 @@ def test_validate_value_co2():
 def test_validate_value_illuminance():
     assert illuminance_converter(0) == 0
     assert illuminance_converter(255) == 100
-    assert illuminance_converter(256) == None
+    assert illuminance_converter(256) is None

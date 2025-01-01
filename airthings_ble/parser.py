@@ -353,12 +353,8 @@ class WaveEnhanceCommandDecode(CommandDecode):
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
 
-        _LOGGER.warning("Wave Enhance command decoder...")
-        _LOGGER.warning("Raw data: %s", raw_data)
+        _LOGGER.debug("Wave Enhanche raw data response: %s", raw_data)
         try:
-            _LOGGER.warning("Creating Wave Enhance response...")
-            _LOGGER.warning("The path is: %s", self.request.url)
-            _LOGGER.warning("Thr path as bytes is: %s", self.request.url.as_bytes())
             response = WaveEnhanceResponse(
                 response=raw_data,
                 random_bytes=self.request.random_bytes,
@@ -505,6 +501,16 @@ class AirthingsFirmware:
     need_fw_upgrade = False
     current_firmware = ""
     needed_firmware = ""
+
+    def __init__(
+        self,
+        need_fw_upgrade: bool = False,
+        current_firmware: str = "",
+        needed_firmware: str = "",
+    ) -> None:
+        self.need_fw_upgrade = need_fw_upgrade
+        self.current_firmware = current_firmware
+        self.needed_firmware = needed_firmware
 
 
 @dataclasses.dataclass
@@ -662,8 +668,11 @@ class AirthingsBluetoothDeviceData:
                         "The firmware for this Wave Enhance is not up to date, "
                         "please update to 2.6.1 or newer using the Airthings app."
                     )
-                    device.firmware.need_fw_upgrade = True
-                    device.firmware.needed_firmware = "2.6.1"
+                    device.firmware = AirthingsFirmware(
+                        need_fw_upgrade=True,
+                        current_firmware=device.sw_version,
+                        needed_firmware="2.6.1",
+                    )
                     return
 
                 decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
@@ -693,55 +702,44 @@ class AirthingsBluetoothDeviceData:
                 except asyncio.TimeoutError:
                     _LOGGER.warning("Timeout getting command data.")
 
-                try:
-                    await command_data_receiver.wait_for_message(5)
-                except asyncio.TimeoutError:
-                    _LOGGER.warning("Timeout getting command data.")
-
                 command_sensor_data = decoder.decode_data(
                     command_data_receiver.message
                 )
+
                 if command_sensor_data is not None:
-                    _LOGGER.warning("Command sensor data: %s", command_sensor_data)
+                    _LOGGER.debug("Command sensor data: %s", command_sensor_data)
                     new_values: dict[str, float | str | None] = {}
 
                     if (bat_data := command_sensor_data.get("BAT")) is not None:
                         new_values["battery"] = device.model.battery_percentage(
                             float(bat_data)
                         )
-                        _LOGGER.warning("Battery: %s", bat_data)
                     
                     if (lux := command_sensor_data.get("LUX")) is not None:
                         new_values["lux"] = lux
-                        _LOGGER.warning("Lux: %s", lux)
                     
                     if (co2 := command_sensor_data.get("CO2")) is not None:
                         new_values["co2"] = co2
-                        _LOGGER.warning("CO2: %s", co2)
                     
                     if (voc := command_sensor_data.get("VOC")) is not None:
                         new_values["voc"] = voc
-                        _LOGGER.warning("VOC: %s", voc)
                     
                     if (hum := command_sensor_data.get("HUM")) is not None:
                         new_values["humidity"] = hum / 100.0
-                        _LOGGER.warning("Humidity: %s", hum)
                     
                     if (temperature := command_sensor_data.get("TMP")) is not None:
-                        # Temperature reported as kelvin, need to convert to celsius
-                        # TODO: Add support for Fahrenheit
+                        # Temperature reported as kelvin
                         new_values["temperature"] = round(
                             temperature / 100.0 - 273.15, 2
                         )
-                        _LOGGER.warning("Temperature: %s", temperature)
                     
                     if (noise := command_sensor_data.get("NOI")) is not None:
                         new_values["noise"] = noise
-                        _LOGGER.warning("Noise: %s", noise)
                     
                     if (pressure := command_sensor_data.get("PRS")) is not None:
                         new_values["pressure"] = pressure / (64 * 100)
-                        _LOGGER.warning("Pressure: %s", pressure)
+                    
+                    _LOGGER.debug("Sensor values: %s", new_values)
 
                     sensors.update(new_values)
 
