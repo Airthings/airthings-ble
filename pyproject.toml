@@ -22,7 +22,7 @@ packages = [
 "Bug Tracker" = "https://github.com/Airthings/airthings-ble/issues"
 
 [tool.poetry.dependencies]
-python = "^3.9"
+python = "^3.10"
 
 # Documentation Dependencies
 bleak = ">=0.15.1"

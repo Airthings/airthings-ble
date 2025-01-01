@@ -6,6 +6,11 @@ on:
       tag:
         description: New version tag
         required: true
+      prerelease:
+        description: Is this a pre-release?
+        required: false
+        default: false
+        type: boolean
 
 jobs:
   final-linting:
@@ -71,9 +76,10 @@ jobs:
         uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           files: dist/${{ env.name }}/*
           tag_name: ${{ github.event.inputs.tag }}
           generate_release_notes: true
+          prerelease: ${{ github.event.inputs.prerelease }}
       
