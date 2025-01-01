@@ -741,8 +741,9 @@ class AirthingsBluetoothDeviceData:
         """Get sensor data from the Wave Enhance."""
         if self.device_info.model.need_firmware_upgrade(self.device_info.sw_version):
             self.logger.warning(
-                "The firmware for this Wave Enhance is not up to date, "
-                "please update to 2.6.1 or newer using the Airthings app."
+                "The firmware for this Wave Enhance (%s) is not up to date, "
+                "please update to 2.6.1 or newer using the Airthings app.",
+                self.device_info.address,
             )
             device.firmware = AirthingsFirmware(
                 need_fw_upgrade=True,
