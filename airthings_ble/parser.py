@@ -16,8 +16,8 @@ from typing import Any, Callable, Optional, Tuple
 from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
-from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 from bleak.backends.service import BleakGATTService
+from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from airthings_ble.wave_enhance.request import (
     WaveEnhanceRequest,
