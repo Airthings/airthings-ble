@@ -22,8 +22,9 @@ def test_device_type():
     assert AirthingsDeviceType.from_raw_value("2920") == AirthingsDeviceType.WAVE_MINI
     assert AirthingsDeviceType.from_raw_value("2930") == AirthingsDeviceType.WAVE_PLUS
     assert AirthingsDeviceType.from_raw_value("2950") == AirthingsDeviceType.WAVE_RADON
-    assert AirthingsDeviceType.from_raw_value("3210") == \
-        AirthingsDeviceType.WAVE_ENHANCE
+    assert (
+        AirthingsDeviceType.from_raw_value("3210") == AirthingsDeviceType.WAVE_ENHANCE
+    )
 
     unknown_device = AirthingsDeviceType.from_raw_value("1234")
     assert unknown_device == AirthingsDeviceType.UNKNOWN

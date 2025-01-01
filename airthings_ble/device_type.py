@@ -123,7 +123,7 @@ class AirthingsDeviceType(Enum):
         return (voltage - voltage_range[0]) / (voltage_range[1] - voltage_range[0]) * (
             percentage_range[1] - percentage_range[0]
         ) + percentage_range[0]
-    
+
     def need_firmware_upgrade(self, version: str) -> bool:
         """Check if the device needs an update."""
         if (
@@ -135,7 +135,7 @@ class AirthingsDeviceType(Enum):
 
         _LOGGER.debug("No need to check for firmware update")
         return False
-    
+
     def _wave_enhance_need_firmware_upgrade(self, version: str) -> bool:
         """Check if the version of a Wave Enhance is 2.6.0 or higher."""
         # Example of a Tern version: T-SUB-2.6.1-master+0
@@ -151,7 +151,9 @@ class AirthingsDeviceType(Enum):
 
         _LOGGER.warning(
             "No need for firmware upgrade, current firmware: %s.%s.%s",
-            major, minor, patch
+            major,
+            minor,
+            patch,
         )
 
         return not (int(major) >= 2 and int(minor) >= 6 and int(patch) >= 1)

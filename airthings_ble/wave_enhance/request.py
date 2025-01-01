@@ -20,15 +20,9 @@ class WaveEnhanceRequestPath(enum.Enum):
             raise ValueError(
                 "WaveEnhanceRequestPath - self.value must be a string to encode: %s, type: %s",
                 self.value,
-                type(self.value)
+                type(self.value),
             )
-
-        try:
-            return_value = bytes(self.value, "utf-8")
-            return return_value
-        except Exception as e:
-            _LOGGER.error(f"WaveEnhanceRequestPath - Failed to encode: {e}")
-            raise e
+        return bytes(self.value, "utf-8")
 
 
 class WaveEnhanceRequest:
@@ -69,11 +63,11 @@ class WaveEnhanceResponse:
     path: WaveEnhanceRequestPath
 
     def __init__(
-            self,
-            response: bytes | None,
-            random_bytes: bytes,
-            path: WaveEnhanceRequestPath
-            ) -> None:
+        self,
+        response: bytes | None,
+        random_bytes: bytes,
+        path: WaveEnhanceRequestPath,
+    ) -> None:
         if response is None:
             raise ValueError("Response cannot be None")
         self.response = response
@@ -85,7 +79,7 @@ class WaveEnhanceResponse:
             _LOGGER.error(
                 "Invalid response header, expected %s, but got %s",
                 self._header.hex(),
-                self.response[0:5].hex()
+                self.response[0:5].hex(),
             )
             raise ValueError("Invalid response header")
 
@@ -93,28 +87,26 @@ class WaveEnhanceResponse:
             _LOGGER.debug(
                 "Invalid response checksum, expected %s, but got %s",
                 self.random_bytes.hex(),
-                self.response[5:7].hex()
+                self.response[5:7].hex(),
             )
             raise ValueError("Invalid response checksum")
 
         if self.response[7] != 0x81:
             _LOGGER.debug(
-                "Invalid response type, expected 1, but got %s",
-                self.response[7]
+                "Invalid response type, expected 1, but got %s", self.response[7]
             )
             raise ValueError("Invalid response type")
 
         if self.response[8] != 0xA2:
             _LOGGER.debug(
                 "Invalid response array length, expected 2, but got %s",
-                self.response[8]
+                self.response[8],
             )
             raise ValueError("Invalid response array length")
 
         if self.response[9] != 0x00:
             _LOGGER.debug(
-                "Invalid response data type, expected 00, but got %s",
-                self.response[9]
+                "Invalid response data type, expected 00, but got %s", self.response[9]
             )
             raise ValueError("Invalid response element")
 
@@ -123,15 +115,15 @@ class WaveEnhanceResponse:
             _LOGGER.debug(
                 "Invalid path length, expected %d, but got %d",
                 len(self.path),
-                path_length
+                path_length,
             )
             raise ValueError("Invalid response path length")
 
-        if self.response[11:11 + path_length] != self.path:
+        if self.response[11 : 11 + path_length] != self.path:
             _LOGGER.debug(
                 "Invalid response path, expected %s, but got %s",
                 self.path,
-                self.response[11:11 + path_length]
+                self.response[11 : 11 + path_length],
             )
             raise ValueError("Invalid response path")
 

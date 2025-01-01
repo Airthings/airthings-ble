@@ -19,7 +19,9 @@ from bleak.backends.device import BLEDevice
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from airthings_ble.wave_enhance.request import (
-    WaveEnhanceRequest, WaveEnhanceRequestPath, WaveEnhanceResponse
+    WaveEnhanceRequest,
+    WaveEnhanceRequestPath,
+    WaveEnhanceResponse,
 )
 
 from .const import (
@@ -266,9 +268,7 @@ class CommandDecode:
         _LOGGER.debug("Command decoder not implemented")
         return {}
 
-    def validate_data(
-        self, raw_data: bytearray | None
-    ) -> Optional[Any]:
+    def validate_data(self, raw_data: bytearray | None) -> Optional[Any]:
         """Validate data. Make sure the data is for the command."""
         if raw_data is None:
             _LOGGER.debug("Validate data: No data received")
@@ -605,9 +605,7 @@ class AirthingsBluetoothDeviceData:
                 if identifier != "Serial Number":
                     device_info.identifier = identifier
             else:
-                _LOGGER.debug(
-                    "Characteristics not handled: %s", characteristic.uuid
-                )
+                _LOGGER.debug("Characteristics not handled: %s", characteristic.uuid)
 
         if (
             device_info.model == AirthingsDeviceType.WAVE_GEN_1
@@ -626,7 +624,7 @@ class AirthingsBluetoothDeviceData:
 
         if device_info.model:
             device_info.did_first_sync = True
-        
+
         _LOGGER.warning("Device info: %s", device_info)
 
         # Copy the cached device_info to device
@@ -679,20 +677,15 @@ class AirthingsBluetoothDeviceData:
 
                 command_data_receiver = decoder.make_data_receiver()
 
-                atom_write = service.get_characteristic(
-                    COMMAND_UUID_WAVE_ENHANCE
-                )
+                atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
                 atom_notify = service.get_characteristic(
                     COMMAND_UUID_WAVE_ENHANCE_NOTIFY
                 )
 
                 # Set up the notification handlers
-                _LOGGER.warning(
-                    "Starting to listen for notifications: %s",
-                    atom_notify
-                )
+                _LOGGER.warning("Starting to listen for notifications: %s", atom_notify)
                 await client.start_notify(atom_notify, command_data_receiver)
-                
+
                 # send command to this 'indicate' characteristic
                 _LOGGER.warning("Sending command to: %s", atom_write)
                 await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
@@ -702,9 +695,7 @@ class AirthingsBluetoothDeviceData:
                 except asyncio.TimeoutError:
                     _LOGGER.warning("Timeout getting command data.")
 
-                command_sensor_data = decoder.decode_data(
-                    command_data_receiver.message
-                )
+                command_sensor_data = decoder.decode_data(command_data_receiver.message)
 
                 if command_sensor_data is not None:
                     _LOGGER.debug("Command sensor data: %s", command_sensor_data)
@@ -714,31 +705,31 @@ class AirthingsBluetoothDeviceData:
                         new_values["battery"] = device.model.battery_percentage(
                             float(bat_data)
                         )
-                    
+
                     if (lux := command_sensor_data.get("LUX")) is not None:
                         new_values["lux"] = lux
-                    
+
                     if (co2 := command_sensor_data.get("CO2")) is not None:
                         new_values["co2"] = co2
-                    
+
                     if (voc := command_sensor_data.get("VOC")) is not None:
                         new_values["voc"] = voc
-                    
+
                     if (hum := command_sensor_data.get("HUM")) is not None:
                         new_values["humidity"] = hum / 100.0
-                    
+
                     if (temperature := command_sensor_data.get("TMP")) is not None:
                         # Temperature reported as kelvin
                         new_values["temperature"] = round(
                             temperature / 100.0 - 273.15, 2
                         )
-                    
+
                     if (noise := command_sensor_data.get("NOI")) is not None:
                         new_values["noise"] = noise
-                    
+
                     if (pressure := command_sensor_data.get("PRS")) is not None:
                         new_values["pressure"] = pressure / (64 * 100)
-                    
+
                     _LOGGER.debug("Sensor values: %s", new_values)
 
                     sensors.update(new_values)
@@ -838,9 +829,7 @@ class AirthingsBluetoothDeviceData:
             except DisconnectedError:
                 if is_final_attempt:
                     raise
-                _LOGGER.debug(
-                    "Unexpectedly disconnected from %s", ble_device.address
-                )
+                _LOGGER.debug("Unexpectedly disconnected from %s", ble_device.address)
             except BleakError as err:
                 if is_final_attempt:
                     raise
