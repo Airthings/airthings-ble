@@ -51,7 +51,7 @@ class AirthingsDeviceType(Enum):
             return "Wave Radon"
         if self in (
             AirthingsDeviceType.WAVE_ENHANCE_EU,
-            AirthingsDeviceType.WAVE_ENHANCE_US
+            AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
             return "Wave Enhance"
         return "Unknown"
@@ -128,7 +128,7 @@ class AirthingsDeviceType(Enum):
         """Check if the device needs an update."""
         if self in (
             AirthingsDeviceType.WAVE_ENHANCE_EU,
-            AirthingsDeviceType.WAVE_ENHANCE_US
+            AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
             return self._wave_enhance_need_firmware_upgrade(version)
 

@@ -28,9 +28,14 @@ class WaveEnhanceRequest:
     url: WaveEnhanceRequestPath
     random_bytes: bytes
 
-    def __init__(self, url: WaveEnhanceRequestPath):
+    def __init__(
+        self, url: WaveEnhanceRequestPath, random_bytes: bytes | None = None
+    ) -> None:
         self.url = url
-        self.random_bytes = os.urandom(2)
+        if random_bytes is not None:
+            self.random_bytes = random_bytes
+        else:
+            self.random_bytes = os.urandom(2)
 
     def as_bytes(self) -> bytes:
         """Get request as bytes"""

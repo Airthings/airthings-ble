@@ -25,10 +25,12 @@ def test_device_type():
     assert AirthingsDeviceType.from_raw_value("2930") == AirthingsDeviceType.WAVE_PLUS
     assert AirthingsDeviceType.from_raw_value("2950") == AirthingsDeviceType.WAVE_RADON
     assert (
-        AirthingsDeviceType.from_raw_value("3210") == AirthingsDeviceType.WAVE_ENHANCE_EU
+        AirthingsDeviceType.from_raw_value("3210")
+        == AirthingsDeviceType.WAVE_ENHANCE_EU
     )
     assert (
-        AirthingsDeviceType.from_raw_value("3220") == AirthingsDeviceType.WAVE_ENHANCE_US
+        AirthingsDeviceType.from_raw_value("3220")
+        == AirthingsDeviceType.WAVE_ENHANCE_US
     )
 
     unknown_device = AirthingsDeviceType.from_raw_value("1234")

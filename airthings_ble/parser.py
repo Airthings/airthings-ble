@@ -500,6 +500,7 @@ class AirthingsDeviceInfo:
 
 class AirthingsFirmware:  # pylint: disable=too-few-public-methods
     """Firmware information for the Airthings device."""
+
     need_fw_upgrade = False
     current_firmware = ""
     needed_firmware = ""
@@ -651,7 +652,8 @@ class AirthingsBluetoothDeviceData:
                     str(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
                     in (str(x.uuid) for x in service.characteristics)
                 )
-                and device.model in (
+                and device.model
+                in (
                     AirthingsDeviceType.WAVE_ENHANCE_EU,
                     AirthingsDeviceType.WAVE_ENHANCE_US,
                 )
@@ -664,16 +666,11 @@ class AirthingsBluetoothDeviceData:
         for characteristic in service.characteristics:
             uuid = characteristic.uuid
             uuid_str = str(uuid)
-            if (
-                uuid in sensors_characteristics_uuid_str
-                and uuid_str in sensor_decoders
-            ):
+            if uuid in sensors_characteristics_uuid_str and uuid_str in sensor_decoders:
                 try:
                     data = await client.read_gatt_char(characteristic)
                 except BleakError as err:
-                    self.logger.debug(
-                        "Get service characteristics exception: %s", err
-                    )
+                    self.logger.debug("Get service characteristics exception: %s", err)
                     continue
 
                 sensor_data = sensor_decoders[uuid_str](data)
@@ -688,15 +685,11 @@ class AirthingsBluetoothDeviceData:
                 if (d := sensor_data.get("radon_1day_avg")) is not None:
                     sensors["radon_1day_level"] = get_radon_level(float(d))
                     if not self.is_metric:
-                        sensors["radon_1day_avg"] = (
-                            float(d) * BQ_TO_PCI_MULTIPLIER
-                        )
+                        sensors["radon_1day_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
                 if (d := sensor_data.get("radon_longterm_avg")) is not None:
                     sensors["radon_longterm_level"] = get_radon_level(float(d))
                     if not self.is_metric:
-                        sensors["radon_longterm_avg"] = (
-                            float(d) * BQ_TO_PCI_MULTIPLIER
-                        )
+                        sensors["radon_longterm_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
 
             if uuid_str in command_decoders:
                 decoder = command_decoders[uuid_str]
@@ -705,9 +698,7 @@ class AirthingsBluetoothDeviceData:
                 # Set up the notification handlers
                 await client.start_notify(characteristic, command_data_receiver)
                 # send command to this 'indicate' characteristic
-                await client.write_gatt_char(
-                    characteristic, bytearray(decoder.cmd)
-                )
+                await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
                 # Wait for up to one second to see if a callback comes in.
                 try:
                     await command_data_receiver.wait_for_message(5)
@@ -720,9 +711,7 @@ class AirthingsBluetoothDeviceData:
                 if command_sensor_data is not None:
                     new_values: dict[str, float | str | None] = {}
 
-                    if (
-                        bat_data := command_sensor_data.get("battery")
-                    ) is not None:
+                    if (bat_data := command_sensor_data.get("battery")) is not None:
                         new_values["battery"] = device.model.battery_percentage(
                             float(bat_data)
                         )
@@ -735,21 +724,17 @@ class AirthingsBluetoothDeviceData:
                 # Stop notification handler
                 await client.stop_notify(characteristic)
 
-    async def _wave_enhance_sensor_data(
-        self, client, device, sensors, service
-    ) -> None:
-        if self.device_info.model.need_firmware_upgrade(
-                    self.device_info.sw_version
-                ):
+    async def _wave_enhance_sensor_data(self, client, device, sensors, service) -> None:
+        if self.device_info.model.need_firmware_upgrade(self.device_info.sw_version):
             self.logger.warning(
-                        "The firmware for this Wave Enhance is not up to date, "
-                        "please update to 2.6.1 or newer using the Airthings app."
-                    )
+                "The firmware for this Wave Enhance is not up to date, "
+                "please update to 2.6.1 or newer using the Airthings app."
+            )
             device.firmware = AirthingsFirmware(
-                        need_fw_upgrade=True,
-                        current_firmware=device.sw_version,
-                        needed_firmware="2.6.1",
-                    )
+                need_fw_upgrade=True,
+                current_firmware=device.sw_version,
+                needed_firmware="2.6.1",
+            )
             return
 
         decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
@@ -757,9 +742,7 @@ class AirthingsBluetoothDeviceData:
         command_data_receiver = decoder.make_data_receiver()
 
         atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
-        atom_notify = service.get_characteristic(
-            COMMAND_UUID_WAVE_ENHANCE_NOTIFY
-        )
+        atom_notify = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
 
         # Set up the notification handlers
         await client.start_notify(atom_notify, command_data_receiver)
@@ -773,17 +756,15 @@ class AirthingsBluetoothDeviceData:
             self.logger.warning("Timeout getting command data.")
 
         command_sensor_data = decoder.decode_data(
-                    logger=self.logger,
-                    raw_data=command_data_receiver.message,
-                )
+            logger=self.logger,
+            raw_data=command_data_receiver.message,
+        )
 
         if command_sensor_data is not None:
             new_values: dict[str, float | str | None] = {}
 
             if (bat_data := command_sensor_data.get("BAT")) is not None:
-                new_values["battery"] = device.model.battery_percentage(
-                    float(bat_data)
-                )
+                new_values["battery"] = device.model.battery_percentage(float(bat_data))
 
             if (lux := command_sensor_data.get("LUX")) is not None:
                 new_values["lux"] = lux
@@ -799,9 +780,7 @@ class AirthingsBluetoothDeviceData:
 
             if (temperature := command_sensor_data.get("TMP")) is not None:
                 # Temperature reported as kelvin
-                new_values["temperature"] = round(
-                    temperature / 100.0 - 273.15, 2
-                )
+                new_values["temperature"] = round(temperature / 100.0 - 273.15, 2)
 
             if (noise := command_sensor_data.get("NOI")) is not None:
                 new_values["noise"] = noise
