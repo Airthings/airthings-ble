@@ -11,7 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 class AirthingsDeviceType(Enum):
     """Airthings device types."""
 
-    UNKNOWN = 0
+    UNKNOWN = "0"
     WAVE_GEN_1 = "2900"
     WAVE_MINI = "2920"
     WAVE_PLUS = "2930"
