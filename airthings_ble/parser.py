@@ -833,10 +833,9 @@ class AirthingsBluetoothDeviceData:
         # Try to abort early if the device name indicates it is not supported.
         # In some cases we only get the mac address, so we need to connect to
         # the device to get the name.
-        if "Renew" in ble_device.name or "View" in ble_device.name:
-            raise UnsupportedDeviceError(
-                f"Model {ble_device.name} is not supported"
-            )
+        if name := ble_device.name:
+            if "Renew" in name or "View" in name:
+                raise UnsupportedDeviceError(f"Model {name} is not supported")
         for attempt in range(self.max_attempts):
             is_final_attempt = attempt == self.max_attempts - 1
             try:
