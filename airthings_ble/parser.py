@@ -36,20 +36,30 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
+    CO2_CRITICAL,
+    CO2_EXTREMELLY_HIGH,
+    CO2_HIGH,
+    CO2_INDOOR_NORMAL,
+    CO2_LOW,
     CO2_MAX,
+    CO2_OUTDOOR_NORMAL,
+    CO2_VERY_HIGH,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
-    HIGH,
-    LOW,
-    MODERATE,
     PERCENTAGE_MAX,
     PRESSURE_MAX,
+    RADON_HIGH,
+    RADON_LOW,
     RADON_MAX,
+    RADON_MODERATE,
+    RADON_VERY_LOW,
     TEMPERATURE_MAX,
     UPDATE_TIMEOUT,
-    VERY_LOW,
+    VOC_LOW,
     VOC_MAX,
+    VOC_MODERATE,
+    VOC_VERY_HIGH,
 )
 from .device_type import AirthingsDeviceType
 
@@ -379,16 +389,43 @@ class _NotificationReceiver:
 
 def get_radon_level(data: float) -> str:
     """Returns the applicable radon level"""
-    if data <= VERY_LOW[1]:
-        radon_level = VERY_LOW[2]
-    elif data <= LOW[1]:
-        radon_level = LOW[2]
-    elif data <= MODERATE[1]:
-        radon_level = MODERATE[2]
+    if data <= RADON_VERY_LOW[1]:
+        radon_level = RADON_VERY_LOW[2]
+    elif data <= RADON_LOW[1]:
+        radon_level = RADON_LOW[2]
+    elif data <= RADON_MODERATE[1]:
+        radon_level = RADON_MODERATE[2]
     else:
-        radon_level = HIGH[2]
+        radon_level = RADON_HIGH[2]
     return radon_level
 
+def get_voc_level(data: float) -> str:
+    """Returns the applicable voc level"""
+    if data <= VOC_LOW[1]:
+        voc_level = VOC_LOW[2]
+    elif data <= VOC_MODERATE[1]:
+        voc_level = VOC_MODERATE[2]
+    else:
+        voc_level = VOC_VERY_HIGH[2]
+    return voc_level
+
+def get_co2_level(data: float) -> str:
+    """Returns the applicable co2 level"""
+    if data <= CO2_LOW[1]:
+        co2_level = CO2_LOW[2]
+    elif data <= CO2_OUTDOOR_NORMAL[1]:
+        co2_level = CO2_OUTDOOR_NORMAL[2]
+    elif data <= CO2_INDOOR_NORMAL[1]:
+        co2_level = CO2_INDOOR_NORMAL[2]
+    elif data <= CO2_HIGH[1]:
+        co2_level = CO2_HIGH[2]
+    elif data <= CO2_VERY_HIGH[1]:
+        co2_level = CO2_VERY_HIGH[2]
+    elif data <= CO2_EXTREMELLY_HIGH[1]:
+        co2_level = CO2_EXTREMELLY_HIGH[2]
+    else:
+        co2_level = CO2_CRITICAL[2]
+    return co2_level
 
 sensor_decoders: dict[
     str,
@@ -612,6 +649,12 @@ class AirthingsBluetoothDeviceData:
                             sensors["radon_longterm_avg"] = (
                                 float(d) * BQ_TO_PCI_MULTIPLIER
                             )
+
+                    if (d := sensor_data.get("voc")) is not None:
+                        sensors["voc_level"] = get_voc_level(float(d))
+
+                    if (d := sensor_data.get("co2")) is not None:
+                        sensors["co2_level"] = get_co2_level(float(d))
 
                 if uuid_str in command_decoders:
                     decoder = command_decoders[uuid_str]

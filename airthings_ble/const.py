@@ -40,10 +40,46 @@ contact a professional radon mitigator.
 Keep measuring. If levels are maintained for more than 1 month,
 contact a professional radon mitigator.
 """
-VERY_LOW = (0, 49, "very low")
-LOW = (50, 99, "low")
-MODERATE = (100, 299, "moderate")
-HIGH = (300, None, "high")
+RADON_VERY_LOW = (0, 49, "very low")
+RADON_LOW = (50, 99, "low")
+RADON_MODERATE = (100, 299, "moderate")
+RADON_HIGH = (300, None, "high")
+
+"""
+0 - 249 ppb
+The VOC contents in the air are low.
+250 - 1999 ppb
+Look for VOC sources if this average level persists for a month
+2000 ppb and up
+The VOC contents are very high - consider taking action/ventilating right now
+"""
+VOC_LOW = (0, 249, "low")
+VOC_MODERATE = (250, 1999, "moderate")
+VOC_VERY_HIGH = (2000, None, "very high")
+
+"""
+250 - 399 ppm
+Normal background concentration in outdoor ambient air
+400 - 999 ppm
+Concentrations typical of occupied indoor spaces with good air exchange.
+1000 - 1999 ppm
+Complaints of drowsiness and poor air
+2000 - 4999 ppm
+Headaches, sleepiness and stagnant, stale, stuffy air. Poor concentration, loss
+of attention, increased heart rate and slight nausea.
+5000 - 39999 ppm
+Extremely high
+40000 and up
+Exposure may lead to serious oxygen deprivation resulting in permanent brain
+damage, coma and even death.
+"""
+CO2_LOW = (0, 249, "low")
+CO2_OUTDOOR_NORMAL = (250, 399, "outdoor normal")
+CO2_INDOOR_NORMAL = (400, 999, "indoor normal")
+CO2_HIGH = (1000, 1999, "high")
+CO2_VERY_HIGH = (2000, 4999, "very high")
+CO2_EXTREMELLY_HIGH = (5000, 39999, "extremelly high")
+CO2_CRITICAL = (40000, None, "critical")
 
 BQ_TO_PCI_MULTIPLIER = 0.027
 
