@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "airthings-ble"
-version = "1.0.0b4"
+version = "1.0.0b5"
 description = "Manage Airthings BLE devices"
 authors = ["Vincent Giorgi", "Ståle Storø Hauknes"]
 readme = "README.md"
