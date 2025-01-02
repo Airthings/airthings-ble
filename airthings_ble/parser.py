@@ -785,7 +785,9 @@ class AirthingsBluetoothDeviceData:
             new_values: dict[str, float | str | None] = {}
 
             if (bat_data := command_sensor_data.get("BAT")) is not None:
-                new_values["battery"] = device.model.battery_percentage(float(bat_data))
+                new_values["battery"] = device.model.battery_percentage(
+                    float(bat_data) / 1000.0
+                )
 
             if (lux := command_sensor_data.get("LUX")) is not None:
                 new_values["lux"] = lux
