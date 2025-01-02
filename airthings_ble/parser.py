@@ -645,7 +645,7 @@ class AirthingsBluetoothDeviceData:
     ) -> None:
         svcs = client.services
         sensors = device.sensors
-        for service in svcs:  # pylint: disable=too-many-nested-blocks
+        for service in svcs:
             if (
                 (
                     str(COMMAND_UUID_WAVE_ENHANCE)
