@@ -3,8 +3,17 @@
 from __future__ import annotations
 
 from .device_type import AirthingsDeviceType
-from .parser import AirthingsBluetoothDeviceData, AirthingsDevice
+from .parser import (
+    AirthingsBluetoothDeviceData,
+    AirthingsDevice,
+    UnsupportedDeviceError,
+)
 
 __version__ = "1.0.0b4"
 
-__all__ = ["AirthingsBluetoothDeviceData", "AirthingsDevice", "AirthingsDeviceType"]
+__all__ = [
+    "AirthingsBluetoothDeviceData",
+    "AirthingsDevice",
+    "AirthingsDeviceType",
+    "UnsupportedDeviceError",
+]
