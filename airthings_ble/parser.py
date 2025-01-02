@@ -104,6 +104,10 @@ class DisconnectedError(Exception):
     """Disconnected from device."""
 
 
+class UnsupportedDeviceError(Exception):
+    """Unsupported device."""
+
+
 def _decode_base(
     name: str, format_type: str, scale: float
 ) -> Callable[[bytearray], dict[str, Tuple[float, ...]]]:
@@ -574,10 +578,8 @@ class AirthingsBluetoothDeviceData:
 
             device_info.model = AirthingsDeviceType.from_raw_value(data.decode("utf-8"))
             if device_info.model == AirthingsDeviceType.UNKNOWN:
-                self.logger.warning(
-                    "Could not map model number to model name, "
-                    "most likely an unsupported device: %s",
-                    data.decode("utf-8"),
+                raise UnsupportedDeviceError(
+                    f"Model {data.decode('utf-8')} is not supported"
                 )
 
         characteristics = _CHARS_BY_MODELS.get(
@@ -871,6 +873,8 @@ class AirthingsBluetoothDeviceData:
                 # missing from the cache
                 await client.clear_cache()
             raise
+        except UnsupportedDeviceError as err:
+            self.logger.warning("Unsupported device: %s", err)
         finally:
             await client.disconnect()
 
