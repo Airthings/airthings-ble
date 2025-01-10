@@ -359,8 +359,6 @@ class WaveEnhanceCommandDecode(CommandDecode):
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
-
-        logger.debug("Wave Enhanche raw data response: %s", raw_data)
         try:
             response = WaveEnhanceResponse(
                 logger=logger,
