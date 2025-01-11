@@ -16,7 +16,14 @@ from typing import Any, Callable, Optional, Tuple
 from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
 from bleak.backends.device import BLEDevice
+from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
+
+from airthings_ble.wave_enhance.request import (
+    WaveEnhanceRequest,
+    WaveEnhanceRequestPath,
+    WaveEnhanceResponse,
+)
 
 from .const import (
     DEFAULT_MAX_UPDATE_ATTEMPTS,
@@ -36,6 +43,8 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
+    COMMAND_UUID_WAVE_ENHANCE,
+    COMMAND_UUID_WAVE_ENHANCE_NOTIFY,
     CO2_MAX,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
@@ -86,12 +95,17 @@ sensors_characteristics_uuid = [
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_PLUS,
     COMMAND_UUID_WAVE_MINI,
+    COMMAND_UUID_WAVE_ENHANCE,
 ]
 sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
 
 
 class DisconnectedError(Exception):
     """Disconnected from device."""
+
+
+class UnsupportedDeviceError(Exception):
+    """Unsupported device."""
 
 
 def _decode_base(
@@ -332,6 +346,34 @@ class WaveMiniCommandDecode(CommandDecode):
         return None
 
 
+class WaveEnhanceCommandDecode(CommandDecode):
+    """Decoder for the Wave Enhance command response"""
+
+    def __init__(self) -> None:
+        """Initialize command decoder"""
+        self.format_type = ""
+        self.request = WaveEnhanceRequest(url=WaveEnhanceRequestPath.LATEST_VALUES)
+        self.cmd = self.request.as_bytes()
+
+    def decode_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
+        """Decoder returns dict with battery"""
+        try:
+            response = WaveEnhanceResponse(
+                logger=logger,
+                response=raw_data,
+                random_bytes=self.request.random_bytes,
+                path=self.request.url,
+            )
+            return response.parse()
+
+        except ValueError as err:
+            logger.warning("Failed to parse Wave Enhance response: %s", err)
+
+        return None
+
+
 class _NotificationReceiver:
     """Receiver for a single notification message.
 
@@ -428,6 +470,7 @@ command_decoders: dict[str, CommandDecode] = {
     str(COMMAND_UUID_WAVE_2): WaveRadonAndPlusCommandDecode(),
     str(COMMAND_UUID_WAVE_PLUS): WaveRadonAndPlusCommandDecode(),
     str(COMMAND_UUID_WAVE_MINI): WaveMiniCommandDecode(),
+    str(COMMAND_UUID_WAVE_ENHANCE): WaveEnhanceCommandDecode(),
 }
 
 
@@ -458,9 +501,29 @@ class AirthingsDeviceInfo:
         return f"Airthings {self.model.product_name}"
 
 
+class AirthingsFirmware:  # pylint: disable=too-few-public-methods
+    """Firmware information for the Airthings device."""
+
+    need_fw_upgrade = False
+    current_firmware = ""
+    needed_firmware = ""
+
+    def __init__(
+        self,
+        need_fw_upgrade: bool = False,
+        current_firmware: str = "",
+        needed_firmware: str = "",
+    ) -> None:
+        self.need_fw_upgrade = need_fw_upgrade
+        self.current_firmware = current_firmware
+        self.needed_firmware = needed_firmware
+
+
 @dataclasses.dataclass
 class AirthingsDevice(AirthingsDeviceInfo):
     """Response data with information about the Airthings device"""
+
+    firmware = AirthingsFirmware()
 
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
@@ -501,6 +564,8 @@ class AirthingsBluetoothDeviceData:
         device_info.address = client.address
         did_first_sync = device_info.did_first_sync
 
+        device.firmware.current_firmware = device_info.sw_version
+
         # We need to fetch model to determ what to fetch.
         if not did_first_sync:
             try:
@@ -511,15 +576,16 @@ class AirthingsBluetoothDeviceData:
 
             device_info.model = AirthingsDeviceType.from_raw_value(data.decode("utf-8"))
             if device_info.model == AirthingsDeviceType.UNKNOWN:
-                self.logger.warning(
-                    "Could not map model number to model name, "
-                    "most likely an unsupported device: %s",
-                    data.decode("utf-8"),
+                raise UnsupportedDeviceError(
+                    f"Model {data.decode('utf-8')} is not supported"
                 )
 
         characteristics = _CHARS_BY_MODELS.get(
             device_info.model.raw_value, device_info_characteristics
         )
+
+        self.logger.debug("Fetching device info characteristics: %s", characteristics)
+
         for characteristic in characteristics:
             if did_first_sync and characteristic.name != "firmware_rev":
                 # Only the sw_version can change once set, so we can skip the rest.
@@ -578,73 +644,179 @@ class AirthingsBluetoothDeviceData:
         svcs = client.services
         sensors = device.sensors
         for service in svcs:
-            for characteristic in service.characteristics:
-                uuid = characteristic.uuid
-                uuid_str = str(uuid)
-                if (
-                    uuid in sensors_characteristics_uuid_str
-                    and uuid_str in sensor_decoders
-                ):
-                    try:
-                        data = await client.read_gatt_char(characteristic)
-                    except BleakError as err:
-                        self.logger.debug(
-                            "Get service characteristics exception: %s", err
+            if (
+                (
+                    str(COMMAND_UUID_WAVE_ENHANCE)
+                    in (str(x.uuid) for x in service.characteristics)
+                )
+                and (
+                    str(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
+                    in (str(x.uuid) for x in service.characteristics)
+                )
+                and device.model
+                in (
+                    AirthingsDeviceType.WAVE_ENHANCE_EU,
+                    AirthingsDeviceType.WAVE_ENHANCE_US,
+                )
+            ):
+                await self._wave_enhance_sensor_data(client, device, sensors, service)
+            else:
+                await self._wave_sensor_data(client, device, sensors, service)
+
+    async def _wave_sensor_data(
+        self,
+        client: BleakClient,
+        device: AirthingsDevice,
+        sensors: dict[str, str | float | None],
+        service: BleakGATTService,
+    ) -> None:
+        for characteristic in service.characteristics:
+            uuid = characteristic.uuid
+            uuid_str = str(uuid)
+            if uuid in sensors_characteristics_uuid_str and uuid_str in sensor_decoders:
+                try:
+                    data = await client.read_gatt_char(characteristic)
+                except BleakError as err:
+                    self.logger.debug("Get service characteristics exception: %s", err)
+                    continue
+
+                sensor_data = sensor_decoders[uuid_str](data)
+
+                # Skipping for now
+                if "date_time" in sensor_data:
+                    sensor_data.pop("date_time")
+
+                sensors.update(sensor_data)
+
+                # Manage radon values
+                if (d := sensor_data.get("radon_1day_avg")) is not None:
+                    sensors["radon_1day_level"] = get_radon_level(float(d))
+                    if not self.is_metric:
+                        sensors["radon_1day_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
+                if (d := sensor_data.get("radon_longterm_avg")) is not None:
+                    sensors["radon_longterm_level"] = get_radon_level(float(d))
+                    if not self.is_metric:
+                        sensors["radon_longterm_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
+
+            if uuid_str in command_decoders:
+                decoder = command_decoders[uuid_str]
+                command_data_receiver = decoder.make_data_receiver()
+
+                # Set up the notification handlers
+                await client.start_notify(characteristic, command_data_receiver)
+                # send command to this 'indicate' characteristic
+                await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
+                # Wait for up to one second to see if a callback comes in.
+                try:
+                    await command_data_receiver.wait_for_message(5)
+                except asyncio.TimeoutError:
+                    self.logger.warning("Timeout getting command data.")
+
+                command_sensor_data = decoder.decode_data(
+                    logger=self.logger, raw_data=command_data_receiver.message
+                )
+                if command_sensor_data is not None:
+                    new_values: dict[str, float | str | None] = {}
+
+                    if (bat_data := command_sensor_data.get("battery")) is not None:
+                        new_values["battery"] = device.model.battery_percentage(
+                            float(bat_data)
                         )
-                        continue
 
-                    sensor_data = sensor_decoders[uuid_str](data)
+                    if illuminance := command_sensor_data.get("illuminance"):
+                        new_values["illuminance"] = illuminance
 
-                    # Skipping for now
-                    if "date_time" in sensor_data:
-                        sensor_data.pop("date_time")
+                    sensors.update(new_values)
 
-                    sensors.update(sensor_data)
+                # Stop notification handler
+                await client.stop_notify(characteristic)
 
-                    # Manage radon values
-                    if (d := sensor_data.get("radon_1day_avg")) is not None:
-                        sensors["radon_1day_level"] = get_radon_level(float(d))
-                        if not self.is_metric:
-                            sensors["radon_1day_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
-                    if (d := sensor_data.get("radon_longterm_avg")) is not None:
-                        sensors["radon_longterm_level"] = get_radon_level(float(d))
-                        if not self.is_metric:
-                            sensors["radon_longterm_avg"] = (
-                                float(d) * BQ_TO_PCI_MULTIPLIER
-                            )
+    async def _wave_enhance_sensor_data(
+        self,
+        client: BleakClient,
+        device: AirthingsDevice,
+        sensors: dict[str, str | float | None],
+        service: BleakGATTService,
+    ) -> None:
+        """Get sensor data from the Wave Enhance."""
+        if self.device_info.model.need_firmware_upgrade(self.device_info.sw_version):
+            self.logger.warning(
+                "The firmware for this Wave Enhance (%s) is not up to date, "
+                "please update to 2.6.1 or newer using the Airthings app.",
+                self.device_info.address,
+            )
+            device.firmware = AirthingsFirmware(
+                need_fw_upgrade=True,
+                current_firmware=device.sw_version,
+                needed_firmware="2.6.1",
+            )
+            return
 
-                if uuid_str in command_decoders:
-                    decoder = command_decoders[uuid_str]
-                    command_data_receiver = decoder.make_data_receiver()
+        decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
 
-                    # Set up the notification handlers
-                    await client.start_notify(characteristic, command_data_receiver)
-                    # send command to this 'indicate' characteristic
-                    await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
-                    # Wait for up to one second to see if a callback comes in.
-                    try:
-                        await command_data_receiver.wait_for_message(5)
-                    except asyncio.TimeoutError:
-                        self.logger.warning("Timeout getting command data.")
+        command_data_receiver = decoder.make_data_receiver()
 
-                    command_sensor_data = decoder.decode_data(
-                        self.logger, command_data_receiver.message
-                    )
-                    if command_sensor_data is not None:
-                        new_values: dict[str, float | str | None] = {}
+        atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
+        atom_notify = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
 
-                        if (bat_data := command_sensor_data.get("battery")) is not None:
-                            new_values["battery"] = device.model.battery_percentage(
-                                float(bat_data)
-                            )
+        if atom_write is None or atom_notify is None:
+            self.logger.error("Missing characteristics for Wave Enhance")
+            raise ValueError("Missing characteristics for Wave Enhance")
 
-                        if illuminance := command_sensor_data.get("illuminance"):
-                            new_values["illuminance"] = illuminance
+        # Set up the notification handlers
+        await client.start_notify(atom_notify, command_data_receiver)
 
-                        sensors.update(new_values)
+        # send command to this 'indicate' characteristic
+        await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
+        # Wait for up to one second to see if a callback comes in.
+        try:
+            await command_data_receiver.wait_for_message(5)
+        except asyncio.TimeoutError:
+            self.logger.warning("Timeout getting command data.")
 
-                    # Stop notification handler
-                    await client.stop_notify(characteristic)
+        command_sensor_data = decoder.decode_data(
+            logger=self.logger,
+            raw_data=command_data_receiver.message,
+        )
+
+        if command_sensor_data is not None:
+            new_values: dict[str, float | str | None] = {}
+
+            if (bat_data := command_sensor_data.get("BAT")) is not None:
+                new_values["battery"] = device.model.battery_percentage(
+                    float(bat_data) / 1000.0
+                )
+
+            if (lux := command_sensor_data.get("LUX")) is not None:
+                new_values["lux"] = lux
+
+            if (co2 := command_sensor_data.get("CO2")) is not None:
+                new_values["co2"] = co2
+
+            if (voc := command_sensor_data.get("VOC")) is not None:
+                new_values["voc"] = voc
+
+            if (hum := command_sensor_data.get("HUM")) is not None:
+                new_values["humidity"] = float(hum) / 100.0
+
+            if (temperature := command_sensor_data.get("TMP")) is not None:
+                # Temperature reported as kelvin
+                new_values["temperature"] = round(
+                    float(temperature) / 100.0 - 273.15, 2
+                )
+
+            if (noise := command_sensor_data.get("NOI")) is not None:
+                new_values["noise"] = noise
+
+            if (pressure := command_sensor_data.get("PRS")) is not None:
+                new_values["pressure"] = float(pressure) / (64 * 100)
+
+            self.logger.debug("Sensor values: %s", new_values)
+
+            sensors.update(new_values)
+
+        # Stop notification handler
+        await client.stop_notify(atom_notify)
 
     def _handle_disconnect(
         self, disconnect_future: asyncio.Future[bool], client: BleakClient
@@ -656,6 +828,12 @@ class AirthingsBluetoothDeviceData:
 
     async def update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
         """Connects to the device through BLE and retrieves relevant data"""
+        # Try to abort early if the device name indicates it is not supported.
+        # In some cases we only get the mac address, so we need to connect to
+        # the device to get the name.
+        if name := ble_device.name:
+            if "Renew" in name or "View" in name:
+                raise UnsupportedDeviceError(f"Model {name} is not supported")
         for attempt in range(self.max_attempts):
             is_final_attempt = attempt == self.max_attempts - 1
             try:
@@ -679,7 +857,7 @@ class AirthingsBluetoothDeviceData:
         disconnect_future = loop.create_future()
         client: BleakClientWithServiceCache = (
             await establish_connection(  # pylint: disable=line-too-long
-                BleakClientWithServiceCache,  # type: ignore
+                BleakClientWithServiceCache,
                 ble_device,
                 ble_device.address,
                 disconnected_callback=partial(
@@ -700,6 +878,9 @@ class AirthingsBluetoothDeviceData:
                 # Clear the char cache since a char is likely
                 # missing from the cache
                 await client.clear_cache()
+            raise
+        except UnsupportedDeviceError:
+            await client.disconnect()
             raise
         finally:
             await client.disconnect()
