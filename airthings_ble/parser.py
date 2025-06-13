@@ -19,11 +19,9 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
-from airthings_ble.wave_enhance.request import (
-    WaveEnhanceRequest,
-    WaveEnhanceRequestPath,
-    WaveEnhanceResponse,
-)
+from airthings_ble.atom.request import AtomRequest
+from airthings_ble.atom.response import AtomResponse
+from airthings_ble.atom.request_path import AtomRequestPath
 
 from .const import (
     DEFAULT_MAX_UPDATE_ATTEMPTS,
@@ -352,7 +350,7 @@ class WaveEnhanceCommandDecode(CommandDecode):
     def __init__(self) -> None:
         """Initialize command decoder"""
         self.format_type = ""
-        self.request = WaveEnhanceRequest(url=WaveEnhanceRequestPath.LATEST_VALUES)
+        self.request = AtomRequest(url=AtomRequestPath.LATEST_VALUES)
         self.cmd = self.request.as_bytes()
 
     def decode_data(
@@ -360,7 +358,7 @@ class WaveEnhanceCommandDecode(CommandDecode):
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
         try:
-            response = WaveEnhanceResponse(
+            response = AtomResponse(
                 logger=logger,
                 response=raw_data,
                 random_bytes=self.request.random_bytes,
