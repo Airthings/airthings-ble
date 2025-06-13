@@ -133,11 +133,30 @@ class AirthingsDeviceType(Enum):
             AirthingsDeviceType.WAVE_ENHANCE_EU,
             AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
-            return self._wave_enhance_need_firmware_upgrade(version)
+            return self._wave_enhance_need_firmware_upgrade(
+                version=version,
+                required_major=2,
+                required_minor=6,
+                required_patch=1,
+            )
+        
+        if self == AirthingsDeviceType.CORENTIUM_HOME_2:
+            return self._need_firmware_upgrade(
+                version=version,
+                required_major=1,
+                required_minor=3,
+                required_patch=5,
+            )
 
         return False
 
-    def _wave_enhance_need_firmware_upgrade(self, version: str) -> bool:
+    def _need_firmware_upgrade(
+        self,
+        version: str,
+        required_major: int,
+        required_minor: int,
+        required_patch: int,
+    ) -> bool:
         """Check if the version of a Wave Enhance is 2.6.0 or higher."""
         # Example of a Tern version: T-SUB-2.6.1-master+0
         pattern = r"T-SUB-(\d+\.\d+\.\d+)"
@@ -154,4 +173,4 @@ class AirthingsDeviceType(Enum):
             return False
         major, minor, patch = match_obj.groups()
 
-        return not (int(major) >= 2 and int(minor) >= 6 and int(patch) >= 1)
+        return not (int(major) >= major and int(minor) >= minor and int(patch) >= patch)
