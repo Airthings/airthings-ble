@@ -23,5 +23,5 @@ class AtomRequest:
         bytes.extend(bytes.fromhex("0301"))
         bytes.extend(self.random_bytes)
         bytes.extend(bytes.fromhex("81A1006D"))
-        bytes.extend(self.url.as_bytes())
+        bytes.extend(self.url.as_cbor())
         return bytes

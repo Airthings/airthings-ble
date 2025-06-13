@@ -1,17 +1,16 @@
 from enum import Enum
+import cbor2
 
 
-class WaveEnhanceRequestPath(Enum):
+class AtomRequestPath(Enum):
     """Request paths for Airthings BLE Atom API"""
 
     LATEST_VALUES = "29999/0/31012"
 
+    def as_cbor(self) -> bytes:
+        """Get URL as bytes"""
+        return cbor2.dumps([{0: self.value}])
+
     def as_bytes(self) -> bytes:
         """Get URL as bytes"""
-        if not isinstance(self.value, str):
-            raise ValueError(
-                "Request path value must be a string: %s, type: %s",
-                self.value,
-                type(self.value),
-            )
         return bytes(self.value, "utf-8")

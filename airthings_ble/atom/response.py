@@ -45,7 +45,7 @@ class AtomResponse:
 
         if self.response[7] != 0x81:
             self.logger.debug(
-                "Invalid response type, expected 1, but got %s", self.response[7]
+                "Invalid response type, expected 81, but got %s", self.response[7]
             )
             raise ValueError("Invalid response type")
 
@@ -54,7 +54,7 @@ class AtomResponse:
                 "Invalid response array length, expected 2, but got %s",
                 self.response[8],
             )
-            raise ValueError("Invalid response array length")
+            raise ValueError("Invalid response array length, expected 2")
 
         if self.response[9] != 0x00:
             self.logger.debug(
@@ -62,19 +62,22 @@ class AtomResponse:
             )
             raise ValueError("Invalid response element")
 
+        path_cbor = self.path.as_cbor()
+        path_bytes = self.path.as_bytes()
+
         path_length = self.response[10] - 0x60
-        if path_length != len(self.path.as_bytes()):
+        if path_length != len(path_bytes):
             self.logger.debug(
                 "Invalid path length, expected %d, but got %d",
-                len(self.path.as_bytes()),
+                len(path_cbor),
                 path_length,
             )
             raise ValueError("Invalid response path length")
 
-        if self.response[11:11 + path_length] != self.path.as_bytes():
+        if self.response[11:11 + path_length] != path_bytes:
             self.logger.debug(
                 "Invalid response path, expected %s, but got %s",
-                self.path.as_bytes(),
+                path_bytes,
                 self.response[11:11 + path_length],
             )
             raise ValueError("Invalid response path")

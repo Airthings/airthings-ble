@@ -133,7 +133,7 @@ class AirthingsDeviceType(Enum):
             AirthingsDeviceType.WAVE_ENHANCE_EU,
             AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
-            return self._wave_enhance_need_firmware_upgrade(
+            return self._need_firmware_upgrade(
                 version=version,
                 required_major=2,
                 required_minor=6,
@@ -173,4 +173,8 @@ class AirthingsDeviceType(Enum):
             return False
         major, minor, patch = match_obj.groups()
 
-        return not (int(major) >= major and int(minor) >= minor and int(patch) >= patch)
+        return not (
+            int(major) >= required_major
+            and int(minor) >= required_minor
+            and int(patch) >= required_patch
+        )
