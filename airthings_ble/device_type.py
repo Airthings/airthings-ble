@@ -127,7 +127,7 @@ class AirthingsDeviceType(Enum):
             percentage_range[1] - percentage_range[0]
         ) + percentage_range[0]
 
-    def need_firmware_upgrade(self, version: str) -> bool:
+    def need_firmware_upgrade(self, version: str) -> AirthingsFirmware:
         """Check if the device needs an update."""
         if self in (
             AirthingsDeviceType.WAVE_ENHANCE_EU,
@@ -156,25 +156,35 @@ class AirthingsDeviceType(Enum):
         required_major: int,
         required_minor: int,
         required_patch: int,
-    ) -> bool:
-        """Check if the version of a Wave Enhance is 2.6.0 or higher."""
-        # Example of a Tern version: T-SUB-2.6.1-master+0
-        pattern = r"T-SUB-(\d+\.\d+\.\d+)"
+    ) -> AirthingsFirmware:
+        """Check if the version of the device firmware is up to date."""
+        # Example version strings:
+        #  Wave Enhance: T-SUB-2.6.1-master+0
+        #  Corentium Home 2: R-SUB-1.3.5-master+0
+        pattern = r"[A-Z]-SUB-(\d+\.\d+\.\d+)"
 
         match = re.findall(pattern, version)
         if not match:
-            _LOGGER.warning("Invalid version string: %s", version)
-            return False
+            raise ValueError(
+                f"Invalid version string: {version}"
+            )
 
         semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
         match_obj = semantic_version.match(match[0])
         if not match_obj:
-            _LOGGER.warning("Invalid semantic version string: %s", match[0])
-            return False
+            raise ValueError(
+                f"Invalid semantic version in: {match[0]}"
+            )
         major, minor, patch = match_obj.groups()
 
-        return not (
+        need_fw_upgrade = not (
             int(major) >= required_major
             and int(minor) >= required_minor
             and int(patch) >= required_patch
+        )
+
+        return AirthingsFirmware(
+            need_fw_upgrade=need_fw_upgrade,
+            current_firmware=version,
+            needed_firmware=f"{required_major}.{required_minor}.{required_patch}",
         )

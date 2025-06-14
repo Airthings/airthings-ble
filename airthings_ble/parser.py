@@ -19,6 +19,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
+from airthings_ble.airthings_firmware import AirthingsFirmware
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.response import AtomResponse
 from airthings_ble.atom.request_path import AtomRequestPath
@@ -499,24 +500,6 @@ class AirthingsDeviceInfo:
         return f"Airthings {self.model.product_name}"
 
 
-class AirthingsFirmware:  # pylint: disable=too-few-public-methods
-    """Firmware information for the Airthings device."""
-
-    need_fw_upgrade = False
-    current_firmware = ""
-    needed_firmware = ""
-
-    def __init__(
-        self,
-        need_fw_upgrade: bool = False,
-        current_firmware: str = "",
-        needed_firmware: str = "",
-    ) -> None:
-        self.need_fw_upgrade = need_fw_upgrade
-        self.current_firmware = current_firmware
-        self.needed_firmware = needed_firmware
-
-
 @dataclasses.dataclass
 class AirthingsDevice(AirthingsDeviceInfo):
     """Response data with information about the Airthings device"""
@@ -652,12 +635,9 @@ class AirthingsBluetoothDeviceData:
                     in (str(x.uuid) for x in service.characteristics)
                 )
                 and device.model
-                in (
-                    AirthingsDeviceType.WAVE_ENHANCE_EU,
-                    AirthingsDeviceType.WAVE_ENHANCE_US,
-                )
+                in AirthingsDeviceType.atom_devices()
             ):
-                await self._wave_enhance_sensor_data(client, device, sensors, service)
+                await self._atom_sensor_data(client, device, sensors, service)
             else:
                 await self._wave_sensor_data(client, device, sensors, service)
 
@@ -729,7 +709,7 @@ class AirthingsBluetoothDeviceData:
                 # Stop notification handler
                 await client.stop_notify(characteristic)
 
-    async def _wave_enhance_sensor_data(
+    async def _atom_sensor_data(
         self,
         client: BleakClient,
         device: AirthingsDevice,
@@ -737,18 +717,22 @@ class AirthingsBluetoothDeviceData:
         service: BleakGATTService,
     ) -> None:
         """Get sensor data from the Wave Enhance."""
-        if self.device_info.model.need_firmware_upgrade(self.device_info.sw_version):
+        try:
+            need_upgrade = self.device_info.model.need_firmware_upgrade(
+                version=self.device_info.sw_version
+            )
+            if need_upgrade.need_fw_upgrade:
+                self.logger.warning(
+                    "The firmware for this device (%s) is not up to date, "
+                    "please update to %s or newer using the Airthings app.",
+                    self.device_info.address,
+                    need_upgrade.needed_firmware,
+                )
+                device.firmware = need_upgrade
+        except ValueError as err:
             self.logger.warning(
-                "The firmware for this Wave Enhance (%s) is not up to date, "
-                "please update to 2.6.1 or newer using the Airthings app.",
-                self.device_info.address,
+                "Failed to check firmware version for device: %s", err
             )
-            device.firmware = AirthingsFirmware(
-                need_fw_upgrade=True,
-                current_firmware=device.sw_version,
-                needed_firmware="2.6.1",
-            )
-            return
 
         decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
 
@@ -762,7 +746,10 @@ class AirthingsBluetoothDeviceData:
             raise ValueError("Missing characteristics for Wave Enhance")
 
         # Set up the notification handlers
-        await client.start_notify(atom_notify, command_data_receiver)
+        await client.start_notify(
+            char_specifier=atom_notify,
+            callback=command_data_receiver
+        )
 
         # send command to this 'indicate' characteristic
         await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
