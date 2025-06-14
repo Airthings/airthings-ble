@@ -1,5 +1,4 @@
 import pytest
-
 from airthings_ble.device_type import AirthingsDeviceType
 
 

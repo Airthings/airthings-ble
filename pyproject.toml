@@ -31,11 +31,12 @@ cbor2 = ">=5.6.5"
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"
 pytest-cov = "^6.2.0"
-black = {version = "^25.1.0"}
+black = "^25.1.0"
 mypy = "^1.16.0"
 pylint = "^3.3.7"
 pytest-asyncio = "^1.0.0"
 pytest-rerunfailures = "^15.1.0"
+ruff = "^0.4.4"
 
 [tool.semantic_release]
 branch = "main"
@@ -58,10 +59,6 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-[tool.isort]
-profile = "black"
-known_first_party = ["airthings_ble", "tests"]
-
 [tool.mypy]
 check_untyped_defs = true
 disallow_any_generics = true
@@ -77,11 +74,21 @@ exclude = [
     'setup.py',
 ]
 
-[tool.mypy.tests]
+[tool.mypy."tests.*"]
 allow_untyped_defs = true
 
-[tool.mypy.docs]
-ignore_errors = true
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = ["docs", "build"]
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # pycodestyle, pyflakes, isort
+ignore = ["E203", "E501"]  # For black-compatibilitet
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # Tillat bruk av assert i tester
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

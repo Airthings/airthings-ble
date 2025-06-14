@@ -1,7 +1,6 @@
-from pytest import mark
-
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
+from pytest import mark
 
 
 @mark.parametrize(

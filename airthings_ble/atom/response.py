@@ -1,7 +1,6 @@
 from logging import Logger
 
 import cbor2
-
 from airthings_ble.atom.request import AtomRequestPath
 
 
@@ -77,11 +76,11 @@ class AtomResponse:
                 f"got {path_length}"
             )
 
-        if self.response[11:11 + path_length] != path_bytes:
+        if self.response[11 : 11 + path_length] != path_bytes:
             self.logger.debug(
                 "Invalid response path, expected %s, but got %s",
                 path_bytes,
-                self.response[11:11 + path_length],
+                self.response[11 : 11 + path_length],
             )
             raise ValueError("Invalid response path")
 
