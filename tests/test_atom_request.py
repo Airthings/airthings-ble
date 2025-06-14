@@ -27,4 +27,4 @@ def test_atom_request(random_bytes: bytes | None):
     assert request_bytes[0:2] == bytes.fromhex("0301")
     assert request_bytes[2:4] == random_bytes
     assert request_bytes[4:8] == bytes.fromhex("81A1006D")
-    assert request_bytes[8:] == request.url.as_cbor()
+    assert request_bytes[8:] == request.url.as_bytes()
