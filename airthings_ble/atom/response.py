@@ -62,17 +62,18 @@ class AtomResponse:
             )
             raise ValueError("Invalid response element")
 
-        path_cbor = self.path.as_cbor()
         path_bytes = self.path.as_bytes()
 
         path_length = self.response[10] - 0x60
-        if path_length != len(path_bytes):
+        if path_length != len(self.path.value):
             self.logger.debug(
                 "Invalid path length, expected %d, but got %d",
-                len(path_cbor),
+                len(path_bytes),
                 path_length,
             )
-            raise ValueError("Invalid response path length")
+            raise ValueError(
+                f"Invalid response path length, expected {len(path_bytes)}, "
+                f"got {path_length}")
 
         if self.response[11:11 + path_length] != path_bytes:
             self.logger.debug(
