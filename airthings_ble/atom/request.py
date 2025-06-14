@@ -13,6 +13,8 @@ class AtomRequest:
     ) -> None:
         self.url = url
         if random_bytes is not None:
+            if len(random_bytes) != 2:
+                raise ValueError("Random bytes must be exactly 2 bytes long")
             self.random_bytes = random_bytes
         else:
             self.random_bytes = os.urandom(2)
