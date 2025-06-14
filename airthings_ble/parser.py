@@ -42,8 +42,8 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
-    COMMAND_UUID_WAVE_ENHANCE,
-    COMMAND_UUID_WAVE_ENHANCE_NOTIFY,
+    COMMAND_UUID_ATOM,
+    COMMAND_UUID_ATOM_NOTIFY,
     CO2_MAX,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
@@ -94,7 +94,7 @@ sensors_characteristics_uuid = [
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_PLUS,
     COMMAND_UUID_WAVE_MINI,
-    COMMAND_UUID_WAVE_ENHANCE,
+    COMMAND_UUID_ATOM,
 ]
 sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
 
@@ -345,8 +345,8 @@ class WaveMiniCommandDecode(CommandDecode):
         return None
 
 
-class WaveEnhanceCommandDecode(CommandDecode):
-    """Decoder for the Wave Enhance command response"""
+class AtomCommandDecode(CommandDecode):
+    """Decoder for the Atom command response"""
 
     def __init__(self) -> None:
         """Initialize command decoder"""
@@ -368,7 +368,8 @@ class WaveEnhanceCommandDecode(CommandDecode):
             return response.parse()
 
         except ValueError as err:
-            logger.warning("Failed to parse Wave Enhance response: %s", err)
+            logger.error("Failed to decode command response: %s", err)
+            return None
 
         return None
 
@@ -469,7 +470,7 @@ command_decoders: dict[str, CommandDecode] = {
     str(COMMAND_UUID_WAVE_2): WaveRadonAndPlusCommandDecode(),
     str(COMMAND_UUID_WAVE_PLUS): WaveRadonAndPlusCommandDecode(),
     str(COMMAND_UUID_WAVE_MINI): WaveMiniCommandDecode(),
-    str(COMMAND_UUID_WAVE_ENHANCE): WaveEnhanceCommandDecode(),
+    str(COMMAND_UUID_ATOM): AtomCommandDecode(),
 }
 
 
@@ -627,11 +628,11 @@ class AirthingsBluetoothDeviceData:
         for service in svcs:
             if (
                 (
-                    str(COMMAND_UUID_WAVE_ENHANCE)
+                    str(COMMAND_UUID_ATOM)
                     in (str(x.uuid) for x in service.characteristics)
                 )
                 and (
-                    str(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
+                    str(COMMAND_UUID_ATOM_NOTIFY)
                     in (str(x.uuid) for x in service.characteristics)
                 )
                 and device.model
@@ -716,7 +717,7 @@ class AirthingsBluetoothDeviceData:
         sensors: dict[str, str | float | None],
         service: BleakGATTService,
     ) -> None:
-        """Get sensor data from the Wave Enhance."""
+        """Get sensor data from the device."""
         try:
             need_upgrade = self.device_info.model.need_firmware_upgrade(
                 version=self.device_info.sw_version
@@ -734,16 +735,15 @@ class AirthingsBluetoothDeviceData:
                 "Failed to check firmware version for device: %s", err
             )
 
-        decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
+        decoder = command_decoders[str(COMMAND_UUID_ATOM)]
 
         command_data_receiver = decoder.make_data_receiver()
 
-        atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
-        atom_notify = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
+        atom_write = service.get_characteristic(COMMAND_UUID_ATOM)
+        atom_notify = service.get_characteristic(COMMAND_UUID_ATOM_NOTIFY)
 
         if atom_write is None or atom_notify is None:
-            self.logger.error("Missing characteristics for Wave Enhance")
-            raise ValueError("Missing characteristics for Wave Enhance")
+            raise ValueError("Missing characteristics for device")
 
         # Set up the notification handlers
         await client.start_notify(
@@ -795,6 +795,22 @@ class AirthingsBluetoothDeviceData:
 
             if (pressure := command_sensor_data.get("PRS")) is not None:
                 new_values["pressure"] = float(pressure) / (64 * 100)
+            
+            if (radon_1day_avg := command_sensor_data.get("R24")) is not None:
+                new_values["radon_1day_avg"] = radon_1day_avg
+                new_values["radon_1day_level"] = get_radon_level(float(radon_1day_avg))
+            
+            if (radon_week_avg := command_sensor_data.get("R7D")) is not None:
+                new_values["radon_week_avg"] = radon_week_avg
+                new_values["radon_week_level"] = get_radon_level(float(radon_week_avg))
+
+            if (radon_month_avg := command_sensor_data.get("R30D")) is not None:
+                new_values["radon_month_avg"] = radon_month_avg
+                new_values["radon_month_level"] = get_radon_level(float(radon_month_avg))
+
+            if (radon_year_avg := command_sensor_data.get("R1Y")) is not None:
+                new_values["radon_year_avg"] = radon_year_avg
+                new_values["radon_year_level"] = get_radon_level(float(radon_year_avg))
 
             self.logger.debug("Sensor values: %s", new_values)
 
