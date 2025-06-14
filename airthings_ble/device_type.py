@@ -4,6 +4,8 @@ from enum import Enum
 import logging
 import re
 
+from airthings_ble.airthings_firmware import AirthingsFirmware
+
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -27,6 +29,14 @@ class AirthingsDeviceType(Enum):
         obj = object.__new__(cls)
         obj.raw_value = value
         return obj
+
+    @classmethod
+    def atom_devices(cls) -> list["AirthingsDeviceType"]:
+        return [
+            AirthingsDeviceType.WAVE_ENHANCE_EU,
+            AirthingsDeviceType.WAVE_ENHANCE_US,
+            AirthingsDeviceType.CORENTIUM_HOME_2,
+        ]
 
     @classmethod
     def from_raw_value(cls, value: str) -> "AirthingsDeviceType":
