@@ -12,9 +12,7 @@ from airthings_ble.atom.request_path import AtomRequestPath
 )
 def test_atom_request(random_bytes: bytes | None):
     """Test the Wave Enhance request."""
-    request = AtomRequest(
-        url=AtomRequestPath.LATEST_VALUES, random_bytes=random_bytes
-    )
+    request = AtomRequest(url=AtomRequestPath.LATEST_VALUES, random_bytes=random_bytes)
     assert request.url == AtomRequestPath.LATEST_VALUES
     assert len(request.random_bytes) == 2
     if random_bytes is not None:

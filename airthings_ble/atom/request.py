@@ -8,9 +8,7 @@ class AtomRequest:
     url: AtomRequestPath
     random_bytes: bytes
 
-    def __init__(
-        self, url: AtomRequestPath, random_bytes: bytes | None = None
-    ) -> None:
+    def __init__(self, url: AtomRequestPath, random_bytes: bytes | None = None) -> None:
         self.url = url
         if random_bytes is not None:
             if len(random_bytes) != 2:

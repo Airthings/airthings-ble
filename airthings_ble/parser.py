@@ -260,7 +260,7 @@ def illuminance_converter(value: float) -> Optional[int]:
 class CommandDecode:
     """Decoder for the command response"""
 
-    cmd: bytes = b"\x6D"
+    cmd: bytes = b"\x6d"
     format_type: str
 
     def decode_data(
@@ -370,8 +370,6 @@ class AtomCommandDecode(CommandDecode):
         except ValueError as err:
             logger.error("Failed to decode command response: %s", err)
             return None
-
-        return None
 
 
 class _NotificationReceiver:
@@ -635,8 +633,7 @@ class AirthingsBluetoothDeviceData:
                     str(COMMAND_UUID_ATOM_NOTIFY)
                     in (str(x.uuid) for x in service.characteristics)
                 )
-                and device.model
-                in AirthingsDeviceType.atom_devices()
+                and device.model in AirthingsDeviceType.atom_devices()
             ):
                 await self._atom_sensor_data(client, device, sensors, service)
             else:
@@ -727,13 +724,11 @@ class AirthingsBluetoothDeviceData:
                     "The firmware for this device (%s) is not up to date, "
                     "please update to %s or newer using the Airthings app.",
                     self.device_info.address,
-                    need_upgrade.needed_firmware,
+                    need_upgrade.needed_firmware or "N/A",
                 )
                 device.firmware = need_upgrade
         except ValueError as err:
-            self.logger.warning(
-                "Failed to check firmware version for device: %s", err
-            )
+            self.logger.warning("Failed to check firmware version for device: %s", err)
 
         decoder = command_decoders[str(COMMAND_UUID_ATOM)]
 
@@ -747,8 +742,7 @@ class AirthingsBluetoothDeviceData:
 
         # Set up the notification handlers
         await client.start_notify(
-            char_specifier=atom_notify,
-            callback=command_data_receiver
+            char_specifier=atom_notify, callback=command_data_receiver
         )
 
         # send command to this 'indicate' characteristic
@@ -795,18 +789,20 @@ class AirthingsBluetoothDeviceData:
 
             if (pressure := command_sensor_data.get("PRS")) is not None:
                 new_values["pressure"] = float(pressure) / (64 * 100)
-            
+
             if (radon_1day_avg := command_sensor_data.get("R24")) is not None:
                 new_values["radon_1day_avg"] = radon_1day_avg
                 new_values["radon_1day_level"] = get_radon_level(float(radon_1day_avg))
-            
+
             if (radon_week_avg := command_sensor_data.get("R7D")) is not None:
                 new_values["radon_week_avg"] = radon_week_avg
                 new_values["radon_week_level"] = get_radon_level(float(radon_week_avg))
 
             if (radon_month_avg := command_sensor_data.get("R30D")) is not None:
                 new_values["radon_month_avg"] = radon_month_avg
-                new_values["radon_month_level"] = get_radon_level(float(radon_month_avg))
+                new_values["radon_month_level"] = get_radon_level(
+                    float(radon_month_avg)
+                )
 
             if (radon_year_avg := command_sensor_data.get("R1Y")) is not None:
                 new_values["radon_year_avg"] = radon_year_avg

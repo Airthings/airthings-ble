@@ -149,7 +149,7 @@ class AirthingsDeviceType(Enum):
                 required_minor=6,
                 required_patch=1,
             )
-        
+
         if self == AirthingsDeviceType.CORENTIUM_HOME_2:
             return self._need_firmware_upgrade(
                 version=version,
@@ -158,7 +158,10 @@ class AirthingsDeviceType(Enum):
                 required_patch=5,
             )
 
-        return False
+        return AirthingsFirmware(
+            need_fw_upgrade=False,
+            current_firmware=version,
+        )
 
     def _need_firmware_upgrade(
         self,
@@ -175,16 +178,12 @@ class AirthingsDeviceType(Enum):
 
         match = re.findall(pattern, version)
         if not match:
-            raise ValueError(
-                f"Invalid version string: {version}"
-            )
+            raise ValueError(f"Invalid version string: {version}")
 
         semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
         match_obj = semantic_version.match(match[0])
         if not match_obj:
-            raise ValueError(
-                f"Invalid semantic version in: {match[0]}"
-            )
+            raise ValueError(f"Invalid semantic version in: {match[0]}")
         major, minor, patch = match_obj.groups()
 
         need_fw_upgrade = not (

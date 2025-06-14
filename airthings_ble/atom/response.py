@@ -73,7 +73,8 @@ class AtomResponse:
             )
             raise ValueError(
                 f"Invalid response path length, expected {len(path_bytes)}, "
-                f"got {path_length}")
+                f"got {path_length}"
+            )
 
         if self.response[11:11 + path_length] != path_bytes:
             self.logger.debug(
