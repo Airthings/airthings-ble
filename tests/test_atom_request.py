@@ -1,4 +1,5 @@
 from pytest import mark
+
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 
@@ -10,7 +11,7 @@ from airthings_ble.atom.request_path import AtomRequestPath
         bytes.fromhex("E473"),
     ],
 )
-def test_atom_request(random_bytes: bytes | None):
+def test_atom_request(random_bytes: bytes | None) -> None:
     """Test the Wave Enhance request."""
     request = AtomRequest(url=AtomRequestPath.LATEST_VALUES, random_bytes=random_bytes)
     assert request.url == AtomRequestPath.LATEST_VALUES

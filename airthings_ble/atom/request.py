@@ -1,4 +1,5 @@
 import os
+
 from airthings_ble.atom.request_path import AtomRequestPath
 
 

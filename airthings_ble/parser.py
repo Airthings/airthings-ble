@@ -21,11 +21,10 @@ from bleak_retry_connector import BleakClientWithServiceCache, establish_connect
 
 from airthings_ble.airthings_firmware import AirthingsFirmware
 from airthings_ble.atom.request import AtomRequest
-from airthings_ble.atom.response import AtomResponse
 from airthings_ble.atom.request_path import AtomRequestPath
+from airthings_ble.atom.response import AtomResponse
 
 from .const import (
-    DEFAULT_MAX_UPDATE_ATTEMPTS,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -42,12 +41,13 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
+    CO2_MAX,
     COMMAND_UUID_ATOM,
     COMMAND_UUID_ATOM_NOTIFY,
-    CO2_MAX,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    DEFAULT_MAX_UPDATE_ATTEMPTS,
     HIGH,
     LOW,
     MODERATE,

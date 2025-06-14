@@ -1,4 +1,5 @@
 from logging import Logger
+
 import cbor2
 
 from airthings_ble.atom.request import AtomRequestPath

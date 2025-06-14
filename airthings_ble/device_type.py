@@ -1,11 +1,10 @@
 """Airthings device types."""
 
-from enum import Enum
 import logging
 import re
+from enum import Enum
 
 from airthings_ble.airthings_firmware import AirthingsFirmware
-
 
 _LOGGER = logging.getLogger(__name__)
 
