@@ -49,6 +49,7 @@ class AirthingsDeviceType(Enum):
         return unknown_device
 
     @property
+    # pylint: disable=too-many-return-statements
     def product_name(self) -> str:
         """Get product name."""
         if self == AirthingsDeviceType.WAVE_GEN_1:

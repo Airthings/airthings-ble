@@ -707,6 +707,7 @@ class AirthingsBluetoothDeviceData:
                 # Stop notification handler
                 await client.stop_notify(characteristic)
 
+    # pylint: disable=too-many-statements
     async def _atom_sensor_data(
         self,
         client: BleakClient,
