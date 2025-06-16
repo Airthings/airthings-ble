@@ -3,7 +3,7 @@
 import logging
 from enum import Enum
 
-from airthings_ble.airthings_firmware import AirthingsFirmware
+from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -137,32 +137,18 @@ class AirthingsDeviceType(Enum):
             percentage_range[1] - percentage_range[0]
         ) + percentage_range[0]
 
-    def need_firmware_upgrade(self, current_version: str) -> "AirthingsFirmware":
+    def need_firmware_upgrade(self, current_version: str) -> "AirthingsFirmwareVersion":
         """Check if the device needs an update."""
+        version = AirthingsFirmwareVersion(current_version=current_version)
+
         if self in (
             AirthingsDeviceType.WAVE_ENHANCE_EU,
             AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
-            return AirthingsFirmware(
-                current_version=current_version,
-                required_version="T-SUB-2.6.1-master+0",
-            )
-            return self._need_firmware_upgrade(
-                version=version,
-                required_major=2,
-                required_minor=6,
-                required_patch=1,
-            )
+            version.update_required_version("T-SUB-2.6.1-master+0")
+            return version
 
         if self == AirthingsDeviceType.CORENTIUM_HOME_2:
-            return self._need_firmware_upgrade(
-                version=version,
-                required_major=1,
-                required_minor=3,
-                required_patch=4,
-            )
+            version.update_required_version("R-SUB-1.3.4-master+0")
 
-        return AirthingsFirmware(
-            need_fw_upgrade=False,
-            current_firmware=version,
-        )
+        return version

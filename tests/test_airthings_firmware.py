@@ -1,9 +1,9 @@
-from airthings_ble.airthings_firmware import AirthingsFirmware
+from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from pytest import mark
 
 
 def test_airthings_firmware_need_upgrade() -> None:
-    fw = AirthingsFirmware(
+    fw = AirthingsFirmwareVersion(
         current_version="T-SUB-2.6.0-master+0",
         required_version="T-SUB-2.6.1-master+0",
     )
@@ -11,7 +11,7 @@ def test_airthings_firmware_need_upgrade() -> None:
 
 
 def test_airthings_firmware_need_upgrade_semantic() -> None:
-    fw = AirthingsFirmware(
+    fw = AirthingsFirmwareVersion(
         current_version="1.3.4",
         required_version="1.3.5",
     )
@@ -21,7 +21,7 @@ def test_airthings_firmware_need_upgrade_semantic() -> None:
 
 
 def test_airthings_firmware_no_upgrade() -> None:
-    fw = AirthingsFirmware(
+    fw = AirthingsFirmwareVersion(
         current_version="R-SUB-1.3.5-master+0",
         required_version="R-SUB-1.3.5-master+0",
     )
@@ -31,7 +31,7 @@ def test_airthings_firmware_no_upgrade() -> None:
 
 
 def test_airthings_firmware_no_required_firmware() -> None:
-    fw = AirthingsFirmware(
+    fw = AirthingsFirmwareVersion(
         current_version="T-SUB-1.0.1-master+0",
         required_version=None,
     )
@@ -51,7 +51,7 @@ def test_airthings_firmware_no_required_firmware() -> None:
     ],
 )
 def test_airthings_firmware_invalid_current_version(invalid_version: str) -> None:
-    fw = AirthingsFirmware(
+    fw = AirthingsFirmwareVersion(
         current_version=invalid_version,
         required_version="T-SUB-1.0.1-master+0",
     )
@@ -61,7 +61,7 @@ def test_airthings_firmware_invalid_current_version(invalid_version: str) -> Non
 
 
 def test_airthings_firmware_invalid_required_version() -> None:
-    fw = AirthingsFirmware(
+    fw = AirthingsFirmwareVersion(
         current_version="G-SUB-1.0.1-master+0",
         required_version="invalid",
     )

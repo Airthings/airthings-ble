@@ -19,7 +19,7 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
-from airthings_ble.airthings_firmware import AirthingsFirmware
+from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
@@ -503,7 +503,7 @@ class AirthingsDeviceInfo:
 class AirthingsDevice(AirthingsDeviceInfo):
     """Response data with information about the Airthings device"""
 
-    firmware = AirthingsFirmware()
+    firmware = AirthingsFirmwareVersion()
 
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
@@ -717,17 +717,17 @@ class AirthingsBluetoothDeviceData:
     ) -> None:
         """Get sensor data from the device."""
         try:
-            need_upgrade = self.device_info.model.need_firmware_upgrade(
-                version=self.device_info.sw_version
+            device.firmware = device.model.need_firmware_upgrade(
+                self.device_info.sw_version
             )
-            if need_upgrade.need_fw_upgrade:
+            if device.firmware.need_firmware_upgrade:
                 self.logger.warning(
                     "The firmware for this device (%s) is not up to date, "
                     "please update to %s or newer using the Airthings app.",
                     self.device_info.address,
-                    need_upgrade.needed_firmware or "N/A",
+                    device.firmware.required_version or "N/A",
                 )
-                device.firmware = need_upgrade
+
         except ValueError as err:
             self.logger.warning("Failed to check firmware version for device: %s", err)
 
