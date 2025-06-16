@@ -1,7 +1,6 @@
 """Airthings device types."""
 
 import logging
-import re
 from enum import Enum
 
 from airthings_ble.airthings_firmware import AirthingsFirmware
@@ -31,6 +30,7 @@ class AirthingsDeviceType(Enum):
 
     @classmethod
     def atom_devices(cls) -> list["AirthingsDeviceType"]:
+        """Get list of Airthings Atom devices."""
         return [
             AirthingsDeviceType.WAVE_ENHANCE_EU,
             AirthingsDeviceType.WAVE_ENHANCE_US,
@@ -137,12 +137,16 @@ class AirthingsDeviceType(Enum):
             percentage_range[1] - percentage_range[0]
         ) + percentage_range[0]
 
-    def need_firmware_upgrade(self, version: str) -> AirthingsFirmware:
+    def need_firmware_upgrade(self, current_version: str) -> "AirthingsFirmware":
         """Check if the device needs an update."""
         if self in (
             AirthingsDeviceType.WAVE_ENHANCE_EU,
             AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
+            return AirthingsFirmware(
+                current_version=current_version,
+                required_version="T-SUB-2.6.1-master+0",
+            )
             return self._need_firmware_upgrade(
                 version=version,
                 required_major=2,
@@ -155,45 +159,10 @@ class AirthingsDeviceType(Enum):
                 version=version,
                 required_major=1,
                 required_minor=3,
-                required_patch=5,
+                required_patch=4,
             )
 
         return AirthingsFirmware(
             need_fw_upgrade=False,
             current_firmware=version,
-        )
-
-    def _need_firmware_upgrade(
-        self,
-        version: str,
-        required_major: int,
-        required_minor: int,
-        required_patch: int,
-    ) -> AirthingsFirmware:
-        """Check if the version of the device firmware is up to date."""
-        # Example version strings:
-        #  Wave Enhance: T-SUB-2.6.1-master+0
-        #  Corentium Home 2: R-SUB-1.3.5-master+0
-        pattern = r"[A-Z]-SUB-(\d+\.\d+\.\d+)"
-
-        match = re.findall(pattern, version)
-        if not match:
-            raise ValueError(f"Invalid version string: {version}")
-
-        semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-        match_obj = semantic_version.match(match[0])
-        if not match_obj:
-            raise ValueError(f"Invalid semantic version in: {match[0]}")
-        major, minor, patch = match_obj.groups()
-
-        need_fw_upgrade = not (
-            int(major) >= required_major
-            and int(minor) >= required_minor
-            and int(patch) >= required_patch
-        )
-
-        return AirthingsFirmware(
-            need_fw_upgrade=need_fw_upgrade,
-            current_firmware=version,
-            needed_firmware=f"{required_major}.{required_minor}.{required_patch}",
         )
