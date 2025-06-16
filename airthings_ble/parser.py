@@ -544,7 +544,7 @@ class AirthingsBluetoothDeviceData:
         device_info.address = client.address
         did_first_sync = device_info.did_first_sync
 
-        device.firmware.current_firmware = device_info.sw_version
+        device.firmware.update_current_version(device_info.sw_version)
 
         # We need to fetch model to determ what to fetch.
         if not did_first_sync:
@@ -716,20 +716,17 @@ class AirthingsBluetoothDeviceData:
         service: BleakGATTService,
     ) -> None:
         """Get sensor data from the device."""
-        try:
-            device.firmware = device.model.need_firmware_upgrade(
-                self.device_info.sw_version
-            )
-            if device.firmware.need_firmware_upgrade:
-                self.logger.warning(
-                    "The firmware for this device (%s) is not up to date, "
-                    "please update to %s or newer using the Airthings app.",
-                    self.device_info.address,
-                    device.firmware.required_version or "N/A",
-                )
+        device.firmware = device.model.need_firmware_upgrade(
+            self.device_info.sw_version
+        )
 
-        except ValueError as err:
-            self.logger.warning("Failed to check firmware version for device: %s", err)
+        if device.firmware.need_firmware_upgrade:
+            self.logger.warning(
+                "The firmware for this device (%s) is not up to date, "
+                "please update to %s or newer using the Airthings app.",
+                self.device_info.address,
+                device.firmware.required_version or "N/A",
+            )
 
         decoder = command_decoders[str(COMMAND_UUID_ATOM)]
 

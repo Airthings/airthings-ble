@@ -59,7 +59,7 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-[tool.mypy]
+[mypy]
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
@@ -74,7 +74,7 @@ exclude = [
     'setup.py',
 ]
 
-[tool.mypy."tests.*"]
+[mypy."tests.*"]
 allow_untyped_defs = true
 
 [tool.ruff]
