@@ -1,4 +1,5 @@
 """Airthings firmware version handling."""
+
 import re
 
 
