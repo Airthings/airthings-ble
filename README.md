@@ -5,14 +5,21 @@ the [Home Assistant integration](https://www.home-assistant.io/integrations/airt
 
 The integration supports the following devices:
 
+- [Corentium Home 2](https://www.airthings.com/products/corentium-home-2)
 - [Wave Enhance](https://www.airthings.com/wave-enhance)
-- [Wave Plus](https://www.airthings.com/wave-plus)
-- [Wave Mini](https://www.airthings.com/wave-mini)
-- [Wave Radon](https://www.airthings.com/wave-radon)
 - Wave Gen 1
+- [Wave Mini](https://www.airthings.com/wave-mini)
+- [Wave Plus](https://www.airthings.com/wave-plus)
+- [Wave Radon](https://www.airthings.com/wave-radon)
 
-Although some other devices have BLE capabilities, those devices use BLE for onboarding and configuration.
-It is not possible to fetch sensor data using this library.
+Although some other devices have BLE capabilities, those devices use BLE only for onboarding and configuration. It is not possible to fetch sensor data using this library from, for example:
+-	Hub
+-	[Renew](https://www.airthings.com/renew)
+-	[View Plus](https://www.airthings.com/view-plus)
+-	View Pollution
+-	[View Radon](https://www.airthings.com/view-radon)
+
+These devices rely on Wi-Fi or a hub connection for continuous data access.
 
 ## Getting Started
 
