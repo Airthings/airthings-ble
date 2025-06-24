@@ -28,6 +28,9 @@ dependencies = [
 "Source Code" = "https://github.com/Airthings/airthings-ble"
 "Bug Reports" = "https://github.com/Airthings/airthings-ble/issues"
 
+[tool.poetry]
+version = "1.1.0"
+
 [tool.poetry.dependencies]
 python = ">=3.11, <3.14"
 bleak = ">=0.22.0"
