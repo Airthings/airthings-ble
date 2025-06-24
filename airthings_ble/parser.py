@@ -861,11 +861,14 @@ class AirthingsBluetoothDeviceData:
             )
         )
         try:
-            async with interrupt(
-                disconnect_future,
-                DisconnectedError,
-                f"Disconnected from {client.address}",
-            ), asyncio_timeout(UPDATE_TIMEOUT):
+            async with (
+                interrupt(
+                    disconnect_future,
+                    DisconnectedError,
+                    f"Disconnected from {client.address}",
+                ),
+                asyncio_timeout(UPDATE_TIMEOUT),
+            ):
                 await self._get_device_characteristics(client, device)
                 await self._get_service_characteristics(client, device)
         except BleakError as err:

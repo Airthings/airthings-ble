@@ -1,11 +1,12 @@
-[tool.poetry]
+[project]
 name = "airthings-ble"
 version = "1.0.0"
 description = "Manage Airthings BLE devices"
-authors = ["Vincent Giorgi", "Ståle Storø Hauknes"]
+authors = [
+    { "name" = "Vincent Giorgi" },
+    { "name" = "Ståle Storø Hauknes" },
+]
 readme = "README.md"
-repository = "https://github.com/Airthings/airthings-ble"
-documentation = "https://airthings-ble.readthedocs.io"
 classifiers = [
     "Intended Audience :: Developers",
     "Natural Language :: English",
@@ -13,19 +14,26 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "License :: OSI Approved :: MIT License",
 ]
-packages = [
-    { include = "airthings_ble" },
+requires-python = ">=3.11, <3.14"
+dependencies = [
+    "async-interrupt>=1.2.2",
+    "async-timeout>=4.0.1",
+    "bleak>=0.22.0",
+    "bleak-retry-connector>=3.9.0",
+    "cbor2>=5.6.5",
 ]
 
-[tool.poetry.urls]
-"Bug Tracker" = "https://github.com/Airthings/airthings-ble/issues"
+[project.urls]
+"Homepage" = "https://www,airthings.com"
+"Source Code" = "https://github.com/Airthings/airthings-ble"
+"Bug Reports" = "https://github.com/Airthings/airthings-ble/issues"
 
 [tool.poetry.dependencies]
 python = ">=3.11, <3.14"
 bleak = ">=0.22.0"
 bleak-retry-connector = ">=3.9.0"
 async-interrupt = ">=1.2.2"
-async-timeout = ">=5.0.1"
+async-timeout = ">=4.0.1"
 cbor2 = ">=5.6.5"
 
 [tool.poetry.group.dev.dependencies]
@@ -36,7 +44,7 @@ mypy = "^1.16.0"
 pylint = "^3.3.7"
 pytest-asyncio = "^1.0.0"
 pytest-rerunfailures = "^15.1.0"
-ruff = "^0.4.4"
+ruff = ">=0.12.0"
 
 [tool.semantic_release]
 branch = "main"
@@ -59,7 +67,7 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-[mypy]
+[tool.mypy]
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
@@ -70,12 +78,9 @@ show_error_codes = true
 warn_unreachable = true
 warn_unused_ignores = true
 exclude = [
-    'docs/.*',
+    'tests/.*',
     'setup.py',
 ]
-
-[mypy."tests.*"]
-allow_untyped_defs = true
 
 [tool.ruff]
 line-length = 88
