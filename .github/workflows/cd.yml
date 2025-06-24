@@ -45,7 +45,7 @@ jobs:
           tag = '${{ github.event.inputs.tag }}'
           with open('pyproject.toml', 'r') as file:
             content = tomlkit.parse(file.read())
-          content['tool']['poetry']['version'] = tag
+          content['project']['version'] = tag
           with open('pyproject.toml', 'w') as file:
             file.write(tomlkit.dumps(content))
           "
