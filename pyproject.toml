@@ -7,17 +7,12 @@ authors = [
     { "name" = "Ståle Storø Hauknes" },
 ]
 readme = "README.md"
-repository = "https://github.com/Airthings/airthings-ble"
-documentation = "https://airthings-ble.readthedocs.io"
 classifiers = [
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Topic :: Software Development :: Libraries",
     "License :: OSI Approved :: MIT License",
-]
-packages = [
-    { include = "airthings_ble" },
 ]
 requires-python = ">=3.11, <3.14"
 dependencies = [
@@ -83,13 +78,9 @@ show_error_codes = true
 warn_unreachable = true
 warn_unused_ignores = true
 exclude = [
-    'docs/.*',
+    'tests/.*',
     'setup.py',
 ]
-
-[[tool.mypy.overrides]]
-module = "tests"
-allow_untyped_defs = true
 
 [tool.ruff]
 line-length = 88
