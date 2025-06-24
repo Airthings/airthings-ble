@@ -1,9 +1,8 @@
 import pytest
-
 from airthings_ble.device_type import AirthingsDeviceType
 
 
-def test_device_type():
+def test_device_type() -> None:
     """Test device type."""
     assert AirthingsDeviceType.WAVE_MINI.product_name == "Wave Mini"
     assert AirthingsDeviceType.WAVE_PLUS.product_name == "Wave Plus"
@@ -39,7 +38,7 @@ def test_device_type():
     assert unknown_device.raw_value == "1234"
 
 
-def test_battery_calculation():
+def test_battery_calculation() -> None:
     """Test battery calculation for all devices."""
     # Starting with the Wave Mini, since it has a different battery voltage range.
     # Max voltage is 4.5V, min voltage is 2.4V.

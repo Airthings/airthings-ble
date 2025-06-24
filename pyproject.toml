@@ -7,7 +7,6 @@ readme = "README.md"
 repository = "https://github.com/Airthings/airthings-ble"
 documentation = "https://airthings-ble.readthedocs.io"
 classifiers = [
-    "Development Status :: 2 - Pre-Alpha",
     "Intended Audience :: Developers",
     "Natural Language :: English",
     "Operating System :: OS Independent",
@@ -22,21 +21,22 @@ packages = [
 "Bug Tracker" = "https://github.com/Airthings/airthings-ble/issues"
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = ">=3.11, <3.14"
+bleak = ">=0.22.0"
+bleak-retry-connector = ">=3.9.0"
+async-interrupt = ">=1.2.2"
+async-timeout = ">=5.0.1"
+cbor2 = ">=5.6.5"
 
-# Documentation Dependencies
-bleak = ">=0.15.1"
-bleak-retry-connector = ">=1.8.0"
-async-interrupt = ">=1.1.1"
-async-timeout = {version = ">=4.0.1", markers = "python_version < \"3.11\""}
-cbor2 = ">=5.6.4"
-
-[tool.poetry.dev-dependencies]
-pytest = "^8.0"
-pytest-cov = "^4.1"
-black = {version = "^24.1.1"}
-mypy = "^1.8.0"
-pylint = "^3.0.3"
+[tool.poetry.group.dev.dependencies]
+pytest = "^8.4.0"
+pytest-cov = "^6.2.0"
+black = "^25.1.0"
+mypy = "^1.16.0"
+pylint = "^3.3.7"
+pytest-asyncio = "^1.0.0"
+pytest-rerunfailures = "^15.1.0"
+ruff = "^0.4.4"
 
 [tool.semantic_release]
 branch = "main"
@@ -59,11 +59,7 @@ exclude_lines = [
     "raise NotImplementedError",
 ]
 
-[tool.isort]
-profile = "black"
-known_first_party = ["airthings_ble", "tests"]
-
-[tool.mypy]
+[mypy]
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
@@ -78,13 +74,21 @@ exclude = [
     'setup.py',
 ]
 
-[[tool.mypy.overrides]]
-module = "tests.*"
+[mypy."tests.*"]
 allow_untyped_defs = true
 
-[[tool.mypy.overrides]]
-module = "docs.*"
-ignore_errors = true
+[tool.ruff]
+line-length = 88
+target-version = "py311"
+extend-exclude = ["docs", "build"]
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]  # pycodestyle, pyflakes, isort
+ignore = ["E203", "E501"]  # For black-compatibilitet
+
+[tool.ruff.lint.per-file-ignores]
+"tests/*" = ["S101"]  # Tillat bruk av assert i tester
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]

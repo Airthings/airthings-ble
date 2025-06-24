@@ -1,66 +1,23 @@
-"""Request for data from a Wave Enhance"""
-
-import enum
 from logging import Logger
-import os
+
 import cbor2
+from airthings_ble.atom.request import AtomRequestPath
 
 
-class WaveEnhanceRequestPath(enum.Enum):
-    """URLs for the Wave Enhance"""
-
-    LATEST_VALUES = "29999/0/31012"
-
-    def as_bytes(self) -> bytes:
-        """Get URL as bytes"""
-        if not isinstance(self.value, str):
-            raise ValueError(
-                "WaveEnhanceRequestPath - self.value must be a string to encode: %s, type: %s",
-                self.value,
-                type(self.value),
-            )
-        return bytes(self.value, "utf-8")
-
-
-class WaveEnhanceRequest:
-    """Request for data from a Wave Enhance"""
-
-    url: WaveEnhanceRequestPath
-    random_bytes: bytes
-
-    def __init__(
-        self, url: WaveEnhanceRequestPath, random_bytes: bytes | None = None
-    ) -> None:
-        self.url = url
-        if random_bytes is not None:
-            self.random_bytes = random_bytes
-        else:
-            self.random_bytes = os.urandom(2)
-
-    def as_bytes(self) -> bytes:
-        """Get request as bytes"""
-        bytes = bytearray()
-        bytes.extend(bytes.fromhex("0301"))
-        bytes.extend(self.random_bytes)
-        bytes.extend(bytes.fromhex("81A1006D"))
-        bytes.extend(self.url.as_bytes())
-        return bytes
-
-
-class WaveEnhanceResponse:
-    """Response from a Wave Enhance"""
+class AtomResponse:
+    """Response for Airthings BLE Atom API"""
 
     _header = bytearray.fromhex("1001000345")
     response: bytes
     random_bytes: bytes
-    path: WaveEnhanceRequestPath
+    path: AtomRequestPath
 
     def __init__(
         self,
         logger: Logger,
         response: bytes | None,
         random_bytes: bytes,
-        path: WaveEnhanceRequestPath,
+        path: AtomRequestPath,
     ) -> None:
         self.logger = logger
         if response is None:
@@ -88,7 +45,7 @@ class WaveEnhanceResponse:
 
         if self.response[7] != 0x81:
             self.logger.debug(
-                "Invalid response type, expected 1, but got %s", self.response[7]
+                "Invalid response type, expected 81, but got %s", self.response[7]
             )
             raise ValueError("Invalid response type")
 
@@ -97,7 +54,7 @@ class WaveEnhanceResponse:
                 "Invalid response array length, expected 2, but got %s",
                 self.response[8],
             )
-            raise ValueError("Invalid response array length")
+            raise ValueError("Invalid response array length, expected 2")
 
         if self.response[9] != 0x00:
             self.logger.debug(
@@ -105,19 +62,24 @@ class WaveEnhanceResponse:
             )
             raise ValueError("Invalid response element")
 
+        path_bytes = self.path.as_bytes()
+
         path_length = self.response[10] - 0x60
-        if path_length != len(self.path.as_bytes()):
+        if path_length != len(self.path.value):
             self.logger.debug(
                 "Invalid path length, expected %d, but got %d",
-                len(self.path.as_bytes()),
+                len(path_bytes),
                 path_length,
             )
-            raise ValueError("Invalid response path length")
+            raise ValueError(
+                f"Invalid response path length, expected {len(path_bytes)}, "
+                f"got {path_length}"
+            )
 
-        if self.response[11 : 11 + path_length] != self.path.as_bytes():
+        if self.response[11 : 11 + path_length] != path_bytes:
             self.logger.debug(
                 "Invalid response path, expected %s, but got %s",
-                self.path.as_bytes(),
+                path_bytes,
                 self.response[11 : 11 + path_length],
             )
             raise ValueError("Invalid response path")

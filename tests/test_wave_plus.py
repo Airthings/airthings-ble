@@ -5,7 +5,7 @@ from airthings_ble.parser import WaveRadonAndPlusCommandDecode, _decode_wave_plu
 _LOGGER = logging.getLogger(__name__)
 
 
-def test_wave_plus_command_decode():
+def test_wave_plus_command_decode() -> None:
     """Test wave plus command decode."""
     decode = WaveRadonAndPlusCommandDecode()
     assert decode.decode_data(
@@ -16,7 +16,7 @@ def test_wave_plus_command_decode():
     ) == {"battery": 3.0}
 
 
-def test_wave_plus_sensor_data():
+def test_wave_plus_sensor_data() -> None:
     """Test wave plus sensor data."""
     raw_data = bytearray.fromhex("01380d800b002200bd094cc31d036c0000007d05")
 

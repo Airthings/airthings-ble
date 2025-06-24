@@ -19,14 +19,12 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
-from airthings_ble.wave_enhance.request import (
-    WaveEnhanceRequest,
-    WaveEnhanceRequestPath,
-    WaveEnhanceResponse,
-)
+from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
+from airthings_ble.atom.request import AtomRequest
+from airthings_ble.atom.request_path import AtomRequestPath
+from airthings_ble.atom.response import AtomResponse
 
 from .const import (
-    DEFAULT_MAX_UPDATE_ATTEMPTS,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -43,12 +41,13 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
-    COMMAND_UUID_WAVE_ENHANCE,
-    COMMAND_UUID_WAVE_ENHANCE_NOTIFY,
     CO2_MAX,
+    COMMAND_UUID_ATOM,
+    COMMAND_UUID_ATOM_NOTIFY,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    DEFAULT_MAX_UPDATE_ATTEMPTS,
     HIGH,
     LOW,
     MODERATE,
@@ -95,7 +94,7 @@ sensors_characteristics_uuid = [
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_PLUS,
     COMMAND_UUID_WAVE_MINI,
-    COMMAND_UUID_WAVE_ENHANCE,
+    COMMAND_UUID_ATOM,
 ]
 sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
 
@@ -261,7 +260,7 @@ def illuminance_converter(value: float) -> Optional[int]:
 class CommandDecode:
     """Decoder for the command response"""
 
-    cmd: bytes = b"\x6D"
+    cmd: bytes = b"\x6d"
     format_type: str
 
     def decode_data(
@@ -346,13 +345,13 @@ class WaveMiniCommandDecode(CommandDecode):
         return None
 
 
-class WaveEnhanceCommandDecode(CommandDecode):
-    """Decoder for the Wave Enhance command response"""
+class AtomCommandDecode(CommandDecode):
+    """Decoder for the Atom command response"""
 
     def __init__(self) -> None:
         """Initialize command decoder"""
         self.format_type = ""
-        self.request = WaveEnhanceRequest(url=WaveEnhanceRequestPath.LATEST_VALUES)
+        self.request = AtomRequest(url=AtomRequestPath.LATEST_VALUES)
         self.cmd = self.request.as_bytes()
 
     def decode_data(
@@ -360,7 +359,7 @@ class WaveEnhanceCommandDecode(CommandDecode):
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
         try:
-            response = WaveEnhanceResponse(
+            response = AtomResponse(
                 logger=logger,
                 response=raw_data,
                 random_bytes=self.request.random_bytes,
@@ -369,9 +368,8 @@ class WaveEnhanceCommandDecode(CommandDecode):
             return response.parse()
 
         except ValueError as err:
-            logger.warning("Failed to parse Wave Enhance response: %s", err)
-
-        return None
+            logger.error("Failed to decode command response: %s", err)
+            return None
 
 
 class _NotificationReceiver:
@@ -470,7 +468,7 @@ command_decoders: dict[str, CommandDecode] = {
     str(COMMAND_UUID_WAVE_2): WaveRadonAndPlusCommandDecode(),
     str(COMMAND_UUID_WAVE_PLUS): WaveRadonAndPlusCommandDecode(),
     str(COMMAND_UUID_WAVE_MINI): WaveMiniCommandDecode(),
-    str(COMMAND_UUID_WAVE_ENHANCE): WaveEnhanceCommandDecode(),
+    str(COMMAND_UUID_ATOM): AtomCommandDecode(),
 }
 
 
@@ -501,29 +499,11 @@ class AirthingsDeviceInfo:
         return f"Airthings {self.model.product_name}"
 
 
-class AirthingsFirmware:  # pylint: disable=too-few-public-methods
-    """Firmware information for the Airthings device."""
-
-    need_fw_upgrade = False
-    current_firmware = ""
-    needed_firmware = ""
-
-    def __init__(
-        self,
-        need_fw_upgrade: bool = False,
-        current_firmware: str = "",
-        needed_firmware: str = "",
-    ) -> None:
-        self.need_fw_upgrade = need_fw_upgrade
-        self.current_firmware = current_firmware
-        self.needed_firmware = needed_firmware
-
-
 @dataclasses.dataclass
 class AirthingsDevice(AirthingsDeviceInfo):
     """Response data with information about the Airthings device"""
 
-    firmware = AirthingsFirmware()
+    firmware = AirthingsFirmwareVersion()
 
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
@@ -564,7 +544,7 @@ class AirthingsBluetoothDeviceData:
         device_info.address = client.address
         did_first_sync = device_info.did_first_sync
 
-        device.firmware.current_firmware = device_info.sw_version
+        device.firmware.update_current_version(device_info.sw_version)
 
         # We need to fetch model to determ what to fetch.
         if not did_first_sync:
@@ -646,20 +626,16 @@ class AirthingsBluetoothDeviceData:
         for service in svcs:
             if (
                 (
-                    str(COMMAND_UUID_WAVE_ENHANCE)
+                    str(COMMAND_UUID_ATOM)
                     in (str(x.uuid) for x in service.characteristics)
                 )
                 and (
-                    str(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
+                    str(COMMAND_UUID_ATOM_NOTIFY)
                     in (str(x.uuid) for x in service.characteristics)
                 )
-                and device.model
-                in (
-                    AirthingsDeviceType.WAVE_ENHANCE_EU,
-                    AirthingsDeviceType.WAVE_ENHANCE_US,
-                )
+                and device.model in AirthingsDeviceType.atom_devices()
             ):
-                await self._wave_enhance_sensor_data(client, device, sensors, service)
+                await self._atom_sensor_data(client, device, sensors, service)
             else:
                 await self._wave_sensor_data(client, device, sensors, service)
 
@@ -731,40 +707,41 @@ class AirthingsBluetoothDeviceData:
                 # Stop notification handler
                 await client.stop_notify(characteristic)
 
-    async def _wave_enhance_sensor_data(
+    # pylint: disable=too-many-statements
+    async def _atom_sensor_data(
         self,
         client: BleakClient,
         device: AirthingsDevice,
         sensors: dict[str, str | float | None],
         service: BleakGATTService,
     ) -> None:
-        """Get sensor data from the Wave Enhance."""
-        if self.device_info.model.need_firmware_upgrade(self.device_info.sw_version):
-            self.logger.warning(
-                "The firmware for this Wave Enhance (%s) is not up to date, "
-                "please update to 2.6.1 or newer using the Airthings app.",
-                self.device_info.address,
-            )
-            device.firmware = AirthingsFirmware(
-                need_fw_upgrade=True,
-                current_firmware=device.sw_version,
-                needed_firmware="2.6.1",
-            )
-            return
+        """Get sensor data from the device."""
+        device.firmware = device.model.need_firmware_upgrade(
+            self.device_info.sw_version
+        )
 
-        decoder = command_decoders[str(COMMAND_UUID_WAVE_ENHANCE)]
+        if device.firmware.need_firmware_upgrade:
+            self.logger.warning(
+                "The firmware for this device (%s) is not up to date, "
+                "please update to %s or newer using the Airthings app.",
+                self.device_info.address,
+                device.firmware.required_version or "N/A",
+            )
+
+        decoder = command_decoders[str(COMMAND_UUID_ATOM)]
 
         command_data_receiver = decoder.make_data_receiver()
 
-        atom_write = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE)
-        atom_notify = service.get_characteristic(COMMAND_UUID_WAVE_ENHANCE_NOTIFY)
+        atom_write = service.get_characteristic(COMMAND_UUID_ATOM)
+        atom_notify = service.get_characteristic(COMMAND_UUID_ATOM_NOTIFY)
 
         if atom_write is None or atom_notify is None:
-            self.logger.error("Missing characteristics for Wave Enhance")
-            raise ValueError("Missing characteristics for Wave Enhance")
+            raise ValueError("Missing characteristics for device")
 
         # Set up the notification handlers
-        await client.start_notify(atom_notify, command_data_receiver)
+        await client.start_notify(
+            char_specifier=atom_notify, callback=command_data_receiver
+        )
 
         # send command to this 'indicate' characteristic
         await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
@@ -810,6 +787,24 @@ class AirthingsBluetoothDeviceData:
 
             if (pressure := command_sensor_data.get("PRS")) is not None:
                 new_values["pressure"] = float(pressure) / (64 * 100)
+
+            if (radon_1day_avg := command_sensor_data.get("R24")) is not None:
+                new_values["radon_1day_avg"] = radon_1day_avg
+                new_values["radon_1day_level"] = get_radon_level(float(radon_1day_avg))
+
+            if (radon_week_avg := command_sensor_data.get("R7D")) is not None:
+                new_values["radon_week_avg"] = radon_week_avg
+                new_values["radon_week_level"] = get_radon_level(float(radon_week_avg))
+
+            if (radon_month_avg := command_sensor_data.get("R30D")) is not None:
+                new_values["radon_month_avg"] = radon_month_avg
+                new_values["radon_month_level"] = get_radon_level(
+                    float(radon_month_avg)
+                )
+
+            if (radon_year_avg := command_sensor_data.get("R1Y")) is not None:
+                new_values["radon_year_avg"] = radon_year_avg
+                new_values["radon_year_level"] = get_radon_level(float(radon_year_avg))
 
             self.logger.debug("Sensor values: %s", new_values)
 

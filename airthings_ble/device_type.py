@@ -1,9 +1,9 @@
 """Airthings device types."""
 
-from enum import Enum
 import logging
-import re
+from enum import Enum
 
+from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,6 +18,7 @@ class AirthingsDeviceType(Enum):
     WAVE_RADON = "2950"
     WAVE_ENHANCE_EU = "3210"
     WAVE_ENHANCE_US = "3220"
+    CORENTIUM_HOME_2 = "3250"
 
     raw_value: str  # pylint: disable=invalid-name
 
@@ -26,6 +27,15 @@ class AirthingsDeviceType(Enum):
         obj = object.__new__(cls)
         obj.raw_value = value
         return obj
+
+    @classmethod
+    def atom_devices(cls) -> list["AirthingsDeviceType"]:
+        """Get list of Airthings Atom devices."""
+        return [
+            AirthingsDeviceType.WAVE_ENHANCE_EU,
+            AirthingsDeviceType.WAVE_ENHANCE_US,
+            AirthingsDeviceType.CORENTIUM_HOME_2,
+        ]
 
     @classmethod
     def from_raw_value(cls, value: str) -> "AirthingsDeviceType":
@@ -39,6 +49,7 @@ class AirthingsDeviceType(Enum):
         return unknown_device
 
     @property
+    # pylint: disable=too-many-return-statements
     def product_name(self) -> str:
         """Get product name."""
         if self == AirthingsDeviceType.WAVE_GEN_1:
@@ -54,6 +65,8 @@ class AirthingsDeviceType(Enum):
             AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
             return "Wave Enhance"
+        if self == AirthingsDeviceType.CORENTIUM_HOME_2:
+            return "Corentium Home 2"
         return "Unknown"
 
     def battery_percentage(self, voltage: float) -> int:
@@ -124,31 +137,18 @@ class AirthingsDeviceType(Enum):
             percentage_range[1] - percentage_range[0]
         ) + percentage_range[0]
 
-    def need_firmware_upgrade(self, version: str) -> bool:
+    def need_firmware_upgrade(self, current_version: str) -> "AirthingsFirmwareVersion":
         """Check if the device needs an update."""
+        version = AirthingsFirmwareVersion(current_version=current_version)
+
         if self in (
             AirthingsDeviceType.WAVE_ENHANCE_EU,
             AirthingsDeviceType.WAVE_ENHANCE_US,
         ):
-            return self._wave_enhance_need_firmware_upgrade(version)
+            version.update_required_version("T-SUB-2.6.1-master+0")
+            return version
 
-        return False
+        if self == AirthingsDeviceType.CORENTIUM_HOME_2:
+            version.update_required_version("R-SUB-1.3.4-master+0")
 
-    def _wave_enhance_need_firmware_upgrade(self, version: str) -> bool:
-        """Check if the version of a Wave Enhance is 2.6.0 or higher."""
-        # Example of a Tern version: T-SUB-2.6.1-master+0
-        pattern = r"T-SUB-(\d+\.\d+\.\d+)"
-
-        match = re.findall(pattern, version)
-        if not match:
-            _LOGGER.warning("Invalid version string: %s", version)
-            return False
-
-        semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-        match_obj = semantic_version.match(match[0])
-        if not match_obj:
-            _LOGGER.warning("Invalid semantic version string: %s", match[0])
-            return False
-        major, minor, patch = match_obj.groups()
-
-        return not (int(major) >= 2 and int(minor) >= 6 and int(patch) >= 1)
+        return version

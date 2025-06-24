@@ -1,7 +1,7 @@
 from airthings_ble.parser import get_radon_level
 
 
-def test_radon_level():
+def test_radon_level() -> None:
     assert get_radon_level(0) == "very low"
     assert get_radon_level(49) == "very low"
     assert get_radon_level(50) == "low"

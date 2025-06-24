@@ -1,7 +1,7 @@
 from airthings_ble.parser import _decode_wave_illum_accel
 
 
-def test_wave_gen_1_illuminance_and_accelerometer():
+def test_wave_gen_1_illuminance_and_accelerometer() -> None:
     """Test Wave Gen 1 illuminance and accelerometer."""
     raw_data = bytearray.fromhex("b20c")
 
