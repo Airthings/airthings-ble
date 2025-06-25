@@ -6,7 +6,6 @@ import asyncio
 import dataclasses
 import re
 import struct
-import sys
 from collections import namedtuple
 from datetime import datetime
 from functools import partial
@@ -60,11 +59,6 @@ from .const import (
     VOC_MAX,
 )
 from .device_type import AirthingsDeviceType
-
-if sys.version_info[:2] < (3, 11):
-    from async_timeout import timeout as asyncio_timeout
-else:
-    from asyncio import timeout as asyncio_timeout
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
@@ -867,7 +861,7 @@ class AirthingsBluetoothDeviceData:
                     DisconnectedError,
                     f"Disconnected from {client.address}",
                 ),
-                asyncio_timeout(UPDATE_TIMEOUT),
+                asyncio.timeout(UPDATE_TIMEOUT),
             ):
                 await self._get_device_characteristics(client, device)
                 await self._get_service_characteristics(client, device)
