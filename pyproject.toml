@@ -1,6 +1,6 @@
 [project]
 name = "airthings-ble"
-version = "1.1.0"
+version = "1.1.1"
 description = "Manage Airthings BLE devices"
 authors = [
     { name = "Vincent Giorgi" },
