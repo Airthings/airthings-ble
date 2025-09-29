@@ -3,10 +3,12 @@ name = "airthings-ble"
 version = "1.1.0"
 description = "Manage Airthings BLE devices"
 authors = [
-    { "name" = "Vincent Giorgi" },
-    { "name" = "Ståle Storø Hauknes" },
+    { name = "Vincent Giorgi" },
+    { name = "Ståle Storø Hauknes" },
 ]
 readme = "README.md"
+requires-python = ">=3.11"
+dynamic = ["dependencies"]
 classifiers = [
     "Intended Audience :: Developers",
     "Natural Language :: English",
@@ -14,29 +16,16 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "License :: OSI Approved :: MIT License",
 ]
-requires-python = ">=3.11, <3.14"
-dependencies = [
-    "async-interrupt>=1.2.2",
-    "async-timeout>=4.0.1",
-    "bleak>=0.22.0",
-    "bleak-retry-connector>=3.9.0",
-    "cbor2>=5.6.5",
-]
 
 [project.urls]
-"Homepage" = "https://www,airthings.com"
-"Source Code" = "https://github.com/Airthings/airthings-ble"
+"Homepage" = "https://www.airthings.com"
+"Source" = "https://github.com/Airthings/airthings-ble"
 "Bug Reports" = "https://github.com/Airthings/airthings-ble/issues"
 
-[tool.poetry]
-version = "1.0.0"
-
 [tool.poetry.dependencies]
-python = ">=3.11, <3.14"
-bleak = ">=0.22.0"
-bleak-retry-connector = ">=3.9.0"
+bleak = { version = ">=1.0.1", python = "<3.14" }
+bleak-retry-connector = ">=4.4.3"
 async-interrupt = ">=1.2.2"
-async-timeout = ">=4.0.1"
 cbor2 = ">=5.6.5"
 
 [tool.poetry.group.dev.dependencies]
@@ -81,8 +70,8 @@ show_error_codes = true
 warn_unreachable = true
 warn_unused_ignores = true
 exclude = [
-    'tests/.*',
-    'setup.py',
+    "tests/.*",
+    "setup.py",
 ]
 
 [tool.ruff]
@@ -92,11 +81,11 @@ extend-exclude = ["docs", "build"]
 src = ["src", "tests"]
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]  # pycodestyle, pyflakes, isort
-ignore = ["E203", "E501"]  # For black-compatibilitet
+select = ["E", "F", "I"]
+ignore = ["E203", "E501"]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/*" = ["S101"]  # Tillat bruk av assert i tester
+"tests/*" = ["S101"]
 
 [build-system]
 requires = ["poetry-core>=1.0.0"]
