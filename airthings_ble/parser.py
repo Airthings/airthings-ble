@@ -776,8 +776,8 @@ class AirthingsBluetoothDeviceData:
                     float(temperature) / 100.0 - 273.15, 2
                 )
 
-            if (noise := command_sensor_data.get("NOI")) is not None:
-                new_values["noise"] = noise
+            if (ambient_noise := command_sensor_data.get("NOI")) is not None:
+                new_values["ambient_noise"] = ambient_noise
 
             if (pressure := command_sensor_data.get("PRS")) is not None:
                 new_values["pressure"] = float(pressure) / (64 * 100)
