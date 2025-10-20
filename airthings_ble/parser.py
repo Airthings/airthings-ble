@@ -18,11 +18,11 @@ from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
-from airthings_ble import get_radon_level
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
+from airthings_ble.radon_level import get_radon_level
 
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
