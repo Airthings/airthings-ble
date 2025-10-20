@@ -18,7 +18,7 @@ class AtomRequest:
         else:
             self.random_bytes = os.urandom(2)
 
-    def as_bytes(self) -> bytes:
+    def as_bytes(self) -> bytearray:
         """Get request as bytes"""
         bytes = bytearray()
         bytes.extend(bytes.fromhex("0301"))
