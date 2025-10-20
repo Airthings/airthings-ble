@@ -11,7 +11,7 @@ class AirthingsRadonLevel:
 
 LEVELS = [
     # No action necessary
-    AirthingsRadonLevel(None, 100, "good"),
+    AirthingsRadonLevel(0, 100, "good"),
     # Experiment with ventilation and sealing cracks
     AirthingsRadonLevel(100, 150, "fair"),
     # Contact a professional radon mitigator
