@@ -10,15 +10,19 @@ class AirthingsRadonLevel:
 
 
 LEVELS = [
-    AirthingsRadonLevel(None, 100, "good"),  # No action necessary
-    AirthingsRadonLevel(100, 150, "fair"),  # Experiment with ventilation and sealing cracks
-    AirthingsRadonLevel(150, None, "poor"),  # Contact a professional radon mitigator
+    # No action necessary
+    AirthingsRadonLevel(None, 100, "good"),
+    # Experiment with ventilation and sealing cracks
+    AirthingsRadonLevel(100, 150, "fair"),
+    # Contact a professional radon mitigator
+    AirthingsRadonLevel(150, None, "poor"),
 ]
 
 
 def _in_range(value: float, min_value: float | None, max_value: float | None) -> bool:
-    return (min_value is None or value >= min_value) and \
-           (max_value is None or value < max_value)
+    return (min_value is None or value >= min_value) and (
+        max_value is None or value < max_value
+    )
 
 
 def get_radon_level(value: float) -> str:
