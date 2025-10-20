@@ -22,6 +22,7 @@ from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
+from airthings_ble.radon_level import get_radon_level
 
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
@@ -47,15 +48,11 @@ from .const import (
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
     DEFAULT_MAX_UPDATE_ATTEMPTS,
-    HIGH,
-    LOW,
-    MODERATE,
     PERCENTAGE_MAX,
     PRESSURE_MAX,
     RADON_MAX,
     TEMPERATURE_MAX,
     UPDATE_TIMEOUT,
-    VERY_LOW,
     VOC_MAX,
 )
 from .device_type import AirthingsDeviceType
@@ -409,19 +406,6 @@ class _NotificationReceiver:
                 await self._future
             finally:
                 timer_handle.cancel()
-
-
-def get_radon_level(data: float) -> str:
-    """Returns the applicable radon level"""
-    if data <= VERY_LOW[1]:
-        radon_level = VERY_LOW[2]
-    elif data <= LOW[1]:
-        radon_level = LOW[2]
-    elif data <= MODERATE[1]:
-        radon_level = MODERATE[2]
-    else:
-        radon_level = HIGH[2]
-    return radon_level
 
 
 sensor_decoders: dict[
