@@ -7,7 +7,7 @@ _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
-def test_atom_response_wave_enhance() -> None:
+def test_atom_response_wave_enhance_latest_values() -> None:
     """Test the Wave Enhance request."""
     random_bytes = bytes.fromhex("A1B2")
 
@@ -36,7 +36,7 @@ def test_atom_response_wave_enhance() -> None:
     assert sensor_data["NOI"] == 39
 
 
-def test_atom_response_corentium_home_2() -> None:
+def test_atom_response_corentium_home_2_latest_values() -> None:
     """Test the Wave Enhance request."""
     random_bytes = bytes.fromhex("CCA4")
 
