@@ -1,6 +1,6 @@
 import logging
 
-from airthings_ble.parser import _decode_wave_radon
+from airthings_ble.sensor_decoders import _decode_wave_radon
 
 _LOGGER = logging.getLogger(__name__)
 

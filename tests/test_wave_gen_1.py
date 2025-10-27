@@ -1,4 +1,4 @@
-from airthings_ble.parser import _decode_wave_illum_accel
+from airthings_ble.sensor_decoders import _decode_wave_illum_accel
 
 
 def test_wave_gen_1_illuminance_and_accelerometer() -> None:
