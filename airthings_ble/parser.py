@@ -17,8 +17,8 @@ from bleak_retry_connector import BleakClientWithServiceCache, establish_connect
 
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.command_decode import COMMAND_DECODERS
-from airthings_ble.decoders import SENSOR_DECODERS
 from airthings_ble.radon_level import get_radon_level
+from airthings_ble.sensor_decoders import SENSOR_DECODERS
 
 from .const import (
     BQ_TO_PCI_MULTIPLIER,
