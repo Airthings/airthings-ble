@@ -16,7 +16,7 @@ from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
-from airthings_ble.command_decode import COMMAND_DECODERS
+from airthings_ble.command_decode import AtomCommandDecode, COMMAND_DECODERS
 from airthings_ble.radon_level import get_radon_level
 from airthings_ble.sensor_decoders import SENSOR_DECODERS
 
@@ -322,7 +322,6 @@ class AirthingsBluetoothDeviceData:
                 # Stop notification handler
                 await client.stop_notify(characteristic)
 
-    # pylint: disable=too-many-statements
     async def _atom_sensor_data(
         self,
         client: BleakClient,
@@ -343,7 +342,7 @@ class AirthingsBluetoothDeviceData:
                 device.firmware.required_version or "N/A",
             )
 
-        decoder = COMMAND_DECODERS[str(COMMAND_UUID_ATOM)]
+        decoder = AtomCommandDecode()
 
         command_data_receiver = decoder.make_data_receiver()
 
@@ -370,7 +369,24 @@ class AirthingsBluetoothDeviceData:
             logger=self.logger,
             raw_data=command_data_receiver.message,
         )
+        self._parse_sensor_data(
+            client=client,
+            device=device,
+            sensors=sensors,
+            service=service,
+            command_sensor_data=command_sensor_data,
+        )
 
+        # Stop notification handler
+        await client.stop_notify(atom_notify)
+
+    def _parse_sensor_data(
+        self,
+        device: AirthingsDevice,
+        sensors: dict[str, str | float | None],
+        command_sensor_data: dict[str, float | str | None] | None,
+    ) -> None:
+        """Parse sensor data from the device."""
         if command_sensor_data is not None:
             new_values: dict[str, float | str | None] = {}
 
@@ -424,9 +440,6 @@ class AirthingsBluetoothDeviceData:
             self.logger.debug("Sensor values: %s", new_values)
 
             sensors.update(new_values)
-
-        # Stop notification handler
-        await client.stop_notify(atom_notify)
 
     def _handle_disconnect(
         self, disconnect_future: asyncio.Future[bool], client: BleakClient
