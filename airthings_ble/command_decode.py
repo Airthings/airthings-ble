@@ -55,9 +55,9 @@ class CommandDecode:
 
         return struct.unpack(self.format_type, raw_data[2:])
 
-    def make_data_receiver(self) -> "_NotificationReceiver":
+    def make_data_receiver(self) -> "NotificationReceiver":
         """Creates a notification receiver for the command."""
-        return _NotificationReceiver(struct.calcsize(self.format_type))
+        return NotificationReceiver(struct.calcsize(self.format_type))
 
 
 class WaveRadonAndPlusCommandDecode(CommandDecode):
@@ -104,10 +104,14 @@ class WaveMiniCommandDecode(CommandDecode):
 class AtomCommandDecode(CommandDecode):
     """Decoder for the Atom command response"""
 
-    def __init__(self) -> None:
+    def __init__(self, url: AtomRequestPath) -> None:
         """Initialize command decoder"""
         self.format_type = ""
-        self.request = AtomRequest(url=AtomRequestPath.LATEST_VALUES)
+        self.set_request(url=url)
+
+    def set_request(self, url: AtomRequestPath = AtomRequestPath.LATEST_VALUES) -> None:
+        """Update the request path for the command decoder."""
+        self.request = AtomRequest(url=url)
         self.cmd = self.request.as_bytes()
 
     def decode_data(
@@ -128,7 +132,7 @@ class AtomCommandDecode(CommandDecode):
             return None
 
 
-class _NotificationReceiver:
+class NotificationReceiver:
     """Receiver for a single notification message.
 
     A notification message that is larger than the MTU can get sent over multiple
