@@ -16,3 +16,12 @@ class AirthingsConnectivityMode(str, Enum):
         if value == 4:
             return cls.BLE
         return cls.UNKNOWN
+
+    @classmethod
+    def from_wave_int(cls, value: int) -> "AirthingsConnectivityMode":
+        """Get connectivity mode from Wave integer value."""
+        if value == 0:
+            return cls.BLE
+        if value > 0:
+            return cls.SMARTLINK
+        return cls.UNKNOWN

@@ -17,11 +17,12 @@ from bleak_retry_connector import BleakClientWithServiceCache, establish_connect
 
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.atom.request_path import AtomRequestPath
-from airthings_ble.command_decode import COMMAND_DECODERS, AtomCommandDecode
+from airthings_ble.command_decode import COMMAND_DECODERS, AtomCommandDecode, Commands
 from airthings_ble.radon_level import get_radon_level
 from airthings_ble.sensor_decoders import SENSOR_DECODERS
 
 from .const import (
+    BATTERY,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -43,7 +44,9 @@ from .const import (
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    CONNECTIVITY_MODE,
     DEFAULT_MAX_UPDATE_ATTEMPTS,
+    ILLUMINANCE,
     UPDATE_TIMEOUT,
 )
 from .device_type import AirthingsDeviceType
@@ -292,6 +295,17 @@ class AirthingsBluetoothDeviceData:
 
             if uuid_str in COMMAND_DECODERS:
                 decoder = COMMAND_DECODERS[uuid_str]
+                if (
+                    not device.did_first_sync and
+                    decoder.cmd in [
+                        Commands.CONNECTIVITY_WAVE_MINI,
+                        Commands.CONNECTIVITY_WAVE_PLUS_AND_RADON
+                    ]
+                ):
+                    continue
+
+                device.firmware.current_version
+
                 command_data_receiver = decoder.make_data_receiver()
 
                 # Set up the notification handlers
@@ -310,13 +324,16 @@ class AirthingsBluetoothDeviceData:
                 if command_sensor_data is not None:
                     new_values: dict[str, float | str | None] = {}
 
-                    if (bat_data := command_sensor_data.get("battery")) is not None:
-                        new_values["battery"] = device.model.battery_percentage(
+                    if (bat_data := command_sensor_data.get(BATTERY)) is not None:
+                        new_values[BATTERY] = device.model.battery_percentage(
                             float(bat_data)
                         )
 
-                    if illuminance := command_sensor_data.get("illuminance"):
-                        new_values["illuminance"] = illuminance
+                    if illuminance := command_sensor_data.get(ILLUMINANCE):
+                        new_values[ILLUMINANCE] = illuminance
+
+                    if connectivity := command_sensor_data.get(CONNECTIVITY_MODE):
+                        new_values[CONNECTIVITY_MODE] = connectivity
 
                     sensors.update(new_values)
 
@@ -349,6 +366,7 @@ class AirthingsBluetoothDeviceData:
             url=AtomRequestPath.CONNECTIVITY_MODE,
         )
         if connectivity_data is not None:
+            self.logger.warning("Connectivity data: %s", connectivity_data)
             sensors.update(connectivity_data)
 
         sensor_data = await self._create_decoder_and_fetch(
@@ -412,7 +430,7 @@ class AirthingsBluetoothDeviceData:
             new_values: dict[str, float | str | None] = {}
 
             if (bat_data := sensor_data.get("BAT")) is not None:
-                new_values["battery"] = device.model.battery_percentage(
+                new_values[BATTERY] = device.model.battery_percentage(
                     float(bat_data) / 1000.0
                 )
 

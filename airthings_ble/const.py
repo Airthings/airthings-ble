@@ -43,4 +43,6 @@ TEMPERATURE_MAX = 100
 
 DEFAULT_MAX_UPDATE_ATTEMPTS = 1
 
+BATTERY = "battery"
 CONNECTIVITY_MODE = "connectivity_mode"
+ILLUMINANCE = "illuminance"
