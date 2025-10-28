@@ -1,4 +1,4 @@
-""""Sensor data decoders for Airthings BLE devices."""
+"""Sensor data decoders for Airthings BLE devices."""
 
 import struct
 from datetime import datetime

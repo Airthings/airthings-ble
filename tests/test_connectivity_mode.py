@@ -12,7 +12,6 @@ from airthings_ble.connectivity_type import AirthingsConnectivityMode
     ],
 )
 def test_connectivity_mode(
-    input_number: int,
-    expected_mode: AirthingsConnectivityMode
+    input_number: int, expected_mode: AirthingsConnectivityMode
 ) -> None:
     assert AirthingsConnectivityMode.from_atom_int(input_number) == expected_mode

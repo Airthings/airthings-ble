@@ -79,7 +79,7 @@ def test_atom_response_corentium_home_2_connectivity_mode() -> None:
     data = response.parse()
     assert data is not None
 
-    assert data == {"connectivity_mode": "ble"}
+    assert data == {"connectivity_mode": "Bluetooth"}
 
 
 def test_empty_response() -> None:
