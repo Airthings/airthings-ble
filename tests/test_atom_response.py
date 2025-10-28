@@ -62,3 +62,22 @@ def test_atom_response_corentium_home_2_latest_values() -> None:
     assert sensor_data["R7D"] == 7
     assert sensor_data["R30"] == 7
     assert sensor_data["R1Y"] == 18
+
+
+def test_atom_response_corentium_home_2_connectivity_mode() -> None:
+    """Test the Wave Enhance request."""
+    random_bytes = bytes.fromhex("5F93")
+
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=bytes.fromhex(
+            "10010003455F9381A2006A31372F302F33313130300204"
+        ),
+        random_bytes=random_bytes,
+        path=AtomRequestPath.CONNECTIVITY_MODE,
+    )
+
+    data = response.parse()
+    assert data is not None
+
+    assert data == 4

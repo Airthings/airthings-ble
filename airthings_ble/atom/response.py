@@ -54,50 +54,47 @@ class AtomResponse:
                 "Invalid response array length, expected 2, but got %s",
                 self.response[8],
             )
-            raise ValueError("Invalid response array length, expected 2")
-
-        if self.response[9] != 0x00:
-            self.logger.debug(
-                "Invalid response data type, expected 00, but got %s", self.response[9]
-            )
-            raise ValueError("Invalid response element")
-
-        path_bytes = self.path.as_bytes()
-
-        path_length = self.response[10] - 0x60
-        if path_length != len(self.path.value):
-            self.logger.debug(
-                "Invalid path length, expected %d, but got %d",
-                len(path_bytes),
-                path_length,
-            )
-            raise ValueError(
-                f"Invalid response path length, expected {len(path_bytes)}, "
-                f"got {path_length}"
-            )
-
-        if self.response[11 : 11 + path_length] != path_bytes:
-            self.logger.debug(
-                "Invalid response path, expected %s, but got %s",
-                path_bytes,
-                self.response[11 : 11 + path_length],
-            )
-            raise ValueError("Invalid response path")
+            raise ValueError("Invalid response array length")
 
         try:
             self.logger.debug("Response: %s", self.response.hex())
 
-            data_bytes = self.response[27:]
-
+            data_bytes = self.response[7:]
             decoded_data = cbor2.loads(data_bytes)
             self.logger.debug("Decoded data: %s", decoded_data)
-
-            if not isinstance(decoded_data, dict):
-                self.logger.error(
-                    "Parsed data is not a dictionary, but a %s", type(decoded_data)
-                )
-                raise ValueError("Invalid response data type")
-            return decoded_data
         except ValueError as e:
             self.logger.error(f"Failed to parse response: {e}")
             return None
+
+        if not isinstance(decoded_data, list):
+            self.logger.error(
+                "Parsed data is not a list, but a %s", type(decoded_data)
+            )
+            raise ValueError("Invalid response data type")
+
+        if path := decoded_data[0].get(0):
+            if path != self.path.value:
+                self.logger.error(
+                    "Response path does not match request path, expected %s but got %s",
+                    self.path.value,
+                    path,
+                )
+                raise ValueError("Response path does not match request path")
+        else:
+            raise ValueError("Response path missing")
+
+        if data := decoded_data[0].get(2):
+            expected_type = self.path.expected_response_type()
+            if isinstance(data, expected_type):
+                self.logger.error("Parsed data: %s", data)
+                return data
+            self.logger.error(
+                "Response data: %s", data
+            )
+            raise ValueError(
+                (
+                    "Invalid response data type, expected "
+                    f"{expected_type} but got {type(data)}"
+                )
+            )
+        raise ValueError("Response data missing")
