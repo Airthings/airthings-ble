@@ -1,5 +1,6 @@
 import logging
 
+import pytest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
 
@@ -81,3 +82,49 @@ def test_atom_response_corentium_home_2_connectivity_mode() -> None:
     assert data is not None
 
     assert data == 4
+
+
+def test_empty_response() -> None:
+    """Test the Wave Enhance request."""
+    random_bytes = bytes.fromhex("1234")
+
+    with pytest.raises(ValueError):
+        AtomResponse(
+            logger=_LOGGER,
+            response=None,
+            random_bytes=random_bytes,
+            path=AtomRequestPath.LATEST_VALUES,
+        )
+
+
+@pytest.mark.parametrize(
+    "response,exception",
+    [
+        (
+            bytes.fromhex("00000003455F9381A2006A31372F302F33313130300204"),
+            "Invalid response header"
+        ),
+        (
+            bytes.fromhex("10010003455F9381A2006A31372F302F33313130300204"),
+            "Invalid response checksum"
+        ),
+        (
+            bytes.fromhex("1001000345123482A2006A31372F302F33313130300204"),
+            "Invalid response type"
+        ),
+    ]
+)
+def test_invalid_responses(response: bytes, exception: str) -> None:
+    """Test the Wave Enhance request."""
+    random_bytes = bytes.fromhex("1234")
+
+    atom_response = AtomResponse(
+        logger=_LOGGER,
+        response=response,
+        random_bytes=random_bytes,
+        path=AtomRequestPath.LATEST_VALUES,
+    )
+    try:
+        atom_response.parse()
+    except ValueError as exc:
+        assert str(exc) == exception

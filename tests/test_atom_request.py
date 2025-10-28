@@ -39,3 +39,14 @@ def test_atom_request_connectivity_mode() -> None:
     assert request_bytes[0:2] == bytes.fromhex("0301")
     assert request_bytes[4:7] == bytes.fromhex("81A100")
     assert request_bytes[8:] == request.url.as_bytes()
+
+
+def test_invalid_random_bytes() -> None:
+    """Test invalid random bytes."""
+    try:
+        AtomRequest(
+            url=AtomRequestPath.LATEST_VALUES,
+            random_bytes=bytes.fromhex("A1B2C3"),
+        )
+    except ValueError as exc:
+        assert str(exc) == "Random bytes must be exactly 2 bytes long"
