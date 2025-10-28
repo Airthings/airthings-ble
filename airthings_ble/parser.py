@@ -441,29 +441,37 @@ class AirthingsBluetoothDeviceData:
                 new_values["pressure"] = float(pressure) / (64 * 100)
 
             if (radon_1day_avg := sensor_data.get("R24")) is not None:
-                new_values["radon_1day_avg"] = (
-                    float(radon_1day_avg) * BQ_TO_PCI_MULTIPLIER
-                )
+                new_values["radon_1day_avg"] = float(radon_1day_avg)
+                if not self.is_metric:
+                    new_values["radon_1day_avg"] = (
+                        new_values["radon_1day_avg"] * BQ_TO_PCI_MULTIPLIER
+                    )
                 new_values["radon_1day_level"] = get_radon_level(float(radon_1day_avg))
 
             if (radon_week_avg := sensor_data.get("R7D")) is not None:
-                new_values["radon_week_avg"] = (
-                    float(radon_week_avg) * BQ_TO_PCI_MULTIPLIER
-                )
+                new_values["radon_week_avg"] = float(radon_week_avg)
+                if not self.is_metric:
+                    new_values["radon_week_avg"] = (
+                        new_values["radon_week_avg"] * BQ_TO_PCI_MULTIPLIER
+                    )
                 new_values["radon_week_level"] = get_radon_level(float(radon_week_avg))
 
             if (radon_month_avg := sensor_data.get("R30D")) is not None:
-                new_values["radon_month_avg"] = (
-                    float(radon_month_avg) * BQ_TO_PCI_MULTIPLIER
-                )
+                new_values["radon_month_avg"] = float(radon_month_avg)
+                if not self.is_metric:
+                    new_values["radon_month_avg"] = (
+                        new_values["radon_month_avg"] * BQ_TO_PCI_MULTIPLIER
+                    )
                 new_values["radon_month_level"] = get_radon_level(
                     float(radon_month_avg)
                 )
 
             if (radon_year_avg := sensor_data.get("R1Y")) is not None:
-                new_values["radon_year_avg"] = (
-                    float(radon_year_avg) * BQ_TO_PCI_MULTIPLIER
-                )
+                new_values["radon_year_avg"] = float(radon_year_avg)
+                if not self.is_metric:
+                    new_values["radon_year_avg"] = (
+                        new_values["radon_year_avg"] * BQ_TO_PCI_MULTIPLIER
+                    )
                 new_values["radon_year_level"] = get_radon_level(float(radon_year_avg))
 
             self.logger.debug("Sensor values: %s", new_values)
