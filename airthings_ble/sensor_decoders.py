@@ -5,6 +5,7 @@ from datetime import datetime
 from typing import Callable, Optional, Tuple
 
 from .const import (
+    ACCELEROMETER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_HUMIDITY,
     CHAR_UUID_ILLUMINANCE_ACCELEROMETER,
@@ -14,11 +15,20 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
+    CO2,
     CO2_MAX,
+    DATE_TIME,
+    HUMIDITY,
+    ILLUMINANCE,
     PERCENTAGE_MAX,
+    PRESSURE,
     PRESSURE_MAX,
+    RADON_1DAY_AVG,
+    RADON_LONGTERM_AVG,
     RADON_MAX,
+    TEMPERATURE,
     TEMPERATURE_MAX,
+    VOC,
     VOC_MAX,
 )
 
@@ -64,17 +74,17 @@ def _decode_wave_plus(
         vals = _decode_base(name, format_type, scale)(raw_data)
         val = vals[name]
         data: dict[str, float | None | str] = {}
-        data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
-        data["illuminance"] = illuminance_converter(value=val[2])
-        data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
-        data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
-        data["temperature"] = validate_value(
+        data[DATE_TIME] = str(datetime.isoformat(datetime.now()))
+        data[HUMIDITY] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
+        data[ILLUMINANCE] = illuminance_converter(value=val[2])
+        data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
+        data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
+        data[TEMPERATURE] = validate_value(
             value=val[6] / 100.0, max_value=TEMPERATURE_MAX
         )
-        data["pressure"] = validate_value(val[7] / 50.0, max_value=PRESSURE_MAX)
-        data["co2"] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
-        data["voc"] = validate_value(value=val[9] * 1.0, max_value=VOC_MAX)
+        data[PRESSURE] = validate_value(val[7] / 50.0, max_value=PRESSURE_MAX)
+        data[CO2] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
+        data[VOC] = validate_value(value=val[9] * 1.0, max_value=VOC_MAX)
         return data
 
     return handler
@@ -87,12 +97,12 @@ def _decode_wave_radon(
         vals = _decode_base(name, format_type, scale)(raw_data)
         val = vals[name]
         data: dict[str, float | None | str] = {}
-        data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["illuminance"] = illuminance_converter(value=val[2])
-        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
-        data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
-        data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
-        data["temperature"] = validate_value(
+        data[DATE_TIME] = str(datetime.isoformat(datetime.now()))
+        data[ILLUMINANCE] = illuminance_converter(value=val[2])
+        data[HUMIDITY] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
+        data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
+        data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
+        data[TEMPERATURE] = validate_value(
             value=val[6] / 100.0, max_value=TEMPERATURE_MAX
         )
         return data
@@ -107,15 +117,13 @@ def _decode_wave_mini(
         vals = _decode_base(name, format_type, scale)(raw_data)
         val = vals[name]
         data: dict[str, float | None | str] = {}
-        data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["temperature"] = validate_value(
+        data[DATE_TIME] = str(datetime.isoformat(datetime.now()))
+        data[TEMPERATURE] = validate_value(
             value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
         )
-        data["pressure"] = float(val[3] / 50.0)
-        data["humidity"] = validate_value(
-            value=val[4] / 100.0, max_value=PERCENTAGE_MAX
-        )
-        data["voc"] = validate_value(value=val[5] * 1.0, max_value=VOC_MAX)
+        data[PRESSURE] = float(val[3] / 50.0)
+        data[HUMIDITY] = validate_value(value=val[4] / 100.0, max_value=PERCENTAGE_MAX)
+        data[VOC] = validate_value(value=val[5] * 1.0, max_value=VOC_MAX)
         return data
 
     return handler
@@ -151,8 +159,8 @@ def _decode_wave_illum_accel(
         vals = _decode_base(name, format_type, scale)(raw_data)
         val = vals[name]
         data: dict[str, float | None | str] = {}
-        data["illuminance"] = illuminance_converter(val[0] * scale)
-        data["accelerometer"] = str(val[1] * scale)
+        data[ILLUMINANCE] = illuminance_converter(val[0] * scale)
+        data[ACCELEROMETER] = str(val[1] * scale)
         return data
 
     return handler

@@ -56,9 +56,12 @@ ATOM_RADON_WEEK_AVG = "R7D"
 ATOM_RADON_MONTH_AVG = "R30D"
 ATOM_RADON_YEAR_AVG = "R1Y"
 
+
+ACCELEROMETER = "accelerometer"
 BATTERY = "battery"
 CO2 = "co2"
 CONNECTIVITY_MODE = "connectivity_mode"
+DATE_TIME = "date_time"
 NOISE = "noise"
 HUMIDITY = "humidity"
 ILLUMINANCE = "illuminance"
