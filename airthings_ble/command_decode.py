@@ -9,6 +9,7 @@ from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
 from airthings_ble.const import (
+    BATTERY,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
@@ -76,7 +77,7 @@ class WaveRadonAndPlusCommandDecode(CommandDecode):
 
         if val := self.validate_data(logger, raw_data):
             res = {}
-            res["battery"] = val[13] / 1000.0
+            res[BATTERY] = val[13] / 1000.0
             return res
 
         return None
@@ -96,7 +97,7 @@ class WaveMiniCommandDecode(CommandDecode):
 
         if val := self.validate_data(logger, raw_data):
             res = {}
-            res["battery"] = val[11] / 1000.0
+            res[BATTERY] = val[11] / 1000.0
 
             return res
 
