@@ -350,22 +350,15 @@ class AirthingsBluetoothDeviceData:
             service=service,
             url=AtomRequestPath.CONNECTIVITY_MODE,
         )
-        self.logger.error("Connectivity data: %s", connectivity_data)
-        if isinstance(connectivity_data, int):
-            sensors.update(
-                {
-                    CONNECTIVITY_MODE: AirthingsConnectivityType.from_int(
-                        connectivity_data
-                    ).value
-                }
-            )
+        if connectivity_data is not None:
+            sensors.update(connectivity_data)
 
         sensor_data = await self._create_decoder_and_fetch(
             client=client,
             service=service,
             url=AtomRequestPath.LATEST_VALUES,
         )
-        if isinstance(sensor_data, dict):
+        if sensor_data is not None:
             self._parse_sensor_data(
                 device=device,
                 sensors=sensors,
@@ -377,7 +370,7 @@ class AirthingsBluetoothDeviceData:
         client: BleakClient,
         service: BleakGATTService,
         url: AtomRequestPath,
-    ) -> dict[str, float | str | None] | int | None:
+    ) -> dict[str, float | str | None] | None:
         """Create decoder and fetch data."""
         decoder = AtomCommandDecode(url=url)
         command_data_receiver = decoder.make_data_receiver()
