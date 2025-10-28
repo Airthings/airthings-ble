@@ -26,7 +26,7 @@ class AtomResponse:
         self.random_bytes = random_bytes
         self.path = path
 
-    def parse(self) -> dict[str, float | str | None] | None:
+    def parse(self) -> dict[str, float | str | None] | int | None:
         if self.response[0:5] != self._header:
             self.logger.error(
                 "Invalid response header, expected %s, but got %s",
@@ -56,15 +56,11 @@ class AtomResponse:
             )
             raise ValueError("Invalid response array length")
 
-        try:
-            self.logger.debug("Response: %s", self.response.hex())
+        self.logger.debug("Response: %s", self.response.hex())
 
-            data_bytes = self.response[7:]
-            decoded_data = cbor2.loads(data_bytes)
-            self.logger.debug("Decoded data: %s", decoded_data)
-        except ValueError as e:
-            self.logger.error(f"Failed to parse response: {e}")
-            return None
+        data_bytes = self.response[7:]
+        decoded_data = cbor2.loads(data_bytes)
+        self.logger.debug("Decoded data: %s", decoded_data)
 
         if not isinstance(decoded_data, list):
             self.logger.error(
@@ -86,15 +82,17 @@ class AtomResponse:
         if data := decoded_data[0].get(2):
             expected_type = self.path.expected_response_type()
             if isinstance(data, expected_type):
+                self.logger.debug("Parsed data: %s", data)
+                return data
+
+            # Need to use cbor2 to decode the bytes again
+            data = cbor2.loads(data)
+            if isinstance(data, expected_type):
                 self.logger.error("Parsed data: %s", data)
                 return data
+
             self.logger.error(
                 "Response data: %s", data
             )
-            raise ValueError(
-                (
-                    "Invalid response data type, expected "
-                    f"{expected_type} but got {type(data)}"
-                )
-            )
+            raise ValueError("Invalid response data type")
         raise ValueError("Response data missing")
