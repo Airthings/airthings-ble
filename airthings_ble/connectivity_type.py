@@ -8,11 +8,6 @@ class AirthingsConnectivityType(str, Enum):
     BLE = "ble"
     SMARTLINK = "smartlink"
 
-    def __new__(cls, value: str) -> "AirthingsConnectivityType":
-        """Create new connectivity type."""
-        obj = object.__new__(cls)
-        return obj
-
     @classmethod
     def from_int(cls, value: int) -> "AirthingsConnectivityType":
         """Get connectivity type from integer value."""
