@@ -11,18 +11,14 @@ from logging import Logger
 
 from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
-from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.atom.request_path import AtomRequestPath
-from airthings_ble.command_decode import (
-    COMMAND_DECODERS,
-    AtomCommandDecode,
-    NotificationReceiver,
-)
+from airthings_ble.command_decode import COMMAND_DECODERS, AtomCommandDecode
+from airthings_ble.connectivity_type import AirthingsConnectivityType
 from airthings_ble.radon_level import get_radon_level
 from airthings_ble.sensor_decoders import SENSOR_DECODERS
 
@@ -347,7 +343,38 @@ class AirthingsBluetoothDeviceData:
                 self.device_info.address,
                 device.firmware.required_version or "N/A",
             )
-        decoder = AtomCommandDecode(url=AtomRequestPath.LATEST_VALUES)
+
+        connectivity_data = await self._create_decoder_and_fetch(
+            client=client,
+            service=service,
+            url=AtomRequestPath.CONNECTIVITY_MODE,
+        )
+        self.logger.error("Connectivity data: %s", connectivity_data)
+        sensors.update({
+            "connectivity_type": AirthingsConnectivityType.from_int(
+                connectivity_data
+            ).value
+        })
+
+        sensor_data = await self._create_decoder_and_fetch(
+            client=client,
+            service=service,
+            url=AtomRequestPath.LATEST_VALUES,
+        )
+        self._parse_sensor_data(
+            device=device,
+            sensors=sensors,
+            sensor_data=sensor_data,
+        )
+
+    async def _create_decoder_and_fetch(
+        self,
+        client: BleakClient,
+        service: BleakGATTService,
+        url: AtomRequestPath,
+    ) -> dict[str, float | str | None] | int | None:
+        """Create decoder and fetch data."""
+        decoder = AtomCommandDecode(url=url)
         command_data_receiver = decoder.make_data_receiver()
 
         atom_write = service.get_characteristic(COMMAND_UUID_ATOM)
@@ -361,56 +388,20 @@ class AirthingsBluetoothDeviceData:
             char_specifier=atom_notify, callback=command_data_receiver
         )
 
-        connectivity_data = await self._create_decoder_and_fetch(
-            client=client,
-            decoder=decoder,
-            receiver=command_data_receiver,
-            url=AtomRequestPath.CONNECTIVITY_MODE,
-            atom_write=atom_write,
-        )
-        self.logger.error("Connectivity data: %s", connectivity_data)
-
-        sensor_data = await self._create_decoder_and_fetch(
-            client=client,
-            decoder=decoder,
-            receiver=command_data_receiver,
-            url=AtomRequestPath.LATEST_VALUES,
-            atom_write=atom_write,
-        )
-
-        self._parse_sensor_data(
-            client=client,
-            device=device,
-            sensors=sensors,
-            service=service,
-            command_sensor_data=sensor_data,
-        )
-
-        await client.stop_notify(atom_notify)
-
-    async def _create_decoder_and_fetch(
-        self,
-        client: BleakClient,
-        decoder: AtomCommandDecode,
-        receiver: NotificationReceiver,
-        url: AtomRequestPath,
-        atom_write: BleakGATTCharacteristic,
-    ) -> dict[str, float | str | None] | None:
-        """Create decoder and fetch data."""
-        decoder.set_request(url=url)
-
         # send command to this 'indicate' characteristic
         await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
-        # Wait for up to one second to see if a callback comes in.
+        # Wait for up to five seconds to see if a callback comes in.
         try:
-            await receiver.wait_for_message(5)
+            await command_data_receiver.wait_for_message(5)
         except asyncio.TimeoutError:
             self.logger.warning("Timeout getting command data.")
 
         data = decoder.decode_data(
             logger=self.logger,
-            raw_data=receiver.message,
+            raw_data=command_data_receiver.message,
         )
+
+        await client.stop_notify(atom_notify)
 
         return data
 
