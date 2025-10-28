@@ -2,7 +2,7 @@ from logging import Logger
 
 import cbor2
 from airthings_ble.atom.request import AtomRequestPath
-from airthings_ble.connectivity_type import AirthingsConnectivityType
+from airthings_ble.connectivity_type import AirthingsConnectivityMode
 from airthings_ble.const import CONNECTIVITY_MODE
 
 
@@ -84,7 +84,7 @@ class AtomResponse:
             if self.path == AtomRequestPath.CONNECTIVITY_MODE and isinstance(data, int):
                 self.logger.debug("Parsed data: %s", data)
                 return {
-                    CONNECTIVITY_MODE: AirthingsConnectivityType.from_int(data).value
+                    CONNECTIVITY_MODE: AirthingsConnectivityMode.from_int(data).value
                 }
 
             if self.path == AtomRequestPath.LATEST_VALUES:

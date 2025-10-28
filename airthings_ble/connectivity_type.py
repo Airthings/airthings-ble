@@ -1,16 +1,16 @@
 from enum import Enum
 
 
-class AirthingsConnectivityType(str, Enum):
-    """Airthings connectivity types."""
+class AirthingsConnectivityMode(str, Enum):
+    """Airthings connectivity modes."""
 
     UNKNOWN = "unknown"
-    BLE = "ble"
-    SMARTLINK = "smartlink"
+    BLE = "Bluetooth"
+    SMARTLINK = "Smartlink"
 
     @classmethod
-    def from_int(cls, value: int) -> "AirthingsConnectivityType":
-        """Get connectivity type from integer value."""
+    def from_int(cls, value: int) -> "AirthingsConnectivityMode":
+        """Get connectivity mode from integer value."""
         if value == 1:
             return cls.SMARTLINK
         if value == 4:

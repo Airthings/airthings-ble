@@ -18,7 +18,6 @@ from bleak_retry_connector import BleakClientWithServiceCache, establish_connect
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.command_decode import COMMAND_DECODERS, AtomCommandDecode
-from airthings_ble.connectivity_type import AirthingsConnectivityType
 from airthings_ble.radon_level import get_radon_level
 from airthings_ble.sensor_decoders import SENSOR_DECODERS
 
@@ -44,7 +43,6 @@ from .const import (
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
-    CONNECTIVITY_MODE,
     DEFAULT_MAX_UPDATE_ATTEMPTS,
     UPDATE_TIMEOUT,
 )
