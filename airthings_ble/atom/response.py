@@ -84,7 +84,9 @@ class AtomResponse:
             if self.path == AtomRequestPath.CONNECTIVITY_MODE and isinstance(data, int):
                 self.logger.debug("Parsed data: %s", data)
                 return {
-                    CONNECTIVITY_MODE: AirthingsConnectivityMode.from_int(data).value
+                    CONNECTIVITY_MODE: (
+                        AirthingsConnectivityMode.from_atom_int(data).value
+                    )
                 }
 
             if self.path == AtomRequestPath.LATEST_VALUES:

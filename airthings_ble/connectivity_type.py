@@ -9,7 +9,7 @@ class AirthingsConnectivityMode(str, Enum):
     SMARTLINK = "Smartlink"
 
     @classmethod
-    def from_int(cls, value: int) -> "AirthingsConnectivityMode":
+    def from_atom_int(cls, value: int) -> "AirthingsConnectivityMode":
         """Get connectivity mode from integer value."""
         if value == 1:
             return cls.SMARTLINK
