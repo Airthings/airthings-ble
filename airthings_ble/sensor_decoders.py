@@ -1,3 +1,5 @@
+""""Sensor data decoders for Airthings BLE devices."""
+
 import struct
 from datetime import datetime
 from typing import Callable, Optional, Tuple

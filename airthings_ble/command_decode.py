@@ -1,3 +1,5 @@
+"""Decoder for the command response."""
+
 import asyncio
 import struct
 from logging import Logger

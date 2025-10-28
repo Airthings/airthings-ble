@@ -1,12 +1,14 @@
+"""Airthings connectivity types."""
+
 from enum import Enum
 
 
 class AirthingsConnectivityMode(str, Enum):
     """Airthings connectivity modes."""
 
-    UNKNOWN = "unknown"
     BLE = "Bluetooth"
     SMARTLINK = "Smartlink"
+    UNKNOWN = "unknown"
 
     @classmethod
     def from_int(cls, value: int) -> "AirthingsConnectivityMode":
