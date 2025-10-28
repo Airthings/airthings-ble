@@ -16,11 +16,3 @@ class AtomRequestPath(StrEnum):
     def as_bytes(self) -> bytes:
         """Get URL as bytes"""
         return bytes(self.value, "utf-8")
-
-    def expected_response_type(self) -> type:
-        """Get expected response type for the request path"""
-        if self == AtomRequestPath.LATEST_VALUES:
-            return dict
-        if self == AtomRequestPath.CONNECTIVITY_MODE:
-            return int
-        raise ValueError("Unknown request path")

@@ -44,6 +44,7 @@ from .const import (
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    CONNECTIVITY_MODE,
     DEFAULT_MAX_UPDATE_ATTEMPTS,
     UPDATE_TIMEOUT,
 )
@@ -350,22 +351,26 @@ class AirthingsBluetoothDeviceData:
             url=AtomRequestPath.CONNECTIVITY_MODE,
         )
         self.logger.error("Connectivity data: %s", connectivity_data)
-        sensors.update({
-            "connectivity_type": AirthingsConnectivityType.from_int(
-                connectivity_data
-            ).value
-        })
+        if isinstance(connectivity_data, int):
+            sensors.update(
+                {
+                    CONNECTIVITY_MODE: AirthingsConnectivityType.from_int(
+                        connectivity_data
+                    ).value
+                }
+            )
 
         sensor_data = await self._create_decoder_and_fetch(
             client=client,
             service=service,
             url=AtomRequestPath.LATEST_VALUES,
         )
-        self._parse_sensor_data(
-            device=device,
-            sensors=sensors,
-            sensor_data=sensor_data,
-        )
+        if isinstance(sensor_data, dict):
+            self._parse_sensor_data(
+                device=device,
+                sensors=sensors,
+                sensor_data=sensor_data,
+            )
 
     async def _create_decoder_and_fetch(
         self,
@@ -409,7 +414,7 @@ class AirthingsBluetoothDeviceData:
         self,
         device: AirthingsDevice,
         sensors: dict[str, str | float | None],
-        sensor_data: dict[str, float | str | None] | None,
+        sensor_data: dict[str, float | str | None],
     ) -> None:
         """Parse sensor data from the device."""
         if sensor_data is not None:

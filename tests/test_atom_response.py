@@ -71,9 +71,7 @@ def test_atom_response_corentium_home_2_connectivity_mode() -> None:
 
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex(
-            "10010003455F9381A2006A31372F302F33313130300204"
-        ),
+        response=bytes.fromhex("10010003455F9381A2006A31372F302F33313130300204"),
         random_bytes=random_bytes,
         path=AtomRequestPath.CONNECTIVITY_MODE,
     )
@@ -102,17 +100,17 @@ def test_empty_response() -> None:
     [
         (
             bytes.fromhex("00000003455F9381A2006A31372F302F33313130300204"),
-            "Invalid response header"
+            "Invalid response header",
         ),
         (
             bytes.fromhex("10010003455F9381A2006A31372F302F33313130300204"),
-            "Invalid response checksum"
+            "Invalid response checksum",
         ),
         (
             bytes.fromhex("1001000345123482A2006A31372F302F33313130300204"),
-            "Invalid response type"
+            "Invalid response type",
         ),
-    ]
+    ],
 )
 def test_invalid_responses(response: bytes, exception: str) -> None:
     """Test the Wave Enhance request."""

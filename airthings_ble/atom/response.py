@@ -2,6 +2,8 @@ from logging import Logger
 
 import cbor2
 from airthings_ble.atom.request import AtomRequestPath
+from airthings_ble.connectivity_type import AirthingsConnectivityType
+from airthings_ble.const import CONNECTIVITY_MODE
 
 
 class AtomResponse:
@@ -26,7 +28,7 @@ class AtomResponse:
         self.random_bytes = random_bytes
         self.path = path
 
-    def parse(self) -> dict[str, float | str | None] | int | None:
+    def parse(self) -> dict[str, float | str | None] | None:
         if self.response[0:5] != self._header:
             self.logger.error(
                 "Invalid response header, expected %s, but got %s",
@@ -63,9 +65,7 @@ class AtomResponse:
         self.logger.debug("Decoded data: %s", decoded_data)
 
         if not isinstance(decoded_data, list):
-            self.logger.error(
-                "Parsed data is not a list, but a %s", type(decoded_data)
-            )
+            self.logger.error("Parsed data is not a list, but a %s", type(decoded_data))
             raise ValueError("Invalid response data type")
 
         if path := decoded_data[0].get(0):
@@ -80,19 +80,22 @@ class AtomResponse:
             raise ValueError("Response path missing")
 
         if data := decoded_data[0].get(2):
-            expected_type = self.path.expected_response_type()
-            if isinstance(data, expected_type):
+
+            if self.path == AtomRequestPath.CONNECTIVITY_MODE and isinstance(data, int):
                 self.logger.debug("Parsed data: %s", data)
-                return data
+                return {
+                    CONNECTIVITY_MODE: AirthingsConnectivityType.from_int(data).value
+                }
 
-            # Need to use cbor2 to decode the bytes again
-            data = cbor2.loads(data)
-            if isinstance(data, expected_type):
-                self.logger.error("Parsed data: %s", data)
-                return data
+            if self.path == AtomRequestPath.LATEST_VALUES:
+                if isinstance(data, bytes):
+                    # Need to use cbor2 to decode the bytes again
+                    data = cbor2.loads(data)
 
-            self.logger.error(
-                "Response data: %s", data
-            )
+                if isinstance(data, dict):
+                    self.logger.error("Parsed data: %s", data)
+                    return data
+
+            self.logger.error("Response data: %s", data)
             raise ValueError("Invalid response data type")
         raise ValueError("Response data missing")
