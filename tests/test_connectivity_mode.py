@@ -1,8 +1,18 @@
-from airthings_ble.connectivity_type import AirthingsConnectivityType
+import pytest
+from airthings_ble.connectivity_type import AirthingsConnectivityMode
 
 
-def test_connectivity_mode() -> None:
-    assert AirthingsConnectivityType.from_int(1) == AirthingsConnectivityType.SMARTLINK
-    assert AirthingsConnectivityType.from_int(4) == AirthingsConnectivityType.BLE
-    assert AirthingsConnectivityType.from_int(0) == AirthingsConnectivityType.UNKNOWN
-    assert AirthingsConnectivityType.from_int(99) == AirthingsConnectivityType.UNKNOWN
+@pytest.mark.parametrize(
+    "input_number,expected_mode",
+    [
+        (1, AirthingsConnectivityMode.SMARTLINK),
+        (4, AirthingsConnectivityMode.BLE),
+        (0, AirthingsConnectivityMode.UNKNOWN),
+        (99, AirthingsConnectivityMode.UNKNOWN),
+    ],
+)
+def test_connectivity_mode(
+    input_number: int,
+    expected_mode: AirthingsConnectivityMode
+) -> None:
+    assert AirthingsConnectivityMode.from_atom_int(input_number) == expected_mode
