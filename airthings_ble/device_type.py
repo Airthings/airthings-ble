@@ -1,11 +1,8 @@
 """Airthings device types."""
 
-import logging
 from enum import Enum
 
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class AirthingsDeviceType(Enum):
