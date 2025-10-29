@@ -66,6 +66,7 @@ from .const import (
     RADON_1DAY_AVG,
     RADON_1DAY_LEVEL,
     RADON_LONGTERM_AVG,
+    RADON_LONGTERM_LEVEL,
     RADON_MONTH_AVG,
     RADON_MONTH_LEVEL,
     RADON_WEEK_AVG,
@@ -316,7 +317,7 @@ class AirthingsBluetoothDeviceData:
                     if not self.is_metric:
                         sensors[RADON_1DAY_AVG] = float(d) * BQ_TO_PCI_MULTIPLIER
                 if (d := sensor_data.get(RADON_LONGTERM_AVG)) is not None:
-                    sensors[RADON_LONGTERM_AVG] = get_radon_level(float(d))
+                    sensors[RADON_LONGTERM_LEVEL] = get_radon_level(float(d))
                     if not self.is_metric:
                         sensors[RADON_LONGTERM_AVG] = float(d) * BQ_TO_PCI_MULTIPLIER
 
