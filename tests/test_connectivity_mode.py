@@ -1,5 +1,5 @@
 import pytest
-from airthings_ble.connectivity_type import AirthingsConnectivityMode
+from airthings_ble.connectivity_mode import AirthingsConnectivityMode
 
 
 @pytest.mark.parametrize(
@@ -7,7 +7,7 @@ from airthings_ble.connectivity_type import AirthingsConnectivityMode
     [
         (1, AirthingsConnectivityMode.SMARTLINK),
         (4, AirthingsConnectivityMode.BLE),
-        (0, AirthingsConnectivityMode.UNKNOWN),
+        (0, AirthingsConnectivityMode.NOT_CONFIGURED),
         (99, AirthingsConnectivityMode.UNKNOWN),
     ],
 )

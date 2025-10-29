@@ -2,7 +2,7 @@ from logging import Logger
 
 import cbor2
 from airthings_ble.atom.request import AtomRequestPath
-from airthings_ble.connectivity_type import AirthingsConnectivityMode
+from airthings_ble.connectivity_mode import AirthingsConnectivityMode
 from airthings_ble.const import CONNECTIVITY_MODE
 
 
