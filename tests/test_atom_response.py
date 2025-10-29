@@ -9,7 +9,7 @@ logging.basicConfig(level=logging.DEBUG)
 
 
 def test_atom_response_wave_enhance_latest_values() -> None:
-    """Test the Wave Enhance request."""
+    """Test Wave Enhance latest values."""
     random_bytes = bytes.fromhex("A1B2")
 
     response = AtomResponse(
@@ -38,7 +38,7 @@ def test_atom_response_wave_enhance_latest_values() -> None:
 
 
 def test_atom_response_corentium_home_2_latest_values() -> None:
-    """Test the Wave Enhance request."""
+    """Test Corentium Home 2 latest values."""
     random_bytes = bytes.fromhex("CCA4")
 
     response = AtomResponse(
@@ -66,7 +66,7 @@ def test_atom_response_corentium_home_2_latest_values() -> None:
 
 
 def test_atom_response_corentium_home_2_connectivity_mode() -> None:
-    """Test the Wave Enhance request."""
+    """Test Corentium Home 2 connectivity mode response."""
     random_bytes = bytes.fromhex("5F93")
 
     response = AtomResponse(
@@ -83,7 +83,7 @@ def test_atom_response_corentium_home_2_connectivity_mode() -> None:
 
 
 def test_empty_response() -> None:
-    """Test the Wave Enhance request."""
+    """Test empty atom request."""
     random_bytes = bytes.fromhex("1234")
 
     with pytest.raises(ValueError):
@@ -113,7 +113,7 @@ def test_empty_response() -> None:
     ],
 )
 def test_invalid_responses(response: bytes, exception: str) -> None:
-    """Test the Wave Enhance request."""
+    """Test invalid atom response."""
     random_bytes = bytes.fromhex("1234")
 
     atom_response = AtomResponse(

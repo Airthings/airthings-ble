@@ -12,7 +12,7 @@ from pytest import mark
     ],
 )
 def test_atom_request_latest_values(random_bytes: bytes | None) -> None:
-    """Test the Wave Enhance request."""
+    """Test atom request, latest values."""
     request = AtomRequest(url=AtomRequestPath.LATEST_VALUES, random_bytes=random_bytes)
     assert request.url == AtomRequestPath.LATEST_VALUES
     assert len(request.random_bytes) == 2
@@ -30,7 +30,7 @@ def test_atom_request_latest_values(random_bytes: bytes | None) -> None:
 
 
 def test_atom_request_connectivity_mode() -> None:
-    """Test the Wave Enhance request."""
+    """Test atom request, connectivity mode."""
     request = AtomRequest(url=AtomRequestPath.CONNECTIVITY_MODE)
     assert request.url == AtomRequestPath.CONNECTIVITY_MODE
 
