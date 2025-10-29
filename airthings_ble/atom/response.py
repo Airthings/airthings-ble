@@ -2,6 +2,8 @@ from logging import Logger
 
 import cbor2
 from airthings_ble.atom.request import AtomRequestPath
+from airthings_ble.connectivity_mode import AirthingsConnectivityMode
+from airthings_ble.const import CONNECTIVITY_MODE
 
 
 class AtomResponse:
@@ -54,50 +56,43 @@ class AtomResponse:
                 "Invalid response array length, expected 2, but got %s",
                 self.response[8],
             )
-            raise ValueError("Invalid response array length, expected 2")
+            raise ValueError("Invalid response array length")
 
-        if self.response[9] != 0x00:
-            self.logger.debug(
-                "Invalid response data type, expected 00, but got %s", self.response[9]
-            )
-            raise ValueError("Invalid response element")
+        data_bytes = self.response[7:]
+        decoded_data = cbor2.loads(data_bytes)
 
-        path_bytes = self.path.as_bytes()
+        if not isinstance(decoded_data, list):
+            self.logger.debug("Parsed data is not a list, but a %s", type(decoded_data))
+            raise ValueError("Invalid response data type")
 
-        path_length = self.response[10] - 0x60
-        if path_length != len(self.path.value):
-            self.logger.debug(
-                "Invalid path length, expected %d, but got %d",
-                len(path_bytes),
-                path_length,
-            )
-            raise ValueError(
-                f"Invalid response path length, expected {len(path_bytes)}, "
-                f"got {path_length}"
-            )
-
-        if self.response[11 : 11 + path_length] != path_bytes:
-            self.logger.debug(
-                "Invalid response path, expected %s, but got %s",
-                path_bytes,
-                self.response[11 : 11 + path_length],
-            )
-            raise ValueError("Invalid response path")
-
-        try:
-            self.logger.debug("Response: %s", self.response.hex())
-
-            data_bytes = self.response[27:]
-
-            decoded_data = cbor2.loads(data_bytes)
-            self.logger.debug("Decoded data: %s", decoded_data)
-
-            if not isinstance(decoded_data, dict):
+        if path := decoded_data[0].get(0):
+            if path != self.path.value:
                 self.logger.error(
-                    "Parsed data is not a dictionary, but a %s", type(decoded_data)
+                    "Response path does not match request path, expected %s but got %s",
+                    self.path.value,
+                    path,
                 )
-                raise ValueError("Invalid response data type")
-            return decoded_data
-        except ValueError as e:
-            self.logger.error(f"Failed to parse response: {e}")
-            return None
+                raise ValueError("Response path does not match request path")
+        else:
+            raise ValueError("Response path missing")
+
+        if data := decoded_data[0].get(2):
+
+            if self.path == AtomRequestPath.CONNECTIVITY_MODE and isinstance(data, int):
+                return {
+                    CONNECTIVITY_MODE: AirthingsConnectivityMode.from_atom_int(
+                        data
+                    ).value
+                }
+
+            if self.path == AtomRequestPath.LATEST_VALUES:
+                if isinstance(data, bytes):
+                    # Need to use cbor2 to decode the bytes again
+                    data = cbor2.loads(data)
+
+                if isinstance(data, dict):
+                    return data
+
+            self.logger.debug("Response data: %s", data)
+            raise ValueError("Invalid response data type")
+        raise ValueError("Response data missing")

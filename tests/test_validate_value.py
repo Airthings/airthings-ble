@@ -1,5 +1,5 @@
 from airthings_ble.const import CO2_MAX, PERCENTAGE_MAX, PRESSURE_MAX, RADON_MAX
-from airthings_ble.parser import illuminance_converter, validate_value
+from airthings_ble.sensor_decoders import illuminance_converter, validate_value
 
 
 def test_validate_value_humidity() -> None:

@@ -7,6 +7,7 @@ class AtomRequestPath(StrEnum):
     """Request paths for Airthings BLE Atom API"""
 
     LATEST_VALUES = "29999/0/31012"
+    CONNECTIVITY_MODE = "17/0/31100"
 
     def as_cbor(self) -> bytes:
         """Get URL as bytes"""

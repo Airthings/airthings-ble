@@ -5,12 +5,9 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import re
-import struct
 from collections import namedtuple
-from datetime import datetime
 from functools import partial
 from logging import Logger
-from typing import Any, Callable, Optional, Tuple
 
 from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
@@ -19,12 +16,25 @@ from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
-from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
-from airthings_ble.atom.response import AtomResponse
+from airthings_ble.command_decode import COMMAND_DECODERS, AtomCommandDecode
 from airthings_ble.radon_level import get_radon_level
+from airthings_ble.sensor_decoders import SENSOR_DECODERS
 
 from .const import (
+    ATOM_BAT,
+    ATOM_CO2,
+    ATOM_HUMIDITY,
+    ATOM_LUX,
+    ATOM_NOISE,
+    ATOM_PRESSURE,
+    ATOM_RADON_1DAY_AVG,
+    ATOM_RADON_MONTH_AVG,
+    ATOM_RADON_WEEK_AVG,
+    ATOM_RADON_YEAR_AVG,
+    ATOM_TEMPERATURE,
+    ATOM_VOC,
+    BATTERY,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -41,19 +51,31 @@ from .const import (
     CHAR_UUID_WAVE_2_DATA,
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
-    CO2_MAX,
+    CO2,
     COMMAND_UUID_ATOM,
     COMMAND_UUID_ATOM_NOTIFY,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
     DEFAULT_MAX_UPDATE_ATTEMPTS,
-    PERCENTAGE_MAX,
-    PRESSURE_MAX,
-    RADON_MAX,
-    TEMPERATURE_MAX,
+    HUMIDITY,
+    ILLUMINANCE,
+    LUX,
+    NOISE,
+    PRESSURE,
+    RADON_1DAY_AVG,
+    RADON_1DAY_LEVEL,
+    RADON_LONGTERM_AVG,
+    RADON_LONGTERM_LEVEL,
+    RADON_MONTH_AVG,
+    RADON_MONTH_LEVEL,
+    RADON_WEEK_AVG,
+    RADON_WEEK_LEVEL,
+    RADON_YEAR_AVG,
+    RADON_YEAR_LEVEL,
+    TEMPERATURE,
     UPDATE_TIMEOUT,
-    VOC_MAX,
+    VOC,
 )
 from .device_type import AirthingsDeviceType
 
@@ -85,7 +107,6 @@ sensors_characteristics_uuid = [
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_PLUS,
     COMMAND_UUID_WAVE_MINI,
-    COMMAND_UUID_ATOM,
 ]
 sensors_characteristics_uuid_str = [str(x) for x in sensors_characteristics_uuid]
 
@@ -96,358 +117,6 @@ class DisconnectedError(Exception):
 
 class UnsupportedDeviceError(Exception):
     """Unsupported device."""
-
-
-def _decode_base(
-    name: str, format_type: str, scale: float
-) -> Callable[[bytearray], dict[str, Tuple[float, ...]]]:
-    def handler(raw_data: bytearray) -> dict[str, Tuple[float, ...]]:
-        val = struct.unpack(format_type, raw_data)
-        if len(val) == 1:
-            res = val[0] * scale
-        else:
-            res = val
-        return {name: res}
-
-    return handler
-
-
-def _decode_attr(
-    name: str, format_type: str, scale: float, max_value: Optional[float] = None
-) -> Callable[[bytearray], dict[str, float | None | str]]:
-    """same as base decoder, but expects only one value.. for real"""
-
-    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        val = struct.unpack(format_type, raw_data)
-        res: float | None = None
-        if len(val) == 1:
-            res = val[0] * scale
-        if res is not None and max_value is not None:
-            # Verify that the result is not above the maximum allowed value
-            if res > max_value:
-                res = None
-        data: dict[str, float | None | str] = {name: res}
-        return data
-
-    return handler
-
-
-def _decode_wave_plus(
-    name: str, format_type: str, scale: float
-) -> Callable[[bytearray], dict[str, float | None | str]]:
-    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        vals = _decode_base(name, format_type, scale)(raw_data)
-        val = vals[name]
-        data: dict[str, float | None | str] = {}
-        data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
-        data["illuminance"] = illuminance_converter(value=val[2])
-        data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
-        data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
-        data["temperature"] = validate_value(
-            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
-        )
-        data["pressure"] = validate_value(val[7] / 50.0, max_value=PRESSURE_MAX)
-        data["co2"] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
-        data["voc"] = validate_value(value=val[9] * 1.0, max_value=VOC_MAX)
-        return data
-
-    return handler
-
-
-def _decode_wave_radon(
-    name: str, format_type: str, scale: float
-) -> Callable[[bytearray], dict[str, float | None | str]]:
-    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        vals = _decode_base(name, format_type, scale)(raw_data)
-        val = vals[name]
-        data: dict[str, float | None | str] = {}
-        data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["illuminance"] = illuminance_converter(value=val[2])
-        data["humidity"] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
-        data["radon_1day_avg"] = validate_value(value=val[4], max_value=RADON_MAX)
-        data["radon_longterm_avg"] = validate_value(value=val[5], max_value=RADON_MAX)
-        data["temperature"] = validate_value(
-            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
-        )
-        return data
-
-    return handler
-
-
-def _decode_wave_mini(
-    name: str, format_type: str, scale: float
-) -> Callable[[bytearray], dict[str, float | None | str]]:
-    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        vals = _decode_base(name, format_type, scale)(raw_data)
-        val = vals[name]
-        data: dict[str, float | None | str] = {}
-        data["date_time"] = str(datetime.isoformat(datetime.now()))
-        data["temperature"] = validate_value(
-            value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
-        )
-        data["pressure"] = float(val[3] / 50.0)
-        data["humidity"] = validate_value(
-            value=val[4] / 100.0, max_value=PERCENTAGE_MAX
-        )
-        data["voc"] = validate_value(value=val[5] * 1.0, max_value=VOC_MAX)
-        return data
-
-    return handler
-
-
-def _decode_wave(
-    name: str, format_type: str, scale: float
-) -> Callable[[bytearray], dict[str, float | None | str]]:
-    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        vals = _decode_base(name, format_type, scale)(raw_data)
-        val = vals[name]
-        data: dict[str, float | None | str] = {
-            name: str(
-                datetime(
-                    int(val[0]),
-                    int(val[1]),
-                    int(val[2]),
-                    int(val[3]),
-                    int(val[4]),
-                    int(val[5]),
-                ).isoformat()
-            )
-        }
-        return data
-
-    return handler
-
-
-def _decode_wave_illum_accel(
-    name: str, format_type: str, scale: float
-) -> Callable[[bytearray], dict[str, float | None | str]]:
-    def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        vals = _decode_base(name, format_type, scale)(raw_data)
-        val = vals[name]
-        data: dict[str, float | None | str] = {}
-        data["illuminance"] = illuminance_converter(val[0] * scale)
-        data["accelerometer"] = str(val[1] * scale)
-        return data
-
-    return handler
-
-
-def validate_value(value: float, max_value: float) -> Optional[float]:
-    """Validate if the given 'value' is within the specified range [min, max]"""
-    min_value = 0
-    if min_value <= value <= max_value:
-        return value
-    return None
-
-
-def illuminance_converter(value: float) -> Optional[int]:
-    """Convert illuminance from a 8-bit value to percentage."""
-    if (validated := validate_value(value, max_value=255)) is not None:
-        return int(validated / 255 * PERCENTAGE_MAX)
-    return None
-
-
-class CommandDecode:
-    """Decoder for the command response"""
-
-    cmd: bytes = b"\x6d"
-    format_type: str
-
-    def decode_data(
-        self,
-        logger: Logger,
-        raw_data: bytearray | None,  # pylint: disable=unused-argument
-    ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
-        logger.debug("Command decoder not implemented")
-        return {}
-
-    def validate_data(
-        self, logger: Logger, raw_data: bytearray | None
-    ) -> Optional[Any]:
-        """Validate data. Make sure the data is for the command."""
-        if raw_data is None:
-            logger.debug("Validate data: No data received")
-            return None
-
-        cmd = raw_data[0:1]
-        if cmd != self.cmd:
-            logger.warning(
-                "Result for wrong command received, expected %s got %s",
-                self.cmd.hex(),
-                cmd.hex(),
-            )
-            return None
-
-        if len(raw_data[2:]) != struct.calcsize(self.format_type):
-            logger.warning(
-                "Wrong length data received (%s) versus expected (%s)",
-                len(raw_data[2:]),
-                struct.calcsize(self.format_type),
-            )
-            return None
-
-        return struct.unpack(self.format_type, raw_data[2:])
-
-    def make_data_receiver(self) -> _NotificationReceiver:
-        """Creates a notification receiver for the command."""
-        return _NotificationReceiver(struct.calcsize(self.format_type))
-
-
-class WaveRadonAndPlusCommandDecode(CommandDecode):
-    """Decoder for the Wave Plus command response"""
-
-    def __init__(self) -> None:
-        """Initialize command decoder"""
-        self.format_type = "<L2BH2B9H"
-
-    def decode_data(
-        self, logger: Logger, raw_data: bytearray | None
-    ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
-
-        if val := self.validate_data(logger, raw_data):
-            res = {}
-            res["battery"] = val[13] / 1000.0
-            return res
-
-        return None
-
-
-class WaveMiniCommandDecode(CommandDecode):
-    """Decoder for the Wave Radon command response"""
-
-    def __init__(self) -> None:
-        """Initialize command decoder"""
-        self.format_type = "<2L4B2HL4HL"
-
-    def decode_data(
-        self, logger: Logger, raw_data: bytearray | None
-    ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
-
-        if val := self.validate_data(logger, raw_data):
-            res = {}
-            res["battery"] = val[11] / 1000.0
-
-            return res
-
-        return None
-
-
-class AtomCommandDecode(CommandDecode):
-    """Decoder for the Atom command response"""
-
-    def __init__(self) -> None:
-        """Initialize command decoder"""
-        self.format_type = ""
-        self.request = AtomRequest(url=AtomRequestPath.LATEST_VALUES)
-        self.cmd = self.request.as_bytes()
-
-    def decode_data(
-        self, logger: Logger, raw_data: bytearray | None
-    ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
-        try:
-            response = AtomResponse(
-                logger=logger,
-                response=raw_data,
-                random_bytes=self.request.random_bytes,
-                path=self.request.url,
-            )
-            return response.parse()
-
-        except ValueError as err:
-            logger.error("Failed to decode command response: %s", err)
-            return None
-
-
-class _NotificationReceiver:
-    """Receiver for a single notification message.
-
-    A notification message that is larger than the MTU can get sent over multiple
-    packets. This receiver knows how to reconstruct it.
-    """
-
-    message: bytearray | None
-
-    def __init__(self, message_size: int):
-        self.message = None
-        self._message_size = message_size
-        self._loop = asyncio.get_running_loop()
-        self._future: asyncio.Future[None] = self._loop.create_future()
-
-    def _full_message_received(self) -> bool:
-        return self.message is not None and len(self.message) >= self._message_size
-
-    def __call__(self, _: Any, data: bytearray) -> None:
-        if self.message is None:
-            self.message = data
-        elif not self._full_message_received():
-            self.message += data
-        if self._full_message_received():
-            self._future.set_result(None)
-
-    def _on_timeout(self) -> None:
-        if not self._future.done():
-            self._future.set_exception(
-                asyncio.TimeoutError("Timeout waiting for message")
-            )
-
-    async def wait_for_message(self, timeout: float) -> None:
-        """Waits until the full message is received.
-
-        If the full message has already been received, this method returns immediately.
-        """
-        if not self._full_message_received():
-            timer_handle = self._loop.call_later(timeout, self._on_timeout)
-            try:
-                await self._future
-            finally:
-                timer_handle.cancel()
-
-
-sensor_decoders: dict[
-    str,
-    Callable[[bytearray], dict[str, float | None | str]],
-] = {
-    str(CHAR_UUID_DATETIME): _decode_wave(name="date_time", format_type="H5B", scale=0),
-    str(CHAR_UUID_HUMIDITY): _decode_attr(
-        name="humidity",
-        format_type="H",
-        scale=1.0 / 100.0,
-        max_value=PERCENTAGE_MAX,
-    ),
-    str(CHAR_UUID_RADON_1DAYAVG): _decode_attr(
-        name="radon_1day_avg", format_type="H", scale=1.0
-    ),
-    str(CHAR_UUID_RADON_LONG_TERM_AVG): _decode_attr(
-        name="radon_longterm_avg", format_type="H", scale=1.0
-    ),
-    str(CHAR_UUID_ILLUMINANCE_ACCELEROMETER): _decode_wave_illum_accel(
-        name="illuminance_accelerometer", format_type="BB", scale=1.0
-    ),
-    str(CHAR_UUID_TEMPERATURE): _decode_attr(
-        name="temperature", format_type="h", scale=1.0 / 100.0
-    ),
-    str(CHAR_UUID_WAVE_2_DATA): _decode_wave_radon(
-        name="Wave2", format_type="<4B8H", scale=1.0
-    ),
-    str(CHAR_UUID_WAVE_PLUS_DATA): _decode_wave_plus(
-        name="Plus", format_type="<4B8H", scale=0
-    ),
-    str(CHAR_UUID_WAVEMINI_DATA): _decode_wave_mini(
-        name="WaveMini", format_type="<2B5HLL", scale=1.0
-    ),
-}
-
-command_decoders: dict[str, CommandDecode] = {
-    str(COMMAND_UUID_WAVE_2): WaveRadonAndPlusCommandDecode(),
-    str(COMMAND_UUID_WAVE_PLUS): WaveRadonAndPlusCommandDecode(),
-    str(COMMAND_UUID_WAVE_MINI): WaveMiniCommandDecode(),
-    str(COMMAND_UUID_ATOM): AtomCommandDecode(),
-}
 
 
 def short_address(address: str) -> str:
@@ -627,14 +296,14 @@ class AirthingsBluetoothDeviceData:
         for characteristic in service.characteristics:
             uuid = characteristic.uuid
             uuid_str = str(uuid)
-            if uuid in sensors_characteristics_uuid_str and uuid_str in sensor_decoders:
+            if uuid in sensors_characteristics_uuid_str and uuid_str in SENSOR_DECODERS:
                 try:
                     data = await client.read_gatt_char(characteristic)
                 except BleakError as err:
                     self.logger.debug("Get service characteristics exception: %s", err)
                     continue
 
-                sensor_data = sensor_decoders[uuid_str](data)
+                sensor_data = SENSOR_DECODERS[uuid_str](data)
 
                 # Skipping for now
                 if "date_time" in sensor_data:
@@ -643,17 +312,17 @@ class AirthingsBluetoothDeviceData:
                 sensors.update(sensor_data)
 
                 # Manage radon values
-                if (d := sensor_data.get("radon_1day_avg")) is not None:
-                    sensors["radon_1day_level"] = get_radon_level(float(d))
+                if (d := sensor_data.get(RADON_1DAY_AVG)) is not None:
+                    sensors[RADON_1DAY_LEVEL] = get_radon_level(float(d))
                     if not self.is_metric:
-                        sensors["radon_1day_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
-                if (d := sensor_data.get("radon_longterm_avg")) is not None:
-                    sensors["radon_longterm_level"] = get_radon_level(float(d))
+                        sensors[RADON_1DAY_AVG] = float(d) * BQ_TO_PCI_MULTIPLIER
+                if (d := sensor_data.get(RADON_LONGTERM_AVG)) is not None:
+                    sensors[RADON_LONGTERM_LEVEL] = get_radon_level(float(d))
                     if not self.is_metric:
-                        sensors["radon_longterm_avg"] = float(d) * BQ_TO_PCI_MULTIPLIER
+                        sensors[RADON_LONGTERM_AVG] = float(d) * BQ_TO_PCI_MULTIPLIER
 
-            if uuid_str in command_decoders:
-                decoder = command_decoders[uuid_str]
+            if uuid_str in COMMAND_DECODERS:
+                decoder = COMMAND_DECODERS[uuid_str]
                 command_data_receiver = decoder.make_data_receiver()
 
                 # Set up the notification handlers
@@ -672,20 +341,19 @@ class AirthingsBluetoothDeviceData:
                 if command_sensor_data is not None:
                     new_values: dict[str, float | str | None] = {}
 
-                    if (bat_data := command_sensor_data.get("battery")) is not None:
-                        new_values["battery"] = device.model.battery_percentage(
+                    if (bat_data := command_sensor_data.get(BATTERY)) is not None:
+                        new_values[BATTERY] = device.model.battery_percentage(
                             float(bat_data)
                         )
 
-                    if illuminance := command_sensor_data.get("illuminance"):
-                        new_values["illuminance"] = illuminance
+                    if illuminance := command_sensor_data.get(ILLUMINANCE):
+                        new_values[ILLUMINANCE] = illuminance
 
                     sensors.update(new_values)
 
                 # Stop notification handler
                 await client.stop_notify(characteristic)
 
-    # pylint: disable=too-many-statements
     async def _atom_sensor_data(
         self,
         client: BleakClient,
@@ -706,8 +374,34 @@ class AirthingsBluetoothDeviceData:
                 device.firmware.required_version or "N/A",
             )
 
-        decoder = command_decoders[str(COMMAND_UUID_ATOM)]
+        connectivity_data = await self._create_decoder_and_fetch(
+            client=client,
+            service=service,
+            url=AtomRequestPath.CONNECTIVITY_MODE,
+        )
+        if connectivity_data is not None:
+            sensors.update(connectivity_data)
 
+        sensor_data = await self._create_decoder_and_fetch(
+            client=client,
+            service=service,
+            url=AtomRequestPath.LATEST_VALUES,
+        )
+        if sensor_data is not None:
+            self._parse_sensor_data(
+                device=device,
+                sensors=sensors,
+                sensor_data=sensor_data,
+            )
+
+    async def _create_decoder_and_fetch(
+        self,
+        client: BleakClient,
+        service: BleakGATTService,
+        url: AtomRequestPath,
+    ) -> dict[str, float | str | None] | None:
+        """Create decoder and fetch data."""
+        decoder = AtomCommandDecode(url=url)
         command_data_receiver = decoder.make_data_receiver()
 
         atom_write = service.get_characteristic(COMMAND_UUID_ATOM)
@@ -723,81 +417,93 @@ class AirthingsBluetoothDeviceData:
 
         # send command to this 'indicate' characteristic
         await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
-        # Wait for up to one second to see if a callback comes in.
+        # Wait for up to five seconds to see if a callback comes in.
         try:
             await command_data_receiver.wait_for_message(5)
         except asyncio.TimeoutError:
             self.logger.warning("Timeout getting command data.")
 
-        command_sensor_data = decoder.decode_data(
+        data = decoder.decode_data(
             logger=self.logger,
             raw_data=command_data_receiver.message,
         )
 
-        if command_sensor_data is not None:
+        await client.stop_notify(atom_notify)
+
+        return data
+
+    def _parse_sensor_data(
+        self,
+        device: AirthingsDevice,
+        sensors: dict[str, str | float | None],
+        sensor_data: dict[str, float | str | None],
+    ) -> None:
+        """Parse sensor data from the device."""
+        if sensor_data is not None:
             new_values: dict[str, float | str | None] = {}
 
-            if (bat_data := command_sensor_data.get("BAT")) is not None:
-                new_values["battery"] = device.model.battery_percentage(
+            if (bat_data := sensor_data.get(ATOM_BAT)) is not None:
+                new_values[BATTERY] = device.model.battery_percentage(
                     float(bat_data) / 1000.0
                 )
 
-            if (lux := command_sensor_data.get("LUX")) is not None:
-                new_values["lux"] = lux
+            if (lux := sensor_data.get(ATOM_LUX)) is not None:
+                new_values[LUX] = lux
 
-            if (co2 := command_sensor_data.get("CO2")) is not None:
-                new_values["co2"] = co2
+            if (co2 := sensor_data.get(ATOM_CO2)) is not None:
+                new_values[CO2] = co2
 
-            if (voc := command_sensor_data.get("VOC")) is not None:
-                new_values["voc"] = voc
+            if (voc := sensor_data.get(ATOM_VOC)) is not None:
+                new_values[VOC] = voc
 
-            if (hum := command_sensor_data.get("HUM")) is not None:
-                new_values["humidity"] = float(hum) / 100.0
+            if (hum := sensor_data.get(ATOM_HUMIDITY)) is not None:
+                new_values[HUMIDITY] = float(hum) / 100.0
 
-            if (temperature := command_sensor_data.get("TMP")) is not None:
+            if (temperature := sensor_data.get(ATOM_TEMPERATURE)) is not None:
                 # Temperature reported as kelvin
-                new_values["temperature"] = round(
-                    float(temperature) / 100.0 - 273.15, 2
+                new_values[TEMPERATURE] = round(float(temperature) / 100.0 - 273.15, 2)
+
+            if (noise := sensor_data.get(ATOM_NOISE)) is not None:
+                new_values[NOISE] = noise
+
+            if (pressure := sensor_data.get(ATOM_PRESSURE)) is not None:
+                new_values[PRESSURE] = float(pressure) / (64 * 100)
+
+            if (radon_1day_avg := sensor_data.get(ATOM_RADON_1DAY_AVG)) is not None:
+                new_values[RADON_1DAY_AVG] = (
+                    float(radon_1day_avg)
+                    if self.is_metric
+                    else float(radon_1day_avg) * BQ_TO_PCI_MULTIPLIER
                 )
+                new_values[RADON_1DAY_LEVEL] = get_radon_level(float(radon_1day_avg))
 
-            if (noise := command_sensor_data.get("NOI")) is not None:
-                new_values["noise"] = noise
-
-            if (pressure := command_sensor_data.get("PRS")) is not None:
-                new_values["pressure"] = float(pressure) / (64 * 100)
-
-            if (radon_1day_avg := command_sensor_data.get("R24")) is not None:
-                new_values["radon_1day_avg"] = (
-                    float(radon_1day_avg) * BQ_TO_PCI_MULTIPLIER
+            if (radon_week_avg := sensor_data.get(ATOM_RADON_WEEK_AVG)) is not None:
+                new_values[RADON_WEEK_AVG] = (
+                    float(radon_week_avg)
+                    if self.is_metric
+                    else float(radon_week_avg) * BQ_TO_PCI_MULTIPLIER
                 )
-                new_values["radon_1day_level"] = get_radon_level(float(radon_1day_avg))
+                new_values[RADON_WEEK_LEVEL] = get_radon_level(float(radon_week_avg))
 
-            if (radon_week_avg := command_sensor_data.get("R7D")) is not None:
-                new_values["radon_week_avg"] = (
-                    float(radon_week_avg) * BQ_TO_PCI_MULTIPLIER
-                )
-                new_values["radon_week_level"] = get_radon_level(float(radon_week_avg))
-
-            if (radon_month_avg := command_sensor_data.get("R30D")) is not None:
-                new_values["radon_month_avg"] = (
-                    float(radon_month_avg) * BQ_TO_PCI_MULTIPLIER
-                )
-                new_values["radon_month_level"] = get_radon_level(
+            if (radon_month_avg := sensor_data.get(ATOM_RADON_MONTH_AVG)) is not None:
+                new_values[RADON_MONTH_AVG] = (
                     float(radon_month_avg)
+                    if self.is_metric
+                    else float(radon_month_avg) * BQ_TO_PCI_MULTIPLIER
                 )
+                new_values[RADON_MONTH_LEVEL] = get_radon_level(float(radon_month_avg))
 
-            if (radon_year_avg := command_sensor_data.get("R1Y")) is not None:
-                new_values["radon_year_avg"] = (
-                    float(radon_year_avg) * BQ_TO_PCI_MULTIPLIER
+            if (radon_year_avg := sensor_data.get(ATOM_RADON_YEAR_AVG)) is not None:
+                new_values[RADON_YEAR_AVG] = (
+                    float(radon_year_avg)
+                    if self.is_metric
+                    else float(radon_year_avg) * BQ_TO_PCI_MULTIPLIER
                 )
-                new_values["radon_year_level"] = get_radon_level(float(radon_year_avg))
+                new_values[RADON_YEAR_LEVEL] = get_radon_level(float(radon_year_avg))
 
             self.logger.debug("Sensor values: %s", new_values)
 
             sensors.update(new_values)
-
-        # Stop notification handler
-        await client.stop_notify(atom_notify)
 
     def _handle_disconnect(
         self, disconnect_future: asyncio.Future[bool], client: BleakClient
