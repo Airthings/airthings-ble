@@ -58,14 +58,11 @@ class AtomResponse:
             )
             raise ValueError("Invalid response array length")
 
-        self.logger.debug("Response: %s", self.response.hex())
-
         data_bytes = self.response[7:]
         decoded_data = cbor2.loads(data_bytes)
-        self.logger.debug("Decoded data: %s", decoded_data)
 
         if not isinstance(decoded_data, list):
-            self.logger.error("Parsed data is not a list, but a %s", type(decoded_data))
+            self.logger.debug("Parsed data is not a list, but a %s", type(decoded_data))
             raise ValueError("Invalid response data type")
 
         if path := decoded_data[0].get(0):
@@ -82,7 +79,6 @@ class AtomResponse:
         if data := decoded_data[0].get(2):
 
             if self.path == AtomRequestPath.CONNECTIVITY_MODE and isinstance(data, int):
-                self.logger.debug("Parsed data: %s", data)
                 return {
                     CONNECTIVITY_MODE: AirthingsConnectivityMode.from_atom_int(
                         data
@@ -95,9 +91,8 @@ class AtomResponse:
                     data = cbor2.loads(data)
 
                 if isinstance(data, dict):
-                    self.logger.error("Parsed data: %s", data)
                     return data
 
-            self.logger.error("Response data: %s", data)
+            self.logger.debug("Response data: %s", data)
             raise ValueError("Invalid response data type")
         raise ValueError("Response data missing")
