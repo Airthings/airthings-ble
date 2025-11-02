@@ -10,7 +10,7 @@ jobs:
   test:
     strategy:
       matrix:
-        python-version: [3.12, 3.13]
+        python-version: ["3.12", "3.13", "3.14"]
     name: Run tests for ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     steps:
@@ -32,7 +32,7 @@ jobs:
   lint:
     strategy:
       matrix:
-        python-version: [3.13] # Linting is only required for the latest Python version
+        python-version: ["3.14"] # Linting is only required for the latest Python version
     name: Lint code for ${{ matrix.python-version }}
     runs-on: ubuntu-latest
     steps:
