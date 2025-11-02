@@ -118,6 +118,7 @@ def _decode_wave_mini(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data[DATE_TIME] = str(datetime.isoformat(datetime.now()))
+        data[ILLUMINANCE] = illuminance_converter(value=val[0])
         data[TEMPERATURE] = validate_value(
             value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
         )
