@@ -30,7 +30,7 @@ cbor2 = ">=5.6.5"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.4.0"
-pytest-cov = "^6.2.0"
+pytest-cov = "^7.0.0"
 black = "^25.1.0"
 mypy = "^1.16.0"
 pylint = "^3.3.7"
