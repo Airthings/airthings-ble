@@ -26,6 +26,17 @@ def test_extract_serial_number_from_manufacturer_data() -> None:
     )
 
 
+def test_parse_advertisement_data_ignores_invalid_serial_shape() -> None:
+    """Test payloads that decode but do not look like Airthings serials are ignored."""
+    result = parse_advertisement_data(
+        local_name=None,
+        manufacturer_data=b"\x01\x02\x03\x04\x00\x00",
+        service_uuids=[AIRTHINGS_SHARED_SERVICE_UUID],
+    )
+
+    assert result is None
+
+
 def test_parse_supported_advertisement_data_from_serial_number() -> None:
     """Test passive parsing of a supported advertisement."""
     result = parse_advertisement_data(
@@ -87,6 +98,23 @@ def test_parse_known_unsupported_advertisement_data_from_name() -> None:
     assert result.serial_number is None
     assert result.model_code is None
     assert result.unsupported_name == "Airthings View Plus"
+    assert result.known_unsupported is True
+    assert result.unknown is False
+
+
+def test_parse_known_unsupported_advertisement_data_from_name_with_bad_serial() -> None:
+    """Test unsupported-name fallback keeps no model code for invalid serials."""
+    result = parse_advertisement_data(
+        local_name="Renew AP-1",
+        manufacturer_data=b"\x01\x02\x03\x04\x00\x00",
+        service_uuids=[AIRTHINGS_SHARED_SERVICE_UUID],
+    )
+
+    assert result is not None
+    assert result.model is None
+    assert result.serial_number is None
+    assert result.model_code is None
+    assert result.unsupported_name == "Renew AP-1"
     assert result.known_unsupported is True
     assert result.unknown is False
 
