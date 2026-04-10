@@ -78,6 +78,7 @@ from .const import (
     VOC,
 )
 from .device_type import AirthingsDeviceType
+from .errors import UnknownDeviceError, UnsupportedDeviceError
 
 Characteristic = namedtuple("Characteristic", ["uuid", "name", "format"])
 
@@ -115,10 +116,6 @@ class DisconnectedError(Exception):
     """Disconnected from device."""
 
 
-class UnsupportedDeviceError(Exception):
-    """Unsupported device."""
-
-
 def short_address(address: str) -> str:
     """Convert a Bluetooth address to a short address."""
     return address.replace("-", "").replace(":", "")[-6:].upper()
@@ -134,7 +131,8 @@ class AirthingsDeviceInfo:
     manufacturer: str = ""
     hw_version: str = ""
     sw_version: str = ""
-    model: AirthingsDeviceType = AirthingsDeviceType.UNKNOWN
+    model: AirthingsDeviceType | None = None
+    model_code: str = ""
     name: str = ""
     identifier: str = ""
     address: str = ""
@@ -142,7 +140,8 @@ class AirthingsDeviceInfo:
 
     def friendly_name(self) -> str:
         """Generate a name for the device."""
-
+        if self.model is None:
+            return "Airthings"
         return f"Airthings {self.model.product_name}"
 
 
@@ -158,7 +157,8 @@ class AirthingsDevice(AirthingsDeviceInfo):
 
     def friendly_name(self) -> str:
         """Generate a name for the device."""
-
+        if self.model is None:
+            return "Airthings"
         return f"Airthings {self.model.product_name}"
 
 
@@ -201,14 +201,17 @@ class AirthingsBluetoothDeviceData:
                 self.logger.debug("Get device characteristics exception: %s", err)
                 return
 
-            device_info.model = AirthingsDeviceType.from_raw_value(data.decode("utf-8"))
-            if device_info.model == AirthingsDeviceType.UNKNOWN:
-                raise UnsupportedDeviceError(
-                    f"Model {data.decode('utf-8')} is not supported"
+            device_info.model_code = data.decode("utf-8")
+            device_info.model = AirthingsDeviceType.from_model_code(
+                device_info.model_code
+            )
+            if device_info.model is None:
+                raise UnknownDeviceError(
+                    f"Unknown Airthings model {device_info.model_code} at {client.address}"
                 )
 
         characteristics = _CHARS_BY_MODELS.get(
-            device_info.model.raw_value, device_info_characteristics
+            device_info.model_code, device_info_characteristics
         )
 
         self.logger.debug("Fetching device info characteristics: %s", characteristics)
@@ -257,7 +260,7 @@ class AirthingsBluetoothDeviceData:
         if not device_info.name:
             device_info.name = device_info.friendly_name()
 
-        if device_info.model:
+        if device_info.model is not None:
             device_info.did_first_sync = True
 
         # Copy the cached device_info to device
