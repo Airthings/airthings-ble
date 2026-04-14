@@ -191,8 +191,6 @@ class AirthingsBluetoothDeviceData:
         device_info.address = client.address
         did_first_sync = device_info.did_first_sync
 
-        device.firmware.update_current_version(device_info.sw_version)
-
         # We need to fetch model to determ what to fetch.
         if not did_first_sync:
             try:
@@ -264,6 +262,8 @@ class AirthingsBluetoothDeviceData:
         for field in dataclasses.fields(device_info):
             name = field.name
             setattr(device, name, getattr(device_info, name))
+
+        device.firmware.update_current_version(device_info.sw_version)
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
