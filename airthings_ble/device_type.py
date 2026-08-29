@@ -8,7 +8,6 @@ from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 class AirthingsDeviceType(Enum):
     """Airthings device types."""
 
-    UNKNOWN = "0"
     WAVE_GEN_1 = "2900"
     WAVE_MINI = "2920"
     WAVE_PLUS = "2930"
@@ -16,14 +15,6 @@ class AirthingsDeviceType(Enum):
     WAVE_ENHANCE_EU = "3210"
     WAVE_ENHANCE_US = "3220"
     CORENTIUM_HOME_2 = "3250"
-
-    raw_value: str  # pylint: disable=invalid-name
-
-    def __new__(cls, value: str) -> "AirthingsDeviceType":
-        """Create new device type."""
-        obj = object.__new__(cls)
-        obj.raw_value = value
-        return obj
 
     @classmethod
     def atom_devices(cls) -> list["AirthingsDeviceType"]:
@@ -35,15 +26,20 @@ class AirthingsDeviceType(Enum):
         ]
 
     @classmethod
-    def from_raw_value(cls, value: str) -> "AirthingsDeviceType":
-        """Get device type from raw value."""
+    def from_model_code(cls, value: str) -> "AirthingsDeviceType | None":
+        """Resolve a supported model from an exact Airthings model code."""
         for device_type in cls:
             if device_type.value == value:
-                device_type.raw_value = value
                 return device_type
-        unknown_device = AirthingsDeviceType.UNKNOWN
-        unknown_device.raw_value = value
-        return unknown_device
+        return None
+
+    @classmethod
+    def from_serial_number(cls, serial_number: str) -> "AirthingsDeviceType | None":
+        """Resolve a supported model from an Airthings serial number."""
+        if len(serial_number) < 4:
+            return None
+        model_code = serial_number[:4]
+        return cls.from_model_code(model_code)
 
     @property
     # pylint: disable=too-many-return-statements
@@ -64,7 +60,7 @@ class AirthingsDeviceType(Enum):
             return "Wave Enhance"
         if self == AirthingsDeviceType.CORENTIUM_HOME_2:
             return "Corentium Home 2"
-        return "Unknown"
+        raise ValueError(f"Unhandled device type: {self}")
 
     def battery_percentage(self, voltage: float) -> int:
         """Calculate battery percentage based on voltage."""

@@ -39,6 +39,7 @@ pip-delete-this-directory.txt
 # Misc
 .vscode
 .idea
+.DS_Store
 
 # Tests
 .coverage
