@@ -29,7 +29,7 @@ def test_corentium_home_2_sensor_data(
         sensor_data={
             "R24": 0.0,
             "R7D": 100.0,
-            "R30D": 200.0,
+            "R30": 200.0,
             "R1Y": 300,
         },
     )
