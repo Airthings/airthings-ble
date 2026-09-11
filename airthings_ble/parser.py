@@ -485,9 +485,7 @@ class AirthingsBluetoothDeviceData:
                 )
                 new_values[RADON_WEEK_LEVEL] = get_radon_level(float(radon_week_avg))
 
-            if (
-                radon_month_avg := sensor_data.get(ATOM_RADON_MONTH_AVG)
-            ) is not None:
+            if (radon_month_avg := sensor_data.get(ATOM_RADON_MONTH_AVG)) is not None:
                 new_values[RADON_MONTH_AVG] = (
                     float(radon_month_avg)
                     if self.is_metric
