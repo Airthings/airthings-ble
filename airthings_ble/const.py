@@ -1,6 +1,8 @@
-"""Constants for Airthings BLE parser"""
+"""Constants for Airthings BLE parser."""
 
 from uuid import UUID
+
+from .device_type import AirthingsDeviceType
 
 MFCT_ID = 820
 
@@ -79,3 +81,16 @@ RADON_MONTH_LEVEL = "radon_month_level"
 RADON_YEAR_AVG = "radon_year_avg"
 RADON_YEAR_LEVEL = "radon_year_level"
 VOC = "voc"
+
+
+AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL: dict[str, AirthingsDeviceType] = {
+    "b42e1f6e-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_GEN_1,
+    "b42e1c08-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_PLUS,
+    "b42e3882-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_MINI,
+    "b42e4a8e-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_RADON,
+}
+AIRTHINGS_SHARED_SERVICE_UUID = "b42e90a2-ade7-11e4-89d3-123b93f75cba"
+AIRTHINGS_SERVICE_UUIDS: tuple[str, ...] = (
+    *AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL,
+    AIRTHINGS_SHARED_SERVICE_UUID,
+)

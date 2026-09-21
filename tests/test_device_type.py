@@ -19,23 +19,41 @@ def test_device_type() -> None:
     with pytest.raises(ValueError):
         AirthingsDeviceType("1234")
 
-    assert AirthingsDeviceType.from_raw_value("2900") == AirthingsDeviceType.WAVE_GEN_1
-    assert AirthingsDeviceType.from_raw_value("2920") == AirthingsDeviceType.WAVE_MINI
-    assert AirthingsDeviceType.from_raw_value("2930") == AirthingsDeviceType.WAVE_PLUS
-    assert AirthingsDeviceType.from_raw_value("2950") == AirthingsDeviceType.WAVE_RADON
+    assert AirthingsDeviceType.from_model_code("2900") == AirthingsDeviceType.WAVE_GEN_1
+    assert AirthingsDeviceType.from_model_code("2920") == AirthingsDeviceType.WAVE_MINI
+    assert AirthingsDeviceType.from_model_code("2930") == AirthingsDeviceType.WAVE_PLUS
+    assert AirthingsDeviceType.from_model_code("2950") == AirthingsDeviceType.WAVE_RADON
     assert (
-        AirthingsDeviceType.from_raw_value("3210")
+        AirthingsDeviceType.from_model_code("3210")
         == AirthingsDeviceType.WAVE_ENHANCE_EU
     )
     assert (
-        AirthingsDeviceType.from_raw_value("3220")
+        AirthingsDeviceType.from_model_code("3220")
         == AirthingsDeviceType.WAVE_ENHANCE_US
     )
+    assert AirthingsDeviceType.from_model_code("1234") is None
 
-    unknown_device = AirthingsDeviceType.from_raw_value("1234")
-    assert unknown_device == AirthingsDeviceType.UNKNOWN
-    assert unknown_device.product_name == "Unknown"
-    assert unknown_device.raw_value == "1234"
+
+def test_device_type_from_serial_number() -> None:
+    """Test supported device families can be resolved from serial number ranges."""
+    assert (
+        AirthingsDeviceType.from_serial_number("2900123456")
+        == AirthingsDeviceType.WAVE_GEN_1
+    )
+    assert (
+        AirthingsDeviceType.from_serial_number("3210005838")
+        == AirthingsDeviceType.WAVE_ENHANCE_EU
+    )
+    assert (
+        AirthingsDeviceType.from_serial_number("3220001234")
+        == AirthingsDeviceType.WAVE_ENHANCE_US
+    )
+    assert (
+        AirthingsDeviceType.from_serial_number("3250001350")
+        == AirthingsDeviceType.CORENTIUM_HOME_2
+    )
+    assert AirthingsDeviceType.from_serial_number("3110002645") is None
+    assert AirthingsDeviceType.from_serial_number("3990123456") is None
 
 
 def test_battery_calculation() -> None:
