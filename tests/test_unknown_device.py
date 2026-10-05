@@ -99,3 +99,10 @@ def test_sensors_stay_the_last_positional_field() -> None:
     )
 
     assert device.sensors is sensors
+
+
+def test_identical_devices_compare_equal() -> None:
+    """Test devices with the same readings still compare equal."""
+    assert AirthingsDevice(sensors={"battery": 85}) == AirthingsDevice(
+        sensors={"battery": 85}
+    )

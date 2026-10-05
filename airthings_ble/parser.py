@@ -154,7 +154,7 @@ class AirthingsDevice(AirthingsDeviceInfo):
         default_factory=lambda: {}
     )
     firmware: AirthingsFirmwareVersion = dataclasses.field(
-        default_factory=AirthingsFirmwareVersion
+        default_factory=AirthingsFirmwareVersion, compare=False
     )
 
     def friendly_name(self) -> str:
