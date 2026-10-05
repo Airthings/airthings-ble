@@ -2,7 +2,6 @@
 
 import asyncio
 import struct
-from abc import ABC, abstractmethod
 from logging import Logger
 from typing import Any, Optional
 
@@ -19,18 +18,21 @@ from airthings_ble.const import (
 )
 
 
-class CommandDecode(ABC):
+class CommandDecode:
     """Decoder for the command response"""
 
     cmd: bytes | bytearray = b"\x6d"
     format_type: str
     _header_size = 2
 
-    @abstractmethod
     def decode_data(
-        self, logger: Logger, raw_data: bytearray | None
+        self,
+        logger: Logger,
+        raw_data: bytearray | None,  # pylint: disable=unused-argument
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
+        logger.debug("Command decoder not implemented")
+        return {}
 
     def validate_data(
         self, logger: Logger, raw_data: bytearray | None
