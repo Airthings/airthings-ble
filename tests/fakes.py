@@ -19,6 +19,21 @@ ATOM_CONNECTIVITY_MODE_BLE = 4
 
 _ATOM_RESPONSE_HEADER = bytes.fromhex("1001000345")
 
+CALLBACK_ERRORS: list[BaseException] = []
+
+
+def _recording_errors(
+    callback: Callable[[Any, bytearray], None],
+) -> Callable[[Any, bytearray], None]:
+    def wrapper(sender: Any, data: bytearray) -> None:
+        try:
+            callback(sender, data)
+        except Exception as err:  # noqa: BLE001
+            CALLBACK_ERRORS.append(err)
+            raise
+
+    return wrapper
+
 
 class FakeCharacteristic:
     def __init__(self, uuid: UUID | str) -> None:
@@ -135,6 +150,12 @@ class FakeClient:
             raise self._write_error
         if self._stall_write:
             await asyncio.Event().wait()
+        if write_uuid == str(COMMAND_UUID_ATOM):
+            assert (
+                data[0:2] == b"\x03\x01" and data[4:7] == b"\x81\xa1\x00"
+            ), f"malformed Atom request {data.hex()}"
+        else:
+            assert data == b"\x6d", f"malformed Wave command {data.hex()}"
         if self._silent_commands:
             return
         if self._command_response is not None:
@@ -152,9 +173,9 @@ class FakeClient:
         self._notify(characteristic, response)
 
     def _notify(self, characteristic: Any, response: bytes) -> None:
-        callback = self._callback
-        assert callback is not None
+        assert self._callback is not None
         loop = asyncio.get_running_loop()
+        callback = _recording_errors(self._callback)
         size = self._chunk_size or len(response)
         for start in range(0, len(response), size):
             loop.call_soon(
