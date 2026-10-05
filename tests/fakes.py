@@ -126,6 +126,10 @@ class FakeClient:
         self._callback = callback
 
     async def stop_notify(self, char_specifier: Any) -> None:
+        stop_uuid = str(getattr(char_specifier, "uuid", char_specifier))
+        assert (
+            stop_uuid == self._notify_uuid
+        ), f"stopped {stop_uuid} while notifying on {self._notify_uuid}"
         if self._stall_stop_notify:
             await asyncio.Event().wait()
         if self._stop_notify_error is not None:
