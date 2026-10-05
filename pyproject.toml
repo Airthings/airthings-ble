@@ -7,7 +7,7 @@ authors = [
     { name = "Ståle Storø Hauknes" },
 ]
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 dynamic = ["dependencies"]
 classifiers = [
     "Intended Audience :: Developers",
@@ -23,7 +23,7 @@ classifiers = [
 "Bug Reports" = "https://github.com/Airthings/airthings-ble/issues"
 
 [tool.poetry.dependencies]
-python = ">=3.11,<4.0"
+python = ">=3.12,<4.0"
 bleak = ">=3.0.2"
 bleak-retry-connector = ">=4.7.1"
 async-interrupt = ">=1.2.2"
@@ -61,6 +61,7 @@ exclude_lines = [
 ]
 
 [tool.mypy]
+python_version = "3.12"
 check_untyped_defs = true
 disallow_any_generics = true
 disallow_incomplete_defs = true
@@ -77,7 +78,7 @@ exclude = [
 
 [tool.ruff]
 line-length = 88
-target-version = "py311"
+target-version = "py312"
 extend-exclude = ["docs", "build"]
 src = ["src", "tests"]
 
