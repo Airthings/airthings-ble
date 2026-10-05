@@ -181,6 +181,7 @@ class AirthingsBluetoothDeviceData:
         self.is_metric = is_metric
         self.device_info = AirthingsDeviceInfo()
         self.max_attempts = max_attempts
+        self._unread_device_info: set[str] = set()
 
     def set_max_attempts(self, max_attempts: int) -> None:
         """Set the number of attempts."""
@@ -211,15 +212,20 @@ class AirthingsBluetoothDeviceData:
         self.logger.debug("Fetching device info characteristics: %s", characteristics)
 
         for characteristic in characteristics:
-            if did_first_sync and characteristic.name != "firmware_rev":
-                # Only the sw_version can change once set, so we can skip the rest.
+            if (
+                did_first_sync
+                and characteristic.name != "firmware_rev"
+                and characteristic.name not in self._unread_device_info
+            ):
                 continue
 
             try:
                 data = await client.read_gatt_char(characteristic.uuid)
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
+                self._unread_device_info.add(characteristic.name)
                 continue
+            self._unread_device_info.discard(characteristic.name)
             if characteristic.name == "manufacturer":
                 device_info.manufacturer = data.decode(characteristic.format)
             elif characteristic.name == "hardware_rev":
