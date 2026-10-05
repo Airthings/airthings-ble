@@ -81,3 +81,21 @@ def test_devices_do_not_share_firmware() -> None:
 
     assert first.firmware is not second.firmware
     assert second.firmware.current_version is None
+
+
+def test_sensors_stay_the_last_positional_field() -> None:
+    """Test sensors keep their positional slot in the device constructor."""
+    sensors = {"battery": 85}
+    device = AirthingsDevice(
+        "Airthings AS",
+        "REV A",
+        "G-BLE-1.5.3-master+0",
+        AirthingsDeviceType.WAVE_PLUS,
+        "Airthings Wave+",
+        "123456",
+        ADDRESS,
+        True,
+        sensors,
+    )
+
+    assert device.sensors is sensors

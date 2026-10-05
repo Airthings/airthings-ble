@@ -150,12 +150,11 @@ class AirthingsDeviceInfo:
 class AirthingsDevice(AirthingsDeviceInfo):
     """Response data with information about the Airthings device"""
 
-    firmware: AirthingsFirmwareVersion = dataclasses.field(
-        default_factory=AirthingsFirmwareVersion
-    )
-
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
+    )
+    firmware: AirthingsFirmwareVersion = dataclasses.field(
+        default_factory=AirthingsFirmwareVersion
     )
 
     def friendly_name(self) -> str:
