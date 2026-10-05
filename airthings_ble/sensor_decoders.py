@@ -28,6 +28,7 @@ from .const import (
     RADON_MAX,
     TEMPERATURE,
     TEMPERATURE_MAX,
+    TEMPERATURE_MIN,
     VOC,
     VOC_MAX,
 )
@@ -80,7 +81,9 @@ def _decode_wave_plus(
         data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
         data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
         data[TEMPERATURE] = validate_value(
-            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
+            value=val[6] / 100.0,
+            min_value=TEMPERATURE_MIN,
+            max_value=TEMPERATURE_MAX,
         )
         data[PRESSURE] = validate_value(val[7] / 50.0, max_value=PRESSURE_MAX)
         data[CO2] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
@@ -103,7 +106,9 @@ def _decode_wave_radon(
         data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
         data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
         data[TEMPERATURE] = validate_value(
-            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
+            value=val[6] / 100.0,
+            min_value=TEMPERATURE_MIN,
+            max_value=TEMPERATURE_MAX,
         )
         return data
 
@@ -120,7 +125,9 @@ def _decode_wave_mini(
         data[DATE_TIME] = str(datetime.isoformat(datetime.now()))
         data[ILLUMINANCE] = illuminance_converter(value=val[0])
         data[TEMPERATURE] = validate_value(
-            value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
+            value=round(val[2] / 100.0 - 273.15, 2),
+            min_value=TEMPERATURE_MIN,
+            max_value=TEMPERATURE_MAX,
         )
         data[PRESSURE] = float(val[3] / 50.0)
         data[HUMIDITY] = validate_value(value=val[4] / 100.0, max_value=PERCENTAGE_MAX)
@@ -167,9 +174,10 @@ def _decode_wave_illum_accel(
     return handler
 
 
-def validate_value(value: float, max_value: float) -> Optional[float]:
+def validate_value(
+    value: float, max_value: float, min_value: float = 0
+) -> Optional[float]:
     """Validate if the given 'value' is within the specified range [min, max]"""
-    min_value = 0
     if min_value <= value <= max_value:
         return value
     return None
@@ -206,10 +214,10 @@ SENSOR_DECODERS: dict[
         name="temperature", format_type="h", scale=1.0 / 100.0
     ),
     str(CHAR_UUID_WAVE_2_DATA): _decode_wave_radon(
-        name="Wave2", format_type="<4B8H", scale=1.0
+        name="Wave2", format_type="<4B2Hh5H", scale=1.0
     ),
     str(CHAR_UUID_WAVE_PLUS_DATA): _decode_wave_plus(
-        name="Plus", format_type="<4B8H", scale=0
+        name="Plus", format_type="<4B2Hh5H", scale=0
     ),
     str(CHAR_UUID_WAVEMINI_DATA): _decode_wave_mini(
         name="WaveMini", format_type="<2B5HLL", scale=1.0
