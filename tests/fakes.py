@@ -48,6 +48,8 @@ class FakeClient:
         atom_latest_values: dict[str, Any] | None = None,
         chunk_size: int | None = None,
         extra_notification: bytes | None = None,
+        write_error: Exception | None = None,
+        stop_notify_error: Exception | None = None,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
@@ -56,6 +58,8 @@ class FakeClient:
         self._atom_latest_values = atom_latest_values or ATOM_LATEST_VALUES
         self._chunk_size = chunk_size
         self._extra_notification = extra_notification
+        self._write_error = write_error
+        self._stop_notify_error = stop_notify_error
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.disconnected = False
 
@@ -72,8 +76,16 @@ class FakeClient:
 
     async def stop_notify(self, char_specifier: Any) -> None:
         self._callback = None
+        if self._stop_notify_error is not None:
+            raise self._stop_notify_error
+
+    @property
+    def notifying(self) -> bool:
+        return self._callback is not None
 
     async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
+        if self._write_error is not None:
+            raise self._write_error
         random_bytes = bytes(data[2:4])
         path = cbor2.loads(bytes(data[7:]))
         if path.endswith("31012"):
