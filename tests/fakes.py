@@ -109,12 +109,18 @@ class FakeClient:
         self._notify(characteristic, response)
 
     def _notify(self, characteristic: Any, response: bytes) -> None:
-        assert self._callback is not None
+        callback = self._callback
+        assert callback is not None
+        loop = asyncio.get_running_loop()
         size = self._chunk_size or len(response)
         for start in range(0, len(response), size):
-            self._callback(characteristic, bytearray(response[start : start + size]))
+            loop.call_soon(
+                callback, characteristic, bytearray(response[start : start + size])
+            )
         if self._extra_notification is not None:
-            self._callback(characteristic, bytearray(self._extra_notification))
+            loop.call_soon(
+                callback, characteristic, bytearray(self._extra_notification)
+            )
 
     async def disconnect(self) -> None:
         self.disconnected = True
