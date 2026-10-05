@@ -1,0 +1,115 @@
+from typing import Any, Callable
+from uuid import UUID
+
+import cbor2
+import pytest
+from airthings_ble.const import (
+    CHAR_UUID_FIRMWARE_REV,
+    CHAR_UUID_MODEL_NUMBER_STRING,
+    COMMAND_UUID_ATOM,
+    COMMAND_UUID_ATOM_NOTIFY,
+)
+from bleak import BleakError
+from bleak.backends.device import BLEDevice
+
+ADDRESS = "AA:BB:CC:DD:EE:FF"
+ATOM_LATEST_VALUES = {"TMP": 29424, "HUM": 3375, "BAT": 2868, "TIM": 118}
+ATOM_CONNECTIVITY_MODE_BLE = 4
+
+_ATOM_RESPONSE_HEADER = bytes.fromhex("1001000345")
+
+
+class FakeCharacteristic:
+    def __init__(self, uuid: UUID | str) -> None:
+        self.uuid = str(uuid)
+
+
+class FakeService:
+    def __init__(self, uuids: list[UUID | str]) -> None:
+        self.characteristics = [FakeCharacteristic(uuid) for uuid in uuids]
+
+    def get_characteristic(self, uuid: UUID | str) -> FakeCharacteristic | None:
+        return next((c for c in self.characteristics if c.uuid == str(uuid)), None)
+
+
+def atom_service() -> FakeService:
+    return FakeService([COMMAND_UUID_ATOM, COMMAND_UUID_ATOM_NOTIFY])
+
+
+class FakeClient:
+    """Answers GATT reads from a table and Atom requests with a canned response."""
+
+    def __init__(
+        self,
+        gatt: dict[UUID, bytes],
+        services: list[FakeService] | None = None,
+        failing: set[UUID] | None = None,
+        atom_latest_values: dict[str, Any] | None = None,
+    ) -> None:
+        self.address = ADDRESS
+        self.services = services or []
+        self._gatt = {str(uuid): value for uuid, value in gatt.items()}
+        self._failing = {str(uuid) for uuid in failing or set()}
+        self._atom_latest_values = atom_latest_values or ATOM_LATEST_VALUES
+        self._callback: Callable[[Any, bytearray], None] | None = None
+        self.disconnected = False
+
+    async def read_gatt_char(self, characteristic: Any) -> bytearray:
+        uuid = str(getattr(characteristic, "uuid", characteristic))
+        if uuid in self._failing:
+            raise BleakError(f"Failed to read {uuid}")
+        return bytearray(self._gatt[uuid])
+
+    async def start_notify(
+        self, char_specifier: Any, callback: Callable[[Any, bytearray], None]
+    ) -> None:
+        self._callback = callback
+
+    async def stop_notify(self, char_specifier: Any) -> None:
+        self._callback = None
+
+    async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
+        random_bytes = bytes(data[2:4])
+        path = cbor2.loads(bytes(data[7:]))
+        if path.endswith("31012"):
+            payload: int | bytes = cbor2.dumps(self._atom_latest_values)
+        else:
+            payload = ATOM_CONNECTIVITY_MODE_BLE
+        response = (
+            _ATOM_RESPONSE_HEADER + random_bytes + cbor2.dumps([{0: path, 2: payload}])
+        )
+        assert self._callback is not None
+        self._callback(characteristic, bytearray(response))
+
+    async def disconnect(self) -> None:
+        self.disconnected = True
+
+    async def clear_cache(self) -> None:
+        pass
+
+
+def device_info_gatt(model: str, firmware: str) -> dict[UUID, bytes]:
+    return {
+        CHAR_UUID_MODEL_NUMBER_STRING: model.encode(),
+        CHAR_UUID_FIRMWARE_REV: firmware.encode(),
+        UUID("00002a29-0000-1000-8000-00805f9b34fb"): b"Airthings AS",
+        UUID("00002a27-0000-1000-8000-00805f9b34fb"): b"REV A",
+        UUID("00002a00-0000-1000-8000-00805f9b34fb"): b"Airthings device",
+        UUID("00002a25-0000-1000-8000-00805f9b34fb"): b"123456",
+    }
+
+
+def use_clients(monkeypatch: pytest.MonkeyPatch, *clients: FakeClient) -> None:
+    """Make each connection attempt return the next client in order."""
+    remaining = list(clients)
+
+    async def fake_establish_connection(*args: Any, **kwargs: Any) -> FakeClient:
+        return remaining.pop(0)
+
+    monkeypatch.setattr(
+        "airthings_ble.parser.establish_connection", fake_establish_connection
+    )
+
+
+def ble_device(name: str | None = None) -> BLEDevice:
+    return BLEDevice(ADDRESS, name, None)
