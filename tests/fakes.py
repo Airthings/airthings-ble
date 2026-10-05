@@ -68,11 +68,13 @@ class FakeClient:
         self._stall_stop_notify = stall_stop_notify
         self._command_response = command_response
         self._read_delay = read_delay
+        self.reads: list[str] = []
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.disconnected = False
 
     async def read_gatt_char(self, characteristic: Any) -> bytearray:
         uuid = str(getattr(characteristic, "uuid", characteristic))
+        self.reads.append(uuid)
         if self._read_delay:
             await asyncio.sleep(self._read_delay)
         if uuid in self._failing:
