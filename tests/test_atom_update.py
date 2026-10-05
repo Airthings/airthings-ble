@@ -264,3 +264,29 @@ async def test_atom_readings_absent_from_latest_values_are_not_reported(
         "radon_1day_avg": 50.0,
         "radon_1day_level": "good",
     }
+
+
+@pytest.mark.asyncio
+async def test_corentium_home_2_zero_radon(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Test radon averages of zero are reported, not dropped."""
+    use_clients(
+        monkeypatch,
+        FakeClient(
+            device_info_gatt("3250", "R-SUB-1.3.5-master+0"),
+            [atom_service()],
+            atom_latest_values={
+                **_CORENTIUM_HOME_2_LATEST_VALUES,
+                "R24": 0,
+                "R7D": 0,
+                "R30": 0,
+                "R1Y": 0,
+            },
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    device = await data.update_device(ble_device())
+
+    for period in ("1day", "week", "month", "year"):
+        assert device.sensors[f"radon_{period}_avg"] == 0
+        assert device.sensors[f"radon_{period}_level"] == "good"

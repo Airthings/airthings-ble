@@ -42,3 +42,8 @@ def test_rejected_wave_command_response(
 
     assert decoder.decode_data(logger=_LOGGER, raw_data=raw_data) is None
     assert message in caplog.text
+
+
+def test_base_command_decoder_returns_no_values() -> None:
+    """Test the base command decoder reports no values."""
+    assert CommandDecode().decode_data(_LOGGER, bytearray(b"\x6d")) == {}
