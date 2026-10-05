@@ -549,6 +549,10 @@ class AirthingsBluetoothDeviceData:
                 if is_final_attempt:
                     raise
                 self.logger.debug("Bleak error: %s", err)
+            except TimeoutError:
+                if is_final_attempt:
+                    raise
+                self.logger.debug("Timeout updating %s", ble_device.address)
         raise RuntimeError("Should not reach this point")
 
     async def _update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
