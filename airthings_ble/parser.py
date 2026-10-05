@@ -61,7 +61,6 @@ from .const import (
     COMMAND_UUID_WAVE_PLUS,
     DEFAULT_MAX_UPDATE_ATTEMPTS,
     HUMIDITY,
-    ILLUMINANCE,
     LUX,
     NOISE,
     PRESSURE,
@@ -352,18 +351,11 @@ class AirthingsBluetoothDeviceData:
                 command_sensor_data = decoder.decode_data(
                     logger=self.logger, raw_data=command_data_receiver.message
                 )
-                if command_sensor_data is not None:
-                    new_values: dict[str, float | str | None] = {}
-
-                    if (bat_data := command_sensor_data.get(BATTERY)) is not None:
-                        new_values[BATTERY] = device.model.battery_percentage(
-                            float(bat_data)
-                        )
-
-                    if illuminance := command_sensor_data.get(ILLUMINANCE):
-                        new_values[ILLUMINANCE] = illuminance
-
-                    sensors.update(new_values)
+                if (
+                    command_sensor_data is not None
+                    and (bat_data := command_sensor_data.get(BATTERY)) is not None
+                ):
+                    sensors[BATTERY] = device.model.battery_percentage(float(bat_data))
 
     async def _atom_sensor_data(
         self,
