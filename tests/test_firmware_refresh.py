@@ -1,107 +1,12 @@
 import logging
-from typing import Any, Callable
-from uuid import UUID
 
-import cbor2
 import pytest
 from airthings_ble import AirthingsBluetoothDeviceData
-from airthings_ble.const import (
-    CHAR_UUID_FIRMWARE_REV,
-    CHAR_UUID_MODEL_NUMBER_STRING,
-    COMMAND_UUID_ATOM,
-    COMMAND_UUID_ATOM_NOTIFY,
-)
-from bleak.backends.device import BLEDevice
+from airthings_ble.const import CHAR_UUID_FIRMWARE_REV
+
+from fakes import FakeClient, atom_service, ble_device, device_info_gatt, use_clients
 
 _LOGGER = logging.getLogger(__name__)
-
-_ADDRESS = "AA:BB:CC:DD:EE:FF"
-_RESPONSE_HEADER = bytes.fromhex("1001000345")
-_LATEST_VALUES = {"TMP": 29424, "HUM": 3375, "BAT": 2868, "TIM": 118}
-_CONNECTIVITY_MODE_BLE = 4
-
-
-class FakeCharacteristic:
-    def __init__(self, uuid: UUID) -> None:
-        self.uuid = str(uuid)
-
-
-class FakeAtomService:
-    def __init__(self) -> None:
-        self.characteristics = [
-            FakeCharacteristic(COMMAND_UUID_ATOM),
-            FakeCharacteristic(COMMAND_UUID_ATOM_NOTIFY),
-        ]
-
-    def get_characteristic(self, uuid: UUID) -> FakeCharacteristic | None:
-        return next((c for c in self.characteristics if c.uuid == str(uuid)), None)
-
-
-class FakeClient:
-    """Answers GATT reads from a table and Atom requests with a canned response."""
-
-    def __init__(self, gatt: dict[UUID, bytes], atom: bool) -> None:
-        self.address = _ADDRESS
-        self.services = [FakeAtomService()] if atom else []
-        self._gatt = {str(uuid): value for uuid, value in gatt.items()}
-        self._callback: Callable[[Any, bytearray], None] | None = None
-
-    async def read_gatt_char(self, characteristic: Any) -> bytearray:
-        return bytearray(
-            self._gatt[str(getattr(characteristic, "uuid", characteristic))]
-        )
-
-    async def start_notify(
-        self, char_specifier: Any, callback: Callable[[Any, bytearray], None]
-    ) -> None:
-        self._callback = callback
-
-    async def stop_notify(self, char_specifier: Any) -> None:
-        self._callback = None
-
-    async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
-        random_bytes = bytes(data[2:4])
-        path = cbor2.loads(bytes(data[7:]))
-        if path.endswith("31012"):
-            payload: int | bytes = cbor2.dumps(_LATEST_VALUES)
-        else:
-            payload = _CONNECTIVITY_MODE_BLE
-        response = (
-            _RESPONSE_HEADER + random_bytes + cbor2.dumps([{0: path, 2: payload}])
-        )
-        assert self._callback is not None
-        self._callback(characteristic, bytearray(response))
-
-    async def disconnect(self) -> None:
-        pass
-
-    async def clear_cache(self) -> None:
-        pass
-
-
-def _gatt(model: str, firmware: str) -> dict[UUID, bytes]:
-    return {
-        CHAR_UUID_MODEL_NUMBER_STRING: model.encode(),
-        CHAR_UUID_FIRMWARE_REV: firmware.encode(),
-        UUID("00002a29-0000-1000-8000-00805f9b34fb"): b"Airthings AS",
-        UUID("00002a27-0000-1000-8000-00805f9b34fb"): b"REV A",
-        UUID("00002a00-0000-1000-8000-00805f9b34fb"): b"Airthings device",
-        UUID("00002a25-0000-1000-8000-00805f9b34fb"): b"123456",
-    }
-
-
-async def _poll(
-    monkeypatch: pytest.MonkeyPatch,
-    data: AirthingsBluetoothDeviceData,
-    client: FakeClient,
-) -> Any:
-    async def fake_establish_connection(*args: Any, **kwargs: Any) -> FakeClient:
-        return client
-
-    monkeypatch.setattr(
-        "airthings_ble.parser.establish_connection", fake_establish_connection
-    )
-    return await data.update_device(BLEDevice(_ADDRESS, None, None))
 
 
 @pytest.mark.asyncio
@@ -123,20 +28,19 @@ async def test_atom_firmware_refreshes_between_polls(
 ) -> None:
     """Test a firmware upgrade between two polls is picked up on the second one."""
     data = AirthingsBluetoothDeviceData(logger=_LOGGER)
-
-    before = await _poll(
-        monkeypatch, data, FakeClient(_gatt(model, old_firmware), atom=True)
+    use_clients(
+        monkeypatch,
+        FakeClient(device_info_gatt(model, old_firmware), [atom_service()]),
+        FakeClient({CHAR_UUID_FIRMWARE_REV: new_firmware.encode()}, [atom_service()]),
     )
+
+    before = await data.update_device(ble_device())
     assert before.sw_version == old_firmware
     assert before.firmware.current_version == old_version
     assert before.firmware.need_firmware_upgrade is True
     assert before.sensors["battery"] is not None
 
-    after = await _poll(
-        monkeypatch,
-        data,
-        FakeClient({CHAR_UUID_FIRMWARE_REV: new_firmware.encode()}, atom=True),
-    )
+    after = await data.update_device(ble_device())
     assert after.sw_version == new_firmware
     assert after.firmware.current_version == new_version
     assert after.firmware.need_firmware_upgrade is False
@@ -148,18 +52,15 @@ async def test_wave_plus_firmware_refreshes_between_polls(
 ) -> None:
     """Test the Wave Plus firmware string follows the device across polls."""
     data = AirthingsBluetoothDeviceData(logger=_LOGGER)
-
-    before = await _poll(
+    use_clients(
         monkeypatch,
-        data,
-        FakeClient(_gatt("2930", "G-BLE-1.5.3-master+0"), atom=False),
+        FakeClient(device_info_gatt("2930", "G-BLE-1.5.3-master+0")),
+        FakeClient({CHAR_UUID_FIRMWARE_REV: b"G-BLE-2.2.3-master+0"}),
     )
+
+    before = await data.update_device(ble_device())
     assert before.sw_version == "G-BLE-1.5.3-master+0"
 
-    after = await _poll(
-        monkeypatch,
-        data,
-        FakeClient({CHAR_UUID_FIRMWARE_REV: b"G-BLE-2.2.3-master+0"}, atom=False),
-    )
+    after = await data.update_device(ble_device())
     assert after.sw_version == "G-BLE-2.2.3-master+0"
     assert data.device_info.sw_version == "G-BLE-2.2.3-master+0"
