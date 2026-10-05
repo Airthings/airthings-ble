@@ -19,7 +19,7 @@ from airthings_ble.const import (
 class CommandDecode:
     """Decoder for the command response"""
 
-    cmd: bytes = b"\x6d"
+    cmd: bytes | bytearray = b"\x6d"
     format_type: str
 
     def decode_data(

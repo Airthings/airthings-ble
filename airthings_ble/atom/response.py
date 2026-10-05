@@ -10,14 +10,14 @@ class AtomResponse:
     """Response for Airthings BLE Atom API"""
 
     _header = bytearray.fromhex("1001000345")
-    response: bytes
+    response: bytes | bytearray
     random_bytes: bytes
     path: AtomRequestPath
 
     def __init__(
         self,
         logger: Logger,
-        response: bytes | None,
+        response: bytes | bytearray | None,
         random_bytes: bytes,
         path: AtomRequestPath,
     ) -> None:
