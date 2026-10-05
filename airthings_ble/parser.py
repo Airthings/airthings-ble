@@ -74,6 +74,7 @@ from .const import (
     RADON_WEEK_LEVEL,
     RADON_YEAR_AVG,
     RADON_YEAR_LEVEL,
+    STOP_NOTIFY_TIMEOUT,
     TEMPERATURE,
     UPDATE_TIMEOUT,
     VOC,
@@ -437,8 +438,9 @@ class AirthingsBluetoothDeviceData:
         self, client: BleakClient, characteristic: BleakGATTCharacteristic
     ) -> None:
         try:
-            await client.stop_notify(characteristic)
-        except BleakError as err:
+            async with asyncio.timeout(STOP_NOTIFY_TIMEOUT):
+                await client.stop_notify(characteristic)
+        except (BleakError, TimeoutError) as err:
             self.logger.debug("Failed to stop notifications: %s", err)
 
     def _parse_sensor_data(
