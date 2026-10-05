@@ -1,11 +1,20 @@
 import asyncio
 import logging
+from uuid import UUID
 
 import pytest
 from airthings_ble import AirthingsBluetoothDeviceData
 from airthings_ble.command_decode import AtomNotificationReceiver, NotificationReceiver
+from airthings_ble.const import COMMAND_UUID_WAVE_MINI, COMMAND_UUID_WAVE_PLUS
 
-from fakes import FakeClient, atom_service, ble_device, device_info_gatt, use_clients
+from fakes import (
+    FakeClient,
+    FakeService,
+    atom_service,
+    ble_device,
+    device_info_gatt,
+    use_clients,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -116,3 +125,45 @@ async def test_atom_receiver_completes_on_invalid_cbor() -> None:
     receiver(None, bytearray.fromhex("1001000345123481a2ff"))
 
     await receiver.wait_for_message(1)
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("model", "command_uuid", "response", "first_chunk_size"),
+    [
+        (
+            "2930",
+            COMMAND_UUID_WAVE_PLUS,
+            "6d00600c04000100008211ff00000000c04c20001f3560007006B80B0900",
+            28,
+        ),
+        (
+            "2920",
+            COMMAND_UUID_WAVE_MINI,
+            "6d0064000000c800000001020304f4015802bc02000020038403b80b4c04b0040000",
+            32,
+        ),
+    ],
+)
+async def test_wave_command_response_waits_for_header_bytes(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+    command_uuid: UUID,
+    response: str,
+    first_chunk_size: int,
+) -> None:
+    """Test a Wave command response is not complete before its last two bytes."""
+    use_clients(
+        monkeypatch,
+        FakeClient(
+            device_info_gatt(model, "G-BLE-1.5.3-master+0"),
+            [FakeService([command_uuid])],
+            command_response=bytes.fromhex(response),
+            chunk_size=first_chunk_size,
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    device = await data.update_device(ble_device())
+
+    assert device.sensors == {"battery": device.model.battery_percentage(3.0)}
