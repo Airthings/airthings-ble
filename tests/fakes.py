@@ -45,7 +45,8 @@ class FakeClient:
         gatt: dict[UUID, bytes],
         services: list[FakeService] | None = None,
         failing: set[UUID] | None = None,
-        atom_latest_values: dict[str, Any] | None = None,
+        atom_latest_values: Any = None,
+        atom_connectivity_mode: Any = None,
         chunk_size: int | None = None,
         extra_notification: bytes | None = None,
         write_error: Exception | None = None,
@@ -54,6 +55,9 @@ class FakeClient:
         stall_stop_notify: bool = False,
         command_response: bytes | None = None,
         read_delay: float = 0,
+        silent_commands: bool = False,
+        read_error: BleakError | None = None,
+        disconnect_on_read: UUID | None = None,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
@@ -68,6 +72,18 @@ class FakeClient:
         self._stall_stop_notify = stall_stop_notify
         self._command_response = command_response
         self._read_delay = read_delay
+        self._atom_connectivity_mode = (
+            ATOM_CONNECTIVITY_MODE_BLE
+            if atom_connectivity_mode is None
+            else atom_connectivity_mode
+        )
+        self._silent_commands = silent_commands
+        self._read_error = read_error
+        self._disconnect_on_read = (
+            None if disconnect_on_read is None else str(disconnect_on_read)
+        )
+        self.disconnected_callback: Callable[[Any], None] | None = None
+        self.cache_cleared = False
         self.reads: list[str] = []
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.disconnected = False
@@ -77,8 +93,12 @@ class FakeClient:
         self.reads.append(uuid)
         if self._read_delay:
             await asyncio.sleep(self._read_delay)
+        if uuid == self._disconnect_on_read:
+            assert self.disconnected_callback is not None
+            self.disconnected_callback(self)
+            await asyncio.Event().wait()
         if uuid in self._failing:
-            raise BleakError(f"Failed to read {uuid}")
+            raise self._read_error or BleakError(f"Failed to read {uuid}")
         return bytearray(self._gatt[uuid])
 
     async def start_notify(
@@ -104,6 +124,8 @@ class FakeClient:
             raise self._write_error
         if self._stall_write:
             await asyncio.Event().wait()
+        if self._silent_commands:
+            return
         if self._command_response is not None:
             self._notify(characteristic, self._command_response)
             return
@@ -112,7 +134,7 @@ class FakeClient:
         if path.endswith("31012"):
             payload: int | bytes = cbor2.dumps(self._atom_latest_values)
         else:
-            payload = ATOM_CONNECTIVITY_MODE_BLE
+            payload = self._atom_connectivity_mode
         response = (
             _ATOM_RESPONSE_HEADER + random_bytes + cbor2.dumps([{0: path, 2: payload}])
         )
@@ -134,9 +156,11 @@ class FakeClient:
 
     async def disconnect(self) -> None:
         self.disconnected = True
+        if self.disconnected_callback is not None:
+            self.disconnected_callback(self)
 
     async def clear_cache(self) -> None:
-        pass
+        self.cache_cleared = True
 
 
 def device_info_gatt(model: str, firmware: str) -> dict[UUID, bytes]:
@@ -155,7 +179,9 @@ def use_clients(monkeypatch: pytest.MonkeyPatch, *clients: FakeClient) -> None:
     remaining = list(clients)
 
     async def fake_establish_connection(*args: Any, **kwargs: Any) -> FakeClient:
-        return remaining.pop(0)
+        client = remaining.pop(0)
+        client.disconnected_callback = kwargs["disconnected_callback"]
+        return client
 
     monkeypatch.setattr(
         "airthings_ble.parser.establish_connection", fake_establish_connection
