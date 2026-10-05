@@ -53,6 +53,7 @@ from .const import (
     CHAR_UUID_WAVE_PLUS_DATA,
     CHAR_UUID_WAVEMINI_DATA,
     CO2,
+    COMMAND_TIMEOUT,
     COMMAND_UUID_ATOM,
     COMMAND_UUID_ATOM_NOTIFY,
     COMMAND_UUID_WAVE_2,
@@ -336,9 +337,8 @@ class AirthingsBluetoothDeviceData:
                 try:
                     # send command to this 'indicate' characteristic
                     await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
-                    # Wait for up to one second to see if a callback comes in.
                     try:
-                        await command_data_receiver.wait_for_message(5)
+                        await command_data_receiver.wait_for_message(COMMAND_TIMEOUT)
                     except asyncio.TimeoutError:
                         self.logger.debug("Timeout getting command data.")
                 except BaseException:
@@ -430,9 +430,8 @@ class AirthingsBluetoothDeviceData:
         try:
             # send command to this 'indicate' characteristic
             await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
-            # Wait for up to five seconds to see if a callback comes in.
             try:
-                await command_data_receiver.wait_for_message(5)
+                await command_data_receiver.wait_for_message(COMMAND_TIMEOUT)
             except asyncio.TimeoutError:
                 self.logger.debug("Timeout getting command data.")
         except BaseException:
