@@ -1,3 +1,4 @@
+import asyncio
 import logging
 from typing import Callable
 
@@ -70,3 +71,31 @@ async def test_stop_notify_failure_keeps_original_error(
 
     with pytest.raises(BleakError, match="^write failed$"):
         await data.update_device(ble_device())
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("model", "firmware", "service"), [_ATOM, _WAVE_PLUS])
+async def test_stalled_stop_notify_does_not_outlive_timeout(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+    firmware: str,
+    service: Callable[[], FakeService],
+) -> None:
+    """Test a hanging stop_notify cannot keep a timed out update alive."""
+    monkeypatch.setattr("airthings_ble.parser.UPDATE_TIMEOUT", 0.05)
+    monkeypatch.setattr("airthings_ble.parser.STOP_NOTIFY_TIMEOUT", 0.05)
+    client = FakeClient(
+        device_info_gatt(model, firmware),
+        [service()],
+        stall_write=True,
+        stall_stop_notify=True,
+    )
+    use_clients(monkeypatch, client)
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    task = asyncio.create_task(data.update_device(ble_device()))
+    await asyncio.sleep(0.5)
+
+    assert task.done()
+    assert isinstance(task.exception(), TimeoutError)
+    assert client.disconnected

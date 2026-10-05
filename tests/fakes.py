@@ -50,6 +50,8 @@ class FakeClient:
         extra_notification: bytes | None = None,
         write_error: Exception | None = None,
         stop_notify_error: Exception | None = None,
+        stall_write: bool = False,
+        stall_stop_notify: bool = False,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
@@ -60,6 +62,8 @@ class FakeClient:
         self._extra_notification = extra_notification
         self._write_error = write_error
         self._stop_notify_error = stop_notify_error
+        self._stall_write = stall_write
+        self._stall_stop_notify = stall_stop_notify
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.disconnected = False
 
@@ -76,6 +80,8 @@ class FakeClient:
 
     async def stop_notify(self, char_specifier: Any) -> None:
         self._callback = None
+        if self._stall_stop_notify:
+            await asyncio.Event().wait()
         if self._stop_notify_error is not None:
             raise self._stop_notify_error
 
@@ -86,6 +92,8 @@ class FakeClient:
     async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
         if self._write_error is not None:
             raise self._write_error
+        if self._stall_write:
+            await asyncio.Event().wait()
         random_bytes = bytes(data[2:4])
         path = cbor2.loads(bytes(data[7:]))
         if path.endswith("31012"):
