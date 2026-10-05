@@ -84,14 +84,16 @@ class FakeClient:
     async def start_notify(
         self, char_specifier: Any, callback: Callable[[Any, bytearray], None]
     ) -> None:
+        if self._callback is not None:
+            raise ValueError("Characteristic notifications already started")
         self._callback = callback
 
     async def stop_notify(self, char_specifier: Any) -> None:
-        self._callback = None
         if self._stall_stop_notify:
             await asyncio.Event().wait()
         if self._stop_notify_error is not None:
             raise self._stop_notify_error
+        self._callback = None
 
     @property
     def notifying(self) -> bool:

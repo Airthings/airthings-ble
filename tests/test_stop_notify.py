@@ -18,6 +18,10 @@ from fakes import (
 
 _LOGGER = logging.getLogger(__name__)
 
+_WAVE_PLUS_COMMAND_RESPONSE = bytes.fromhex(
+    "6d00600c04000100008211ff00000000c04c20001f3560007006B80B0900"
+)
+
 _ATOM = ("3220", "T-SUB-3.0.3-master+0", atom_service)
 _WAVE_PLUS = (
     "2930",
@@ -99,3 +103,48 @@ async def test_stalled_stop_notify_does_not_outlive_timeout(
     assert task.done()
     assert isinstance(task.exception(), TimeoutError)
     assert client.disconnected
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("model", "firmware", "service"), [_ATOM, _WAVE_PLUS])
+async def test_stop_notify_failure_fails_the_update(
+    monkeypatch: pytest.MonkeyPatch,
+    model: str,
+    firmware: str,
+    service: Callable[[], FakeService],
+) -> None:
+    """Test a failing stop_notify after a good command fails the update."""
+    use_clients(
+        monkeypatch,
+        FakeClient(
+            device_info_gatt(model, firmware),
+            [service()],
+            stop_notify_error=BleakError("stop failed"),
+            command_response=_WAVE_PLUS_COMMAND_RESPONSE if model == "2930" else None,
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    with pytest.raises(BleakError, match="^stop failed$"):
+        await data.update_device(ble_device())
+
+
+@pytest.mark.asyncio
+async def test_stop_notify_failure_is_retried(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test a failing stop_notify reconnects instead of reusing the client."""
+    model, firmware, service = _ATOM
+    first = FakeClient(
+        device_info_gatt(model, firmware),
+        [service()],
+        stop_notify_error=BleakError("stop failed"),
+    )
+    second = FakeClient(device_info_gatt(model, firmware), [service()])
+    use_clients(monkeypatch, first, second)
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER, max_attempts=2)
+
+    device = await data.update_device(ble_device())
+
+    assert device.sensors["battery"] is not None
+    assert first.disconnected

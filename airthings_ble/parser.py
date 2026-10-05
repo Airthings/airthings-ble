@@ -338,8 +338,10 @@ class AirthingsBluetoothDeviceData:
                         await command_data_receiver.wait_for_message(5)
                     except asyncio.TimeoutError:
                         self.logger.warning("Timeout getting command data.")
-                finally:
-                    await self._stop_notify(client, characteristic)
+                except BaseException:
+                    await self._stop_notify_after_error(client, characteristic)
+                    raise
+                await self._stop_notify(client, characteristic)
 
                 command_sensor_data = decoder.decode_data(
                     logger=self.logger, raw_data=command_data_receiver.message
@@ -426,8 +428,10 @@ class AirthingsBluetoothDeviceData:
                 await command_data_receiver.wait_for_message(5)
             except asyncio.TimeoutError:
                 self.logger.warning("Timeout getting command data.")
-        finally:
-            await self._stop_notify(client, atom_notify)
+        except BaseException:
+            await self._stop_notify_after_error(client, atom_notify)
+            raise
+        await self._stop_notify(client, atom_notify)
 
         return decoder.decode_data(
             logger=self.logger,
@@ -437,9 +441,14 @@ class AirthingsBluetoothDeviceData:
     async def _stop_notify(
         self, client: BleakClient, characteristic: BleakGATTCharacteristic
     ) -> None:
+        async with asyncio.timeout(STOP_NOTIFY_TIMEOUT):
+            await client.stop_notify(characteristic)
+
+    async def _stop_notify_after_error(
+        self, client: BleakClient, characteristic: BleakGATTCharacteristic
+    ) -> None:
         try:
-            async with asyncio.timeout(STOP_NOTIFY_TIMEOUT):
-                await client.stop_notify(characteristic)
+            await self._stop_notify(client, characteristic)
         except (BleakError, TimeoutError) as err:
             self.logger.debug("Failed to stop notifications: %s", err)
 
