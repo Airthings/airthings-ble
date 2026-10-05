@@ -332,3 +332,15 @@ def test_parse_advertisement_data_ignores_serials_outside_ble_ranges() -> None:
     )
 
     assert result is None
+
+
+def test_parse_advertisement_data_accepts_service_uuid_iterator() -> None:
+    """Test service UUIDs given as a one-shot iterator are all considered."""
+    result = parse_advertisement_data(
+        local_name=None,
+        manufacturer_data=_manufacturer_data(2910123456),
+        service_uuids=iter(["b42e1c08-ade7-11e4-89d3-123b93f75cba"]),
+    )
+
+    assert result is not None
+    assert result.model is AirthingsDeviceType.WAVE_PLUS

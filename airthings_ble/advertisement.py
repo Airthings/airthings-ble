@@ -99,6 +99,7 @@ def parse_advertisement_data(
     supported model code are reported as unknown, not unsupported, and still
     need an active read to be classified.
     """
+    service_uuids = [uuid.lower() for uuid in service_uuids or ()]
     serial_number = _serial_number(manufacturer_data)
     model_code = serial_number[:4] if serial_number else None
 
