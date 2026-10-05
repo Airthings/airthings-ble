@@ -31,11 +31,7 @@ class AirthingsFirmwareVersion:
             return None
 
         # Semantic version format: "X.Y.Z"
-        if re.match(r"^\d+\.\d+\.\d+$", version):
-            semantic_version = re.compile(r"(\d+)\.(\d+)\.(\d+)")
-            match_obj = semantic_version.match(version)
-            if not match_obj:
-                return None
+        if match_obj := re.match(r"^(\d+)\.(\d+)\.(\d+)$", version):
             major, minor, patch = match_obj.groups()
             return int(major), int(minor), int(patch)
 
