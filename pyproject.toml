@@ -48,6 +48,7 @@ build_command = "pip install poetry && poetry build"
 [tool.pytest.ini_options]
 addopts = "-v -Wdefault --cov=airthings_ble --cov-report=term-missing:skip-covered"
 pythonpath = ["airthings_ble"]
+markers = ["command_timeout: the test expects a command to time out"]
 
 [tool.coverage.run]
 branch = true
