@@ -344,3 +344,14 @@ def test_parse_advertisement_data_accepts_service_uuid_iterator() -> None:
 
     assert result is not None
     assert result.model is AirthingsDeviceType.WAVE_PLUS
+
+
+def test_parse_advertisement_data_ignores_other_brands_named_view() -> None:
+    """Test a non-Airthings device named like an unsupported model is ignored."""
+    result = parse_advertisement_data(
+        local_name="Living Room View TV",
+        manufacturer_data=None,
+        service_uuids=["0000180f-0000-1000-8000-00805f9b34fb"],
+    )
+
+    assert result is None

@@ -118,7 +118,9 @@ def parse_advertisement_data(
                 known_unsupported=True,
             )
 
-    if _is_unsupported_local_name(local_name):
+    if _is_unsupported_local_name(local_name) and (
+        manufacturer_data is not None or _has_shared_service_uuid(service_uuids)
+    ):
         return AirthingsAdvertisementData(
             serial_number=serial_number,
             model_code=model_code,
