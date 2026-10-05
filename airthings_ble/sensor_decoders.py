@@ -194,10 +194,10 @@ SENSOR_DECODERS: dict[
         max_value=PERCENTAGE_MAX,
     ),
     str(CHAR_UUID_RADON_1DAYAVG): _decode_attr(
-        name="radon_1day_avg", format_type="H", scale=1.0
+        name="radon_1day_avg", format_type="H", scale=1.0, max_value=RADON_MAX
     ),
     str(CHAR_UUID_RADON_LONG_TERM_AVG): _decode_attr(
-        name="radon_longterm_avg", format_type="H", scale=1.0
+        name="radon_longterm_avg", format_type="H", scale=1.0, max_value=RADON_MAX
     ),
     str(CHAR_UUID_ILLUMINANCE_ACCELEROMETER): _decode_wave_illum_accel(
         name="illuminance_accelerometer", format_type="BB", scale=1.0
