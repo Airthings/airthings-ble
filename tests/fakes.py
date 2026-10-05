@@ -86,6 +86,7 @@ class FakeClient:
         self.cache_cleared = False
         self.reads: list[str] = []
         self._callback: Callable[[Any, bytearray], None] | None = None
+        self._notify_uuid: str | None = None
         self.disconnected = False
 
     async def read_gatt_char(self, characteristic: Any) -> bytearray:
@@ -106,6 +107,7 @@ class FakeClient:
     ) -> None:
         if self._callback is not None:
             raise ValueError("Characteristic notifications already started")
+        self._notify_uuid = str(getattr(char_specifier, "uuid", char_specifier))
         self._callback = callback
 
     async def stop_notify(self, char_specifier: Any) -> None:
@@ -120,6 +122,15 @@ class FakeClient:
         return self._callback is not None
 
     async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
+        write_uuid = str(getattr(characteristic, "uuid", characteristic))
+        expected_notify_uuid = (
+            str(COMMAND_UUID_ATOM_NOTIFY)
+            if write_uuid == str(COMMAND_UUID_ATOM)
+            else write_uuid
+        )
+        assert (
+            self._notify_uuid == expected_notify_uuid
+        ), f"wrote {write_uuid} while notifying on {self._notify_uuid}"
         if self._write_error is not None:
             raise self._write_error
         if self._stall_write:
