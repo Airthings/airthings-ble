@@ -446,71 +446,70 @@ class AirthingsBluetoothDeviceData:
         sensor_data: dict[str, float | str | None],
     ) -> None:
         """Parse sensor data from the device."""
-        if sensor_data is not None:
-            new_values: dict[str, float | str | None] = {}
+        new_values: dict[str, float | str | None] = {}
 
-            if (bat_data := sensor_data.get(ATOM_BAT)) is not None:
-                new_values[BATTERY] = device.model.battery_percentage(
-                    float(bat_data) / 1000.0
-                )
+        if (bat_data := sensor_data.get(ATOM_BAT)) is not None:
+            new_values[BATTERY] = device.model.battery_percentage(
+                float(bat_data) / 1000.0
+            )
 
-            if (lux := sensor_data.get(ATOM_LUX)) is not None:
-                new_values[LUX] = lux
+        if (lux := sensor_data.get(ATOM_LUX)) is not None:
+            new_values[LUX] = lux
 
-            if (co2 := sensor_data.get(ATOM_CO2)) is not None:
-                new_values[CO2] = co2
+        if (co2 := sensor_data.get(ATOM_CO2)) is not None:
+            new_values[CO2] = co2
 
-            if (voc := sensor_data.get(ATOM_VOC)) is not None:
-                new_values[VOC] = voc
+        if (voc := sensor_data.get(ATOM_VOC)) is not None:
+            new_values[VOC] = voc
 
-            if (hum := sensor_data.get(ATOM_HUMIDITY)) is not None:
-                new_values[HUMIDITY] = float(hum) / 100.0
+        if (hum := sensor_data.get(ATOM_HUMIDITY)) is not None:
+            new_values[HUMIDITY] = float(hum) / 100.0
 
-            if (temperature := sensor_data.get(ATOM_TEMPERATURE)) is not None:
-                # Temperature reported as kelvin
-                new_values[TEMPERATURE] = round(float(temperature) / 100.0 - 273.15, 2)
+        if (temperature := sensor_data.get(ATOM_TEMPERATURE)) is not None:
+            # Temperature reported as kelvin
+            new_values[TEMPERATURE] = round(float(temperature) / 100.0 - 273.15, 2)
 
-            if (noise := sensor_data.get(ATOM_NOISE)) is not None:
-                new_values[NOISE] = noise
+        if (noise := sensor_data.get(ATOM_NOISE)) is not None:
+            new_values[NOISE] = noise
 
-            if (pressure := sensor_data.get(ATOM_PRESSURE)) is not None:
-                new_values[PRESSURE] = float(pressure) / (64 * 100)
+        if (pressure := sensor_data.get(ATOM_PRESSURE)) is not None:
+            new_values[PRESSURE] = float(pressure) / (64 * 100)
 
-            if (radon_1day_avg := sensor_data.get(ATOM_RADON_1DAY_AVG)) is not None:
-                new_values[RADON_1DAY_AVG] = (
-                    float(radon_1day_avg)
-                    if self.is_metric
-                    else float(radon_1day_avg) * BQ_TO_PCI_MULTIPLIER
-                )
-                new_values[RADON_1DAY_LEVEL] = get_radon_level(float(radon_1day_avg))
+        if (radon_1day_avg := sensor_data.get(ATOM_RADON_1DAY_AVG)) is not None:
+            new_values[RADON_1DAY_AVG] = (
+                float(radon_1day_avg)
+                if self.is_metric
+                else float(radon_1day_avg) * BQ_TO_PCI_MULTIPLIER
+            )
+            new_values[RADON_1DAY_LEVEL] = get_radon_level(float(radon_1day_avg))
 
-            if (radon_week_avg := sensor_data.get(ATOM_RADON_WEEK_AVG)) is not None:
-                new_values[RADON_WEEK_AVG] = (
-                    float(radon_week_avg)
-                    if self.is_metric
-                    else float(radon_week_avg) * BQ_TO_PCI_MULTIPLIER
-                )
-                new_values[RADON_WEEK_LEVEL] = get_radon_level(float(radon_week_avg))
+        if (radon_week_avg := sensor_data.get(ATOM_RADON_WEEK_AVG)) is not None:
+            new_values[RADON_WEEK_AVG] = (
+                float(radon_week_avg)
+                if self.is_metric
+                else float(radon_week_avg) * BQ_TO_PCI_MULTIPLIER
+            )
+            new_values[RADON_WEEK_LEVEL] = get_radon_level(float(radon_week_avg))
 
-            if (radon_month_avg := sensor_data.get(ATOM_RADON_MONTH_AVG)) is not None:
-                new_values[RADON_MONTH_AVG] = (
-                    float(radon_month_avg)
-                    if self.is_metric
-                    else float(radon_month_avg) * BQ_TO_PCI_MULTIPLIER
-                )
-                new_values[RADON_MONTH_LEVEL] = get_radon_level(float(radon_month_avg))
+        if (radon_month_avg := sensor_data.get(ATOM_RADON_MONTH_AVG)) is not None:
+            new_values[RADON_MONTH_AVG] = (
+                float(radon_month_avg)
+                if self.is_metric
+                else float(radon_month_avg) * BQ_TO_PCI_MULTIPLIER
+            )
+            new_values[RADON_MONTH_LEVEL] = get_radon_level(float(radon_month_avg))
 
-            if (radon_year_avg := sensor_data.get(ATOM_RADON_YEAR_AVG)) is not None:
-                new_values[RADON_YEAR_AVG] = (
-                    float(radon_year_avg)
-                    if self.is_metric
-                    else float(radon_year_avg) * BQ_TO_PCI_MULTIPLIER
-                )
-                new_values[RADON_YEAR_LEVEL] = get_radon_level(float(radon_year_avg))
+        if (radon_year_avg := sensor_data.get(ATOM_RADON_YEAR_AVG)) is not None:
+            new_values[RADON_YEAR_AVG] = (
+                float(radon_year_avg)
+                if self.is_metric
+                else float(radon_year_avg) * BQ_TO_PCI_MULTIPLIER
+            )
+            new_values[RADON_YEAR_LEVEL] = get_radon_level(float(radon_year_avg))
 
-            self.logger.debug("Sensor values: %s", new_values)
+        self.logger.debug("Sensor values: %s", new_values)
 
-            sensors.update(new_values)
+        sensors.update(new_values)
 
     def _handle_disconnect(
         self, disconnect_future: asyncio.Future[bool], client: BleakClient
