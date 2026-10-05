@@ -150,7 +150,9 @@ class AirthingsDeviceInfo:
 class AirthingsDevice(AirthingsDeviceInfo):
     """Response data with information about the Airthings device"""
 
-    firmware = AirthingsFirmwareVersion()
+    firmware: AirthingsFirmwareVersion = dataclasses.field(
+        default_factory=AirthingsFirmwareVersion
+    )
 
     sensors: dict[str, str | float | None] = dataclasses.field(
         default_factory=lambda: {}
@@ -195,20 +197,15 @@ class AirthingsBluetoothDeviceData:
 
         # We need to fetch model to determ what to fetch.
         if not did_first_sync:
-            try:
-                data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
-            except BleakError as err:
-                self.logger.debug("Get device characteristics exception: %s", err)
-                return
-
-            device_info.model = AirthingsDeviceType.from_raw_value(data.decode("utf-8"))
-            if device_info.model == AirthingsDeviceType.UNKNOWN:
-                raise UnsupportedDeviceError(
-                    f"Model {data.decode('utf-8')} is not supported"
-                )
+            data = await client.read_gatt_char(CHAR_UUID_MODEL_NUMBER_STRING)
+            model_code = data.decode("utf-8")
+            model = AirthingsDeviceType.from_raw_value(model_code)
+            if model == AirthingsDeviceType.UNKNOWN:
+                raise UnsupportedDeviceError(f"Model {model_code} is not supported")
+            device_info.model = model
 
         characteristics = _CHARS_BY_MODELS.get(
-            device_info.model.raw_value, device_info_characteristics
+            device_info.model.value, device_info_characteristics
         )
 
         self.logger.debug("Fetching device info characteristics: %s", characteristics)
@@ -257,8 +254,7 @@ class AirthingsBluetoothDeviceData:
         if not device_info.name:
             device_info.name = device_info.friendly_name()
 
-        if device_info.model:
-            device_info.did_first_sync = True
+        device_info.did_first_sync = True
 
         # Copy the cached device_info to device
         for field in dataclasses.fields(device_info):
