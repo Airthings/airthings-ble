@@ -27,7 +27,7 @@ Although some other devices have BLE capabilities, they use BLE only for onboard
 
 Prerequisites:
 
-- [Python](https://www.python.org/downloads/) with version 3.12 that is required by Home Assistant ([docs](https://developers.home-assistant.io/docs/development_environment?_highlight=python&_highlight=versi#manual-environment) or [reference](https://github.com/home-assistant/architecture/blob/master/adr/0002-minimum-supported-python-version.md))
+- [Python](https://www.python.org/downloads/) 3.12 or newer. CI tests 3.12, 3.13 and 3.14; Home Assistant itself requires 3.14 ([docs](https://developers.home-assistant.io/docs/development_environment#manual-environment) or [reference](https://github.com/home-assistant/architecture/blob/master/adr/0002-minimum-supported-python-version.md))
 - [Poetry](https://python-poetry.org/docs/#installation)
 
 Install dependencies:
@@ -40,6 +40,14 @@ Run tests:
 
 ```bash
 poetry run pytest
+```
+
+Run the same checks as CI:
+
+```bash
+poetry run black --check airthings_ble
+poetry run pylint airthings_ble
+poetry run mypy airthings_ble
 ```
 
 See [this wiki page](https://github.com/Airthings/airthings-ble/wiki/Testing-with-Home-Assistant) for more details

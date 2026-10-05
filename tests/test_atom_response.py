@@ -8,13 +8,16 @@ _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 
-def test_atom_response_wave_enhance_latest_values() -> None:
+@pytest.mark.parametrize("buffer_type", [bytes, bytearray])
+def test_atom_response_wave_enhance_latest_values(
+    buffer_type: type[bytes | bytearray],
+) -> None:
     """Test Wave Enhance latest values."""
     random_bytes = bytes.fromhex("A1B2")
 
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex(
+        response=buffer_type.fromhex(
             "1001000345a1b281a2006d32393939392f302f333130313202583ea9634e4f49"
             + "182763544d501972f06348554d190d2f63434f321902dc63564f43190115634c5"
             + "55801635052531a005f364663424154190b346354494d1876"
@@ -37,13 +40,16 @@ def test_atom_response_wave_enhance_latest_values() -> None:
     assert sensor_data["NOI"] == 39
 
 
-def test_atom_response_corentium_home_2_latest_values() -> None:
+@pytest.mark.parametrize("buffer_type", [bytes, bytearray])
+def test_atom_response_corentium_home_2_latest_values(
+    buffer_type: type[bytes | bytearray],
+) -> None:
     """Test Corentium Home 2 latest values."""
     random_bytes = bytes.fromhex("CCA4")
 
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex(
+        response=buffer_type.fromhex(
             "1001000345CCA481A2006D32393939392F302F3331303132025831A863523234"
             + "0363523744076352333007635231591263544D501973D76348554D190D8C63424"
             + "154190B816354494D19061D"
@@ -65,13 +71,16 @@ def test_atom_response_corentium_home_2_latest_values() -> None:
     assert sensor_data["R1Y"] == 18
 
 
-def test_atom_response_corentium_home_2_connectivity_mode() -> None:
+@pytest.mark.parametrize("buffer_type", [bytes, bytearray])
+def test_atom_response_corentium_home_2_connectivity_mode(
+    buffer_type: type[bytes | bytearray],
+) -> None:
     """Test Corentium Home 2 connectivity mode response."""
     random_bytes = bytes.fromhex("5F93")
 
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex("10010003455F9381A2006A31372F302F33313130300204"),
+        response=buffer_type.fromhex("10010003455F9381A2006A31372F302F33313130300204"),
         random_bytes=random_bytes,
         path=AtomRequestPath.CONNECTIVITY_MODE,
     )
