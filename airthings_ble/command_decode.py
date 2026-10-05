@@ -5,6 +5,8 @@ import struct
 from logging import Logger
 from typing import Any, Optional
 
+import cbor2
+
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
@@ -134,6 +136,10 @@ class AtomCommandDecode(CommandDecode):
             logger.error("Failed to decode command response: %s", err)
             return None
 
+    def make_data_receiver(self) -> "NotificationReceiver":
+        """Creates a notification receiver for the command."""
+        return AtomNotificationReceiver()
+
 
 class NotificationReceiver:
     """Receiver for a single notification message.
@@ -158,7 +164,7 @@ class NotificationReceiver:
             self.message = data
         elif not self._full_message_received():
             self.message += data
-        if self._full_message_received():
+        if self._full_message_received() and not self._future.done():
             self._future.set_result(None)
 
     def _on_timeout(self) -> None:
@@ -178,6 +184,27 @@ class NotificationReceiver:
                 await self._future
             finally:
                 timer_handle.cancel()
+
+
+# pylint: disable-next=too-few-public-methods
+class AtomNotificationReceiver(NotificationReceiver):
+    """Receiver for an Atom response, complete once its CBOR payload is."""
+
+    _HEADER_SIZE = 7
+
+    def __init__(self) -> None:
+        super().__init__(message_size=self._HEADER_SIZE)
+
+    def _full_message_received(self) -> bool:
+        if self.message is None or len(self.message) < self._HEADER_SIZE:
+            return False
+        try:
+            cbor2.loads(self.message[self._HEADER_SIZE :])
+        except cbor2.CBORDecodeEOF:
+            return False
+        except cbor2.CBORError:
+            return True
+        return True
 
 
 COMMAND_DECODERS: dict[str, CommandDecode] = {
