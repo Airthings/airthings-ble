@@ -51,6 +51,7 @@ class FakeClient:
         write_error: Exception | None = None,
         stop_notify_error: Exception | None = None,
         read_delay: float = 0,
+        command_response: bytes | None = None,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
@@ -62,6 +63,7 @@ class FakeClient:
         self._write_error = write_error
         self._stop_notify_error = stop_notify_error
         self._read_delay = read_delay
+        self._command_response = command_response
         self.reads: list[str] = []
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.disconnected = False
@@ -92,6 +94,9 @@ class FakeClient:
     async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
         if self._write_error is not None:
             raise self._write_error
+        if self._command_response is not None:
+            self._notify(characteristic, self._command_response)
+            return
         random_bytes = bytes(data[2:4])
         path = cbor2.loads(bytes(data[7:]))
         if path.endswith("31012"):

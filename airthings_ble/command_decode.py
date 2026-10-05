@@ -23,6 +23,7 @@ class CommandDecode:
 
     cmd: bytes | bytearray = b"\x6d"
     format_type: str
+    _header_size = 2
 
     def decode_data(
         self,
@@ -50,19 +51,22 @@ class CommandDecode:
             )
             return None
 
-        if len(raw_data[2:]) != struct.calcsize(self.format_type):
+        payload = raw_data[self._header_size :]
+        if len(payload) != struct.calcsize(self.format_type):
             logger.warning(
                 "Wrong length data received (%s) versus expected (%s)",
-                len(raw_data[2:]),
+                len(payload),
                 struct.calcsize(self.format_type),
             )
             return None
 
-        return struct.unpack(self.format_type, raw_data[2:])
+        return struct.unpack(self.format_type, payload)
 
     def make_data_receiver(self) -> "NotificationReceiver":
         """Creates a notification receiver for the command."""
-        return NotificationReceiver(struct.calcsize(self.format_type))
+        return NotificationReceiver(
+            self._header_size + struct.calcsize(self.format_type)
+        )
 
 
 class WaveRadonAndPlusCommandDecode(CommandDecode):
