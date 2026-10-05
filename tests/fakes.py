@@ -45,6 +45,8 @@ class FakeClient:
         services: list[FakeService] | None = None,
         failing: set[UUID] | None = None,
         atom_latest_values: dict[str, Any] | None = None,
+        chunk_size: int | None = None,
+        extra_notification: bytes | None = None,
         read_error: BleakError | None = None,
     ) -> None:
         self.address = ADDRESS
@@ -52,6 +54,8 @@ class FakeClient:
         self._gatt = {str(uuid): value for uuid, value in gatt.items()}
         self._failing = {str(uuid) for uuid in failing or set()}
         self._atom_latest_values = atom_latest_values or ATOM_LATEST_VALUES
+        self._chunk_size = chunk_size
+        self._extra_notification = extra_notification
         self._read_error = read_error
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.cache_cleared = False
@@ -81,8 +85,15 @@ class FakeClient:
         response = (
             _ATOM_RESPONSE_HEADER + random_bytes + cbor2.dumps([{0: path, 2: payload}])
         )
+        self._notify(characteristic, response)
+
+    def _notify(self, characteristic: Any, response: bytes) -> None:
         assert self._callback is not None
-        self._callback(characteristic, bytearray(response))
+        size = self._chunk_size or len(response)
+        for start in range(0, len(response), size):
+            self._callback(characteristic, bytearray(response[start : start + size]))
+        if self._extra_notification is not None:
+            self._callback(characteristic, bytearray(self._extra_notification))
 
     async def disconnect(self) -> None:
         self.disconnected = True
