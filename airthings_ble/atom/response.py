@@ -1,4 +1,5 @@
 from logging import Logger
+from typing import Any, cast
 
 import cbor2
 from airthings_ble.atom.request import AtomRequestPath
@@ -69,11 +70,7 @@ class AtomResponse:
             raise ValueError("Invalid response array length")
 
         data_bytes = self.response[7:]
-        decoded_data = self._loads(data_bytes)
-
-        if not isinstance(decoded_data, list):
-            self.logger.debug("Parsed data is not a list, but a %s", type(decoded_data))
-            raise ValueError("Invalid response data type")
+        decoded_data = cast(list[dict[int, Any]], self._loads(data_bytes))
 
         if path := decoded_data[0].get(0):
             if path != self.path.value:
