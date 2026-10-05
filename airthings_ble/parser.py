@@ -241,10 +241,6 @@ class AirthingsBluetoothDeviceData:
                 # the actual serial number.
                 if identifier != "Serial Number":
                     device_info.identifier = identifier
-            else:
-                self.logger.debug(
-                    "Characteristics not handled: %s", characteristic.uuid
-                )
 
         if (
             device_info.model == AirthingsDeviceType.WAVE_GEN_1
