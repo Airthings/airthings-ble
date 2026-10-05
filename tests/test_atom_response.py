@@ -141,6 +141,26 @@ def test_empty_response() -> None:
             bytes.fromhex("1001000345123481A2006D32393939392F302F33313031320241A1"),
             "Invalid CBOR data",
         ),
+        (
+            bytes.fromhex("1001000345123481A2006A31372F302F33313130300204"),
+            "Response path does not match request path",
+        ),
+        (
+            bytes.fromhex("1001000345123481A20161780204"),
+            "Response path missing",
+        ),
+        (
+            bytes.fromhex("1001000345123481A2006D32393939392F302F33313031320104"),
+            "Response data missing",
+        ),
+        (
+            bytes.fromhex("1001000345123481A2006D32393939392F302F33313031320204"),
+            "Invalid response data type",
+        ),
+        (
+            bytes.fromhex("1001000345123481A2006D32393939392F302F333130313202428102"),
+            "Invalid response data type",
+        ),
     ],
 )
 def test_invalid_responses(response: bytes, exception: str) -> None:
@@ -178,3 +198,30 @@ def test_atom_command_decode_short_response(payload: bytes) -> None:
     raw_data = bytearray.fromhex("1001000345") + decoder.request.random_bytes + payload
 
     assert decoder.decode_data(logger=_LOGGER, raw_data=raw_data) is None
+
+
+def test_atom_response_latest_values_as_map() -> None:
+    """Test latest values sent as a CBOR map rather than wrapped bytes."""
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=bytes.fromhex(
+            "1001000345123481A2006D32393939392F302F333130313202A163544D501972F0"
+        ),
+        random_bytes=bytes.fromhex("1234"),
+        path=AtomRequestPath.LATEST_VALUES,
+    )
+
+    assert response.parse() == {"TMP": 29424}
+
+
+def test_atom_response_connectivity_mode_not_an_integer() -> None:
+    """Test a connectivity mode that is not an integer is rejected."""
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=bytes.fromhex("10010003455F9381A2006A31372F302F333131303002617A"),
+        random_bytes=bytes.fromhex("5F93"),
+        path=AtomRequestPath.CONNECTIVITY_MODE,
+    )
+
+    with pytest.raises(ValueError, match="^Invalid response data type$"):
+        response.parse()

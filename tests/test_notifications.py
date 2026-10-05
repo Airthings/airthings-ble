@@ -167,3 +167,18 @@ async def test_wave_command_response_waits_for_header_bytes(
     device = await data.update_device(ble_device())
 
     assert device.sensors == {"battery": device.model.battery_percentage(3.0)}
+
+
+@pytest.mark.asyncio
+async def test_message_completing_as_the_timeout_fires() -> None:
+    """Test a message completed in the same loop pass as the timeout is kept."""
+    loop = asyncio.get_running_loop()
+    errors: list[dict[str, object]] = []
+    loop.set_exception_handler(lambda _, context: errors.append(context))
+    receiver = NotificationReceiver(4)
+    loop.call_soon(receiver, None, bytearray(b"\x01\x02\x03\x04"))
+
+    await receiver.wait_for_message(0)
+
+    assert receiver.message == bytearray(b"\x01\x02\x03\x04")
+    assert errors == []
