@@ -1,3 +1,4 @@
+import asyncio
 from typing import Any, Callable
 from uuid import UUID
 
@@ -49,6 +50,7 @@ class FakeClient:
         extra_notification: bytes | None = None,
         write_error: Exception | None = None,
         stop_notify_error: Exception | None = None,
+        read_delay: float = 0,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
@@ -59,11 +61,14 @@ class FakeClient:
         self._extra_notification = extra_notification
         self._write_error = write_error
         self._stop_notify_error = stop_notify_error
+        self._read_delay = read_delay
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.disconnected = False
 
     async def read_gatt_char(self, characteristic: Any) -> bytearray:
         uuid = str(getattr(characteristic, "uuid", characteristic))
+        if self._read_delay:
+            await asyncio.sleep(self._read_delay)
         if uuid in self._failing:
             raise BleakError(f"Failed to read {uuid}")
         return bytearray(self._gatt[uuid])
