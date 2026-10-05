@@ -119,6 +119,18 @@ def test_empty_response() -> None:
             bytes.fromhex("1001000345123482A2006A31372F302F33313130300204"),
             "Invalid response type",
         ),
+        (
+            bytes.fromhex("100100034512348181006A31372F302F33313130300204"),
+            "Invalid response array length",
+        ),
+        (
+            bytes.fromhex("1001000345123481A2006A31372F302F333131"),
+            "Invalid CBOR data",
+        ),
+        (
+            bytes.fromhex("1001000345123481A2006D32393939392F302F33313031320241A1"),
+            "Invalid CBOR data",
+        ),
     ],
 )
 def test_invalid_responses(response: bytes, exception: str) -> None:
@@ -131,7 +143,5 @@ def test_invalid_responses(response: bytes, exception: str) -> None:
         random_bytes=random_bytes,
         path=AtomRequestPath.LATEST_VALUES,
     )
-    try:
+    with pytest.raises(ValueError, match=f"^{exception}$"):
         atom_response.parse()
-    except ValueError as exc:
-        assert str(exc) == exception
