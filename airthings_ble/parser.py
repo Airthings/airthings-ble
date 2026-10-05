@@ -270,18 +270,16 @@ class AirthingsBluetoothDeviceData:
         svcs = client.services
         sensors = device.sensors
         for service in svcs:
+            atom_write = service.get_characteristic(COMMAND_UUID_ATOM)
+            atom_notify = service.get_characteristic(COMMAND_UUID_ATOM_NOTIFY)
             if (
-                (
-                    str(COMMAND_UUID_ATOM)
-                    in (str(x.uuid) for x in service.characteristics)
-                )
-                and (
-                    str(COMMAND_UUID_ATOM_NOTIFY)
-                    in (str(x.uuid) for x in service.characteristics)
-                )
+                atom_write is not None
+                and atom_notify is not None
                 and device.model in AirthingsDeviceType.atom_devices()
             ):
-                await self._atom_sensor_data(client, device, sensors, service)
+                await self._atom_sensor_data(
+                    client, device, sensors, atom_write, atom_notify
+                )
             else:
                 await self._wave_sensor_data(client, device, sensors, service)
 
@@ -352,7 +350,8 @@ class AirthingsBluetoothDeviceData:
         client: BleakClient,
         device: AirthingsDevice,
         sensors: dict[str, str | float | None],
-        service: BleakGATTService,
+        atom_write: BleakGATTCharacteristic,
+        atom_notify: BleakGATTCharacteristic,
     ) -> None:
         """Get sensor data from the device."""
         device.firmware = device.model.need_firmware_upgrade(
@@ -369,7 +368,8 @@ class AirthingsBluetoothDeviceData:
 
         connectivity_data = await self._create_decoder_and_fetch(
             client=client,
-            service=service,
+            atom_write=atom_write,
+            atom_notify=atom_notify,
             url=AtomRequestPath.CONNECTIVITY_MODE,
         )
         if connectivity_data is not None:
@@ -377,7 +377,8 @@ class AirthingsBluetoothDeviceData:
 
         sensor_data = await self._create_decoder_and_fetch(
             client=client,
-            service=service,
+            atom_write=atom_write,
+            atom_notify=atom_notify,
             url=AtomRequestPath.LATEST_VALUES,
         )
         if sensor_data is not None:
@@ -390,18 +391,13 @@ class AirthingsBluetoothDeviceData:
     async def _create_decoder_and_fetch(
         self,
         client: BleakClient,
-        service: BleakGATTService,
+        atom_write: BleakGATTCharacteristic,
+        atom_notify: BleakGATTCharacteristic,
         url: AtomRequestPath,
     ) -> dict[str, float | str | None] | None:
         """Create decoder and fetch data."""
         decoder = AtomCommandDecode(url=url)
         command_data_receiver = decoder.make_data_receiver()
-
-        atom_write = service.get_characteristic(COMMAND_UUID_ATOM)
-        atom_notify = service.get_characteristic(COMMAND_UUID_ATOM_NOTIFY)
-
-        if atom_write is None or atom_notify is None:
-            raise ValueError("Missing characteristics for device")
 
         # Set up the notification handlers
         await client.start_notify(
