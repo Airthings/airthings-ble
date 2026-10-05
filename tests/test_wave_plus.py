@@ -3,6 +3,7 @@ import logging
 from airthings_ble.command_decode import WaveRadonAndPlusCommandDecode
 from airthings_ble.const import (
     BATTERY,
+    CHAR_UUID_WAVE_PLUS_DATA,
     CO2,
     HUMIDITY,
     ILLUMINANCE,
@@ -12,7 +13,7 @@ from airthings_ble.const import (
     TEMPERATURE,
     VOC,
 )
-from airthings_ble.sensor_decoders import _decode_wave_plus
+from airthings_ble.sensor_decoders import SENSOR_DECODERS, _decode_wave_plus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,3 +45,18 @@ def test_wave_plus_sensor_data() -> None:
     assert decoded_data[CO2] == 797
     assert decoded_data[ILLUMINANCE] == 5
     assert decoded_data[PRESSURE] == 999.92
+
+
+def test_wave_plus_sensor_data_below_zero() -> None:
+    """Test wave plus temperature below zero."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVE_PLUS_DATA)](
+        bytearray.fromhex("01380d800b0022000cfe4cc31d036c0000007d05")
+    )
+
+    assert decoded_data[TEMPERATURE] == -5.0
+    assert decoded_data[HUMIDITY] == 28.0
+    assert decoded_data[RADON_1DAY_AVG] == 11
+    assert decoded_data[RADON_LONGTERM_AVG] == 34
+    assert decoded_data[PRESSURE] == 999.92
+    assert decoded_data[CO2] == 797
+    assert decoded_data[VOC] == 108

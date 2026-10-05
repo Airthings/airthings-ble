@@ -1,6 +1,7 @@
 import logging
 
-from airthings_ble.sensor_decoders import _decode_wave_radon
+from airthings_ble.const import CHAR_UUID_WAVE_2_DATA
+from airthings_ble.sensor_decoders import SENSOR_DECODERS, _decode_wave_radon
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -17,3 +18,15 @@ def test_wave_radon_sensor_data() -> None:
     assert decoded_data["radon_1day_avg"] == 9
     assert decoded_data["radon_longterm_avg"] == 17
     assert decoded_data["temperature"] == 24.71
+
+
+def test_wave_radon_sensor_data_below_zero() -> None:
+    """Test wave radon temperature below zero."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVE_2_DATA)](
+        bytearray.fromhex("013860f0090011000cfeffffffffffff0000ffff")
+    )
+
+    assert decoded_data["temperature"] == -5.0
+    assert decoded_data["humidity"] == 28.0
+    assert decoded_data["radon_1day_avg"] == 9
+    assert decoded_data["radon_longterm_avg"] == 17

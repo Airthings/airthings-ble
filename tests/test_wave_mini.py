@@ -3,13 +3,14 @@ import logging
 from airthings_ble.command_decode import WaveMiniCommandDecode
 from airthings_ble.const import (
     BATTERY,
+    CHAR_UUID_WAVEMINI_DATA,
     HUMIDITY,
     ILLUMINANCE,
     PRESSURE,
     TEMPERATURE,
     VOC,
 )
-from airthings_ble.sensor_decoders import _decode_wave_mini
+from airthings_ble.sensor_decoders import SENSOR_DECODERS, _decode_wave_mini
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -36,3 +37,13 @@ def test_wave_mini_sensor_data() -> None:
     assert decoded_data[PRESSURE] == 989.14
     assert decoded_data[HUMIDITY] == 42.0
     assert decoded_data[VOC] == 46.0
+
+
+def test_wave_mini_sensor_data_below_zero() -> None:
+    """Test Wave Mini temperature below zero."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVEMINI_DATA)](
+        bytearray.fromhex("1800bf6831c168102e000000ff940700ffffffff")
+    )
+
+    assert decoded_data[TEMPERATURE] == -5.0
+    assert decoded_data[HUMIDITY] == 42.0
