@@ -83,7 +83,7 @@ class AtomResponse:
         else:
             raise ValueError("Response path missing")
 
-        if data := decoded_data[0].get(2):
+        if (data := decoded_data[0].get(2)) is not None:
 
             if self.path == AtomRequestPath.CONNECTIVITY_MODE and isinstance(data, int):
                 return {
