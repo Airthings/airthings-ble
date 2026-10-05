@@ -7,7 +7,7 @@ description = "Async OUI lookups"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\" and platform_system == \"Linux\""
+markers = "platform_system == \"Linux\""
 files = [
     {file = "aiooui-0.1.11-py3-none-any.whl", hash = "sha256:531e808bba926d80213413202243754a125a100b3e7912dadb3cd3f921e1665d"},
     {file = "aiooui-0.1.11.tar.gz", hash = "sha256:737e1c605339a4ca3a860f0c60f1a35af0e256b44c93e8d0487ad62f3addeda8"},
@@ -188,28 +188,11 @@ pythonista = ["bleak-pythonista (>=0.1.1)"]
 
 [[package]]
 name = "bleak-retry-connector"
-version = "4.4.3"
-description = "A connector for Bleak Clients that handles transient connection failures"
-optional = false
-python-versions = ">=3.10"
-groups = ["main"]
-markers = "python_version >= \"3.15\""
-files = [
-    {file = "bleak_retry_connector-4.4.3-py3-none-any.whl", hash = "sha256:17a478d525706488973b181fc789e960bc3fb4bcd94ccb0eee7b7b682442577b"},
-    {file = "bleak_retry_connector-4.4.3.tar.gz", hash = "sha256:70aa305dbd26eaf0586dd24723daac93ee3dd6a465e9782bf02b711fcbc4a527"},
-]
-
-[package.dependencies]
-dbus-fast = {version = ">=1.14.0", markers = "platform_system == \"Linux\""}
-
-[[package]]
-name = "bleak-retry-connector"
 version = "4.7.1"
 description = "A connector for Bleak Clients that handles transient connection failures"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\""
 files = [
     {file = "bleak_retry_connector-4.7.1-py3-none-any.whl", hash = "sha256:75b4cb3f69955123121d860348d2c43da638a0f3211f2cb6197d717edbd6f47f"},
     {file = "bleak_retry_connector-4.7.1.tar.gz", hash = "sha256:9a5b07d2d7c5a9809b1769492d956604a7403870693be92754259d9eed5c177e"},
@@ -227,7 +210,7 @@ description = "Tools to enumerate and find Bluetooth Adapters"
 optional = false
 python-versions = ">=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\" and platform_system == \"Linux\""
+markers = "platform_system == \"Linux\""
 files = [
     {file = "bluetooth_adapters-2.4.0-py3-none-any.whl", hash = "sha256:f2841c49e8750658ecb8c1d46d2c05a9de4740362eb83e3e7e501d3092c0377e"},
     {file = "bluetooth_adapters-2.4.0.tar.gz", hash = "sha256:e8a61935a867deb8af981e986bdf504c4398895ff254eac626790184a4fdd1e3"},
@@ -1263,7 +1246,7 @@ description = "UART Devices for Linux"
 optional = false
 python-versions = "<4.0,>=3.9"
 groups = ["main"]
-markers = "python_version < \"3.15\" and platform_system == \"Linux\""
+markers = "platform_system == \"Linux\""
 files = [
     {file = "uart_devices-0.1.1-py3-none-any.whl", hash = "sha256:55bc8cce66465e90b298f0910e5c496bc7be021341c5455954cf61c6253dc123"},
     {file = "uart_devices-0.1.1.tar.gz", hash = "sha256:3a52c4ae0f5f7400ebe1ae5f6e2a2d40cc0b7f18a50e895236535c4e53c6ed34"},
@@ -1276,7 +1259,7 @@ description = "Tools for mapping, describing, and resetting USB devices"
 optional = false
 python-versions = "<4.0,>=3.10"
 groups = ["main"]
-markers = "python_version < \"3.15\" and platform_system == \"Linux\""
+markers = "platform_system == \"Linux\""
 files = [
     {file = "usb_devices-0.5.1-py3-none-any.whl", hash = "sha256:e77e7972b5ac6a883b3778b0273d9582c5b8ae847ac78fba3d080dd4a4cc69ad"},
     {file = "usb_devices-0.5.1.tar.gz", hash = "sha256:8ef45c401490391a3651b3ba748eb213a654ac165be10a0786ab963668c49cc3"},
@@ -1605,5 +1588,5 @@ all = ["winrt-Windows.Foundation.Collections[all] (>=3.2.1.0,<3.3.0.0)", "winrt-
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.11"
-content-hash = "944e3cca2969d5dfd929854007346d09e3252ddb6d15c6e54107695b003eb426"
+python-versions = ">=3.11,<4.0"
+content-hash = "ed8f7678774dfe6ddb38847bcd4ecddab397ac4594c1ab059a0a14e059064e52"
