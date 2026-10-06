@@ -45,19 +45,22 @@ class FakeClient:
         services: list[FakeService] | None = None,
         failing: set[UUID] | None = None,
         atom_latest_values: dict[str, Any] | None = None,
+        read_error: BleakError | None = None,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
         self._gatt = {str(uuid): value for uuid, value in gatt.items()}
         self._failing = {str(uuid) for uuid in failing or set()}
         self._atom_latest_values = atom_latest_values or ATOM_LATEST_VALUES
+        self._read_error = read_error
         self._callback: Callable[[Any, bytearray], None] | None = None
+        self.cache_cleared = False
         self.disconnected = False
 
     async def read_gatt_char(self, characteristic: Any) -> bytearray:
         uuid = str(getattr(characteristic, "uuid", characteristic))
         if uuid in self._failing:
-            raise BleakError(f"Failed to read {uuid}")
+            raise self._read_error or BleakError(f"Failed to read {uuid}")
         return bytearray(self._gatt[uuid])
 
     async def start_notify(
@@ -85,7 +88,7 @@ class FakeClient:
         self.disconnected = True
 
     async def clear_cache(self) -> None:
-        pass
+        self.cache_cleared = True
 
 
 def device_info_gatt(model: str, firmware: str) -> dict[UUID, bytes]:
