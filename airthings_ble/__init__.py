@@ -7,6 +7,7 @@ from .device_type import AirthingsDeviceType
 from .parser import (
     AirthingsBluetoothDeviceData,
     AirthingsDevice,
+    DisconnectedError,
     UnsupportedDeviceError,
 )
 
@@ -17,5 +18,6 @@ __all__ = [
     "AirthingsConnectivityMode",
     "AirthingsDevice",
     "AirthingsDeviceType",
+    "DisconnectedError",
     "UnsupportedDeviceError",
 ]
