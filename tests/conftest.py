@@ -2,6 +2,8 @@ import logging
 
 import pytest
 
+from fakes import CALLBACK_ERRORS
+
 
 @pytest.fixture(autouse=True)
 def fail_on_command_timeout(
@@ -15,3 +17,10 @@ def fail_on_command_timeout(
             for record in caplog.get_records("call")
             if "Timeout getting command data" in record.getMessage()
         ]
+
+
+@pytest.fixture(autouse=True)
+def fail_on_notification_callback_error():
+    CALLBACK_ERRORS.clear()
+    yield
+    assert not CALLBACK_ERRORS
