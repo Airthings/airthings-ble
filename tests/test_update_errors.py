@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 import pytest
@@ -5,6 +6,7 @@ from airthings_ble import (
     AirthingsBluetoothDeviceData,
     DisconnectedError,
     UnsupportedDeviceError,
+    parser,
 )
 from airthings_ble.const import CHAR_UUID_FIRMWARE_REV, CHAR_UUID_MODEL_NUMBER_STRING
 from bleak import BleakError
@@ -94,10 +96,12 @@ async def test_disconnect_during_update_is_retried(
         FakeClient(_WAVE_PLUS, disconnect_on_read=CHAR_UUID_FIRMWARE_REV),
         FakeClient(_WAVE_PLUS),
     )
+    monkeypatch.setattr(parser, "UPDATE_TIMEOUT", 60)
     data = AirthingsBluetoothDeviceData(logger=_LOGGER)
     data.set_max_attempts(2)
 
-    device = await data.update_device(ble_device())
+    async with asyncio.timeout(5):
+        device = await data.update_device(ble_device())
 
     assert device.sw_version == "G-BLE-1.5.3-master+0"
 

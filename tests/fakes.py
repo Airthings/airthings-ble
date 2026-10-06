@@ -139,8 +139,14 @@ class FakeClient:
     ) -> None:
         if self._callback is not None:
             raise ValueError("Characteristic notifications already started")
-        self._notify_uuid = str(getattr(char_specifier, "uuid", char_specifier))
+        notify_uuid = str(getattr(char_specifier, "uuid", char_specifier))
+        self._assert_in_services(notify_uuid)
+        self._notify_uuid = notify_uuid
         self._callback = callback
+
+    def _assert_in_services(self, uuid: str) -> None:
+        known = {c.uuid for service in self.services for c in service.characteristics}
+        assert uuid in known, f"{uuid} is not in the device's services"
 
     async def stop_notify(self, char_specifier: Any) -> None:
         self.stop_notify_calls += 1
@@ -160,6 +166,7 @@ class FakeClient:
 
     async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
         write_uuid = str(getattr(characteristic, "uuid", characteristic))
+        self._assert_in_services(write_uuid)
         expected_notify_uuid = (
             str(COMMAND_UUID_ATOM_NOTIFY)
             if write_uuid == str(COMMAND_UUID_ATOM)
