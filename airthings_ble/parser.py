@@ -203,7 +203,7 @@ class AirthingsBluetoothDeviceData:
             device_info.model = model
 
         characteristics = _CHARS_BY_MODELS.get(
-            device_info.model.raw_value, device_info_characteristics
+            device_info.model.value, device_info_characteristics
         )
 
         self.logger.debug("Fetching device info characteristics: %s", characteristics)
