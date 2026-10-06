@@ -127,6 +127,9 @@ class AtomCommandDecode(CommandDecode):
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
+        if raw_data is None:
+            logger.debug("Validate data: No data received")
+            return None
         try:
             response = AtomResponse(
                 logger=logger,

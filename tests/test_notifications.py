@@ -67,19 +67,18 @@ async def test_atom_notification_after_complete_response(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """Test a stray notification after a complete Atom response is ignored."""
-    use_clients(
-        monkeypatch,
-        FakeClient(
-            device_info_gatt("3220", "T-SUB-3.0.3-master+0"),
-            [atom_service()],
-            extra_notification=b"\x00" * 20,
-        ),
+    client = FakeClient(
+        device_info_gatt("3220", "T-SUB-3.0.3-master+0"),
+        [atom_service()],
+        extra_notification=b"\x00" * 20,
     )
+    use_clients(monkeypatch, client)
     data = AirthingsBluetoothDeviceData(logger=_LOGGER)
 
     device = await data.update_device(ble_device())
 
     assert device.sensors["temperature"] == 21.09
+    assert client.notifications.count(b"\x00" * 20) == 2
 
 
 @pytest.mark.asyncio

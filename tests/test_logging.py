@@ -69,4 +69,6 @@ async def test_command_timeout_is_not_a_warning(
         if "Timeout getting command data" in record.message
     ]
     assert timeouts
-    assert all(record.levelno == logging.DEBUG for record in timeouts)
+    assert not [
+        record for record in caplog.records if record.levelno >= logging.WARNING
+    ]

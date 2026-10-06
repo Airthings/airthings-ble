@@ -20,6 +20,9 @@ ATOM_CONNECTIVITY_MODE_BLE = 4
 _ATOM_RESPONSE_HEADER = bytes.fromhex("1001000345")
 
 
+_NOTIFICATION_INTERVAL = 0.001
+
+
 class FakeCharacteristic:
     def __init__(self, uuid: UUID | str) -> None:
         self.uuid = str(uuid)
@@ -70,6 +73,7 @@ class FakeClient:
         self._command_response = command_response
         self._read_delay = read_delay
         self.reads: list[str] = []
+        self.notifications: list[bytes] = []
         self._read_error = read_error
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.cache_cleared = False
@@ -128,14 +132,35 @@ class FakeClient:
         assert callback is not None
         loop = asyncio.get_running_loop()
         size = self._chunk_size or len(response)
-        for start in range(0, len(response), size):
-            loop.call_soon(
-                callback, characteristic, bytearray(response[start : start + size])
+        chunks = [
+            response[start : start + size] for start in range(0, len(response), size)
+        ]
+        start_time = loop.time()
+        for index, chunk in enumerate(chunks):
+            loop.call_at(
+                start_time + index * _NOTIFICATION_INTERVAL,
+                self._deliver,
+                callback,
+                characteristic,
+                chunk,
             )
         if self._extra_notification is not None:
-            loop.call_soon(
-                callback, characteristic, bytearray(self._extra_notification)
+            loop.call_at(
+                start_time + (len(chunks) - 1) * _NOTIFICATION_INTERVAL,
+                self._deliver,
+                callback,
+                characteristic,
+                self._extra_notification,
             )
+
+    def _deliver(
+        self,
+        callback: Callable[[Any, bytearray], None],
+        characteristic: Any,
+        data: bytes,
+    ) -> None:
+        self.notifications.append(data)
+        callback(characteristic, bytearray(data))
 
     async def disconnect(self) -> None:
         self.disconnected = True
