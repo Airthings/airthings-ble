@@ -39,11 +39,8 @@ class AirthingsDeviceType(Enum):
         """Get device type from raw value."""
         for device_type in cls:
             if device_type.value == value:
-                device_type.raw_value = value
                 return device_type
-        unknown_device = AirthingsDeviceType.UNKNOWN
-        unknown_device.raw_value = value
-        return unknown_device
+        return AirthingsDeviceType.UNKNOWN
 
     @property
     # pylint: disable=too-many-return-statements

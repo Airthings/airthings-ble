@@ -35,7 +35,7 @@ def test_device_type() -> None:
     unknown_device = AirthingsDeviceType.from_raw_value("1234")
     assert unknown_device == AirthingsDeviceType.UNKNOWN
     assert unknown_device.product_name == "Unknown"
-    assert unknown_device.raw_value == "1234"
+    assert unknown_device.raw_value == "0"
 
 
 def test_battery_calculation() -> None:

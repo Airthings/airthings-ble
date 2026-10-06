@@ -61,4 +61,12 @@ async def test_unknown_model_code_is_unsupported(
     with pytest.raises(UnsupportedDeviceError, match="3219"):
         await data.update_device(ble_device())
 
+    assert AirthingsDeviceType.UNKNOWN.raw_value == "0"
     assert data.device_info.did_first_sync is False
+
+
+def test_from_raw_value_does_not_mutate_members() -> None:
+    """Test looking up an unknown model code leaves the enum untouched."""
+    assert AirthingsDeviceType.from_raw_value("1234") is AirthingsDeviceType.UNKNOWN
+    assert AirthingsDeviceType.UNKNOWN.raw_value == "0"
+    assert AirthingsDeviceType.WAVE_PLUS.raw_value == "2930"
