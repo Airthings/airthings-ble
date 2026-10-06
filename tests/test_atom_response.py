@@ -3,6 +3,7 @@ import logging
 import pytest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
+from airthings_ble.command_decode import AtomCommandDecode
 from airthings_ble.connectivity_mode import AirthingsConnectivityMode
 
 _LOGGER = logging.getLogger(__name__)
@@ -125,6 +126,14 @@ def test_empty_response() -> None:
             "Invalid response array length",
         ),
         (
+            bytes.fromhex("10010003451234"),
+            "Response too short",
+        ),
+        (
+            bytes.fromhex("1001000345123481"),
+            "Response too short",
+        ),
+        (
             bytes.fromhex("1001000345123481A2006A31372F302F333131"),
             "Invalid CBOR data",
         ),
@@ -160,6 +169,15 @@ def test_atom_response_connectivity_mode_not_configured() -> None:
     assert response.parse() == {
         "connectivity_mode": AirthingsConnectivityMode.NOT_CONFIGURED.value
     }
+
+
+@pytest.mark.parametrize("payload", [b"", b"\x81"])
+def test_atom_command_decode_short_response(payload: bytes) -> None:
+    """Test a truncated Atom response decodes to None instead of raising."""
+    decoder = AtomCommandDecode(url=AtomRequestPath.LATEST_VALUES)
+    raw_data = bytearray.fromhex("1001000345") + decoder.request.random_bytes + payload
+
+    assert decoder.decode_data(logger=_LOGGER, raw_data=raw_data) is None
 
 
 @pytest.mark.parametrize("value", ["F4", "F5"])

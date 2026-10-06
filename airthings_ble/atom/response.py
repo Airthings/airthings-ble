@@ -52,6 +52,9 @@ class AtomResponse:
             )
             raise ValueError("Invalid response checksum")
 
+        if len(self.response) < 9:
+            raise ValueError("Response too short")
+
         if self.response[7] != 0x81:
             self.logger.debug(
                 "Invalid response type, expected 81, but got %s", self.response[7]
