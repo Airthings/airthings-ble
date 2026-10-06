@@ -48,6 +48,11 @@ class FakeClient:
         atom_latest_values: dict[str, Any] | None = None,
         chunk_size: int | None = None,
         extra_notification: bytes | None = None,
+        write_error: Exception | None = None,
+        stop_notify_error: Exception | None = None,
+        stall_write: bool = False,
+        stall_stop_notify: bool = False,
+        command_response: bytes | None = None,
         read_error: BleakError | None = None,
     ) -> None:
         self.address = ADDRESS
@@ -57,9 +62,15 @@ class FakeClient:
         self._atom_latest_values = atom_latest_values or ATOM_LATEST_VALUES
         self._chunk_size = chunk_size
         self._extra_notification = extra_notification
+        self._write_error = write_error
+        self._stop_notify_error = stop_notify_error
+        self._stall_write = stall_write
+        self._stall_stop_notify = stall_stop_notify
+        self._command_response = command_response
         self._read_error = read_error
         self._callback: Callable[[Any, bytearray], None] | None = None
         self.cache_cleared = False
+        self.stop_notify_calls = 0
         self.disconnected = False
 
     async def read_gatt_char(self, characteristic: Any) -> bytearray:
@@ -71,12 +82,30 @@ class FakeClient:
     async def start_notify(
         self, char_specifier: Any, callback: Callable[[Any, bytearray], None]
     ) -> None:
+        if self._callback is not None:
+            raise ValueError("Characteristic notifications already started")
         self._callback = callback
 
     async def stop_notify(self, char_specifier: Any) -> None:
+        self.stop_notify_calls += 1
+        if self._stall_stop_notify:
+            await asyncio.Event().wait()
+        if self._stop_notify_error is not None:
+            raise self._stop_notify_error
         self._callback = None
 
+    @property
+    def notifying(self) -> bool:
+        return self._callback is not None
+
     async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
+        if self._write_error is not None:
+            raise self._write_error
+        if self._stall_write:
+            await asyncio.Event().wait()
+        if self._command_response is not None:
+            self._notify(characteristic, self._command_response)
+            return
         random_bytes = bytes(data[2:4])
         path = cbor2.loads(bytes(data[7:]))
         if path.endswith("31012"):

@@ -11,6 +11,7 @@ from logging import Logger
 
 from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
+from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
@@ -73,6 +74,7 @@ from .const import (
     RADON_WEEK_LEVEL,
     RADON_YEAR_AVG,
     RADON_YEAR_LEVEL,
+    STOP_NOTIFY_TIMEOUT,
     TEMPERATURE,
     TEMPERATURE_MAX,
     TEMPERATURE_MIN,
@@ -324,13 +326,18 @@ class AirthingsBluetoothDeviceData:
 
                 # Set up the notification handlers
                 await client.start_notify(characteristic, command_data_receiver)
-                # send command to this 'indicate' characteristic
-                await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
-                # Wait for up to one second to see if a callback comes in.
                 try:
-                    await command_data_receiver.wait_for_message(5)
-                except asyncio.TimeoutError:
-                    self.logger.warning("Timeout getting command data.")
+                    # send command to this 'indicate' characteristic
+                    await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
+                    # Wait for up to one second to see if a callback comes in.
+                    try:
+                        await command_data_receiver.wait_for_message(5)
+                    except asyncio.TimeoutError:
+                        self.logger.warning("Timeout getting command data.")
+                except BaseException:
+                    await self._stop_notify_after_error(client, characteristic)
+                    raise
+                await self._stop_notify(client, characteristic)
 
                 command_sensor_data = decoder.decode_data(
                     logger=self.logger, raw_data=command_data_receiver.message
@@ -347,9 +354,6 @@ class AirthingsBluetoothDeviceData:
                         new_values[ILLUMINANCE] = illuminance
 
                     sensors.update(new_values)
-
-                # Stop notification handler
-                await client.stop_notify(characteristic)
 
     async def _atom_sensor_data(
         self,
@@ -412,22 +416,37 @@ class AirthingsBluetoothDeviceData:
             char_specifier=atom_notify, callback=command_data_receiver
         )
 
-        # send command to this 'indicate' characteristic
-        await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
-        # Wait for up to five seconds to see if a callback comes in.
         try:
-            await command_data_receiver.wait_for_message(5)
-        except asyncio.TimeoutError:
-            self.logger.warning("Timeout getting command data.")
+            # send command to this 'indicate' characteristic
+            await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
+            # Wait for up to five seconds to see if a callback comes in.
+            try:
+                await command_data_receiver.wait_for_message(5)
+            except asyncio.TimeoutError:
+                self.logger.warning("Timeout getting command data.")
+        except BaseException:
+            await self._stop_notify_after_error(client, atom_notify)
+            raise
+        await self._stop_notify(client, atom_notify)
 
-        data = decoder.decode_data(
+        return decoder.decode_data(
             logger=self.logger,
             raw_data=command_data_receiver.message,
         )
 
-        await client.stop_notify(atom_notify)
+    async def _stop_notify(
+        self, client: BleakClient, characteristic: BleakGATTCharacteristic
+    ) -> None:
+        async with asyncio.timeout(STOP_NOTIFY_TIMEOUT):
+            await client.stop_notify(characteristic)
 
-        return data
+    async def _stop_notify_after_error(
+        self, client: BleakClient, characteristic: BleakGATTCharacteristic
+    ) -> None:
+        try:
+            await self._stop_notify(client, characteristic)
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            self.logger.debug("Failed to stop notifications: %s", err)
 
     def _parse_sensor_data(
         self,
