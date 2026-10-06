@@ -28,6 +28,13 @@ class AtomResponse:
         self.random_bytes = random_bytes
         self.path = path
 
+    @staticmethod
+    def _loads(data: bytes | bytearray) -> object:
+        try:
+            return cbor2.loads(data)
+        except cbor2.CBORError as err:
+            raise ValueError("Invalid CBOR data") from err
+
     def parse(self) -> dict[str, float | str | None] | None:
         if self.response[0:5] != self._header:
             self.logger.error(
@@ -45,6 +52,9 @@ class AtomResponse:
             )
             raise ValueError("Invalid response checksum")
 
+        if len(self.response) < 9:
+            raise ValueError("Response too short")
+
         if self.response[7] != 0x81:
             self.logger.debug(
                 "Invalid response type, expected 81, but got %s", self.response[7]
@@ -59,7 +69,7 @@ class AtomResponse:
             raise ValueError("Invalid response array length")
 
         data_bytes = self.response[7:]
-        decoded_data = cbor2.loads(data_bytes)
+        decoded_data = self._loads(data_bytes)
 
         if not isinstance(decoded_data, list):
             self.logger.debug("Parsed data is not a list, but a %s", type(decoded_data))
@@ -76,9 +86,13 @@ class AtomResponse:
         else:
             raise ValueError("Response path missing")
 
-        if data := decoded_data[0].get(2):
+        if (data := decoded_data[0].get(2)) is not None:
 
-            if self.path == AtomRequestPath.CONNECTIVITY_MODE and isinstance(data, int):
+            if (
+                self.path == AtomRequestPath.CONNECTIVITY_MODE
+                and isinstance(data, int)
+                and not isinstance(data, bool)
+            ):
                 return {
                     CONNECTIVITY_MODE: AirthingsConnectivityMode.from_atom_int(
                         data
@@ -88,7 +102,7 @@ class AtomResponse:
             if self.path == AtomRequestPath.LATEST_VALUES:
                 if isinstance(data, bytes):
                     # Need to use cbor2 to decode the bytes again
-                    data = cbor2.loads(data)
+                    data = self._loads(data)
 
                 if isinstance(data, dict):
                     return data

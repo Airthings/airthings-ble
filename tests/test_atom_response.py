@@ -3,6 +3,8 @@ import logging
 import pytest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
+from airthings_ble.command_decode import AtomCommandDecode
+from airthings_ble.connectivity_mode import AirthingsConnectivityMode
 
 _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -119,6 +121,26 @@ def test_empty_response() -> None:
             bytes.fromhex("1001000345123482A2006A31372F302F33313130300204"),
             "Invalid response type",
         ),
+        (
+            bytes.fromhex("100100034512348181006A31372F302F33313130300204"),
+            "Invalid response array length",
+        ),
+        (
+            bytes.fromhex("10010003451234"),
+            "Response too short",
+        ),
+        (
+            bytes.fromhex("1001000345123481"),
+            "Response too short",
+        ),
+        (
+            bytes.fromhex("1001000345123481A2006A31372F302F333131"),
+            "Invalid CBOR data",
+        ),
+        (
+            bytes.fromhex("1001000345123481A2006D32393939392F302F33313031320241A1"),
+            "Invalid CBOR data",
+        ),
     ],
 )
 def test_invalid_responses(response: bytes, exception: str) -> None:
@@ -131,7 +153,42 @@ def test_invalid_responses(response: bytes, exception: str) -> None:
         random_bytes=random_bytes,
         path=AtomRequestPath.LATEST_VALUES,
     )
-    try:
+    with pytest.raises(ValueError, match=f"^{exception}$"):
         atom_response.parse()
-    except ValueError as exc:
-        assert str(exc) == exception
+
+
+def test_atom_response_connectivity_mode_not_configured() -> None:
+    """Test connectivity mode 0 is reported as not configured."""
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=bytes.fromhex("10010003455F9381A2006A31372F302F33313130300200"),
+        random_bytes=bytes.fromhex("5F93"),
+        path=AtomRequestPath.CONNECTIVITY_MODE,
+    )
+
+    assert response.parse() == {
+        "connectivity_mode": AirthingsConnectivityMode.NOT_CONFIGURED.value
+    }
+
+
+@pytest.mark.parametrize("payload", [b"", b"\x81"])
+def test_atom_command_decode_short_response(payload: bytes) -> None:
+    """Test a truncated Atom response decodes to None instead of raising."""
+    decoder = AtomCommandDecode(url=AtomRequestPath.LATEST_VALUES)
+    raw_data = bytearray.fromhex("1001000345") + decoder.request.random_bytes + payload
+
+    assert decoder.decode_data(logger=_LOGGER, raw_data=raw_data) is None
+
+
+@pytest.mark.parametrize("value", ["F4", "F5"])
+def test_atom_response_connectivity_mode_boolean(value: str) -> None:
+    """Test a boolean connectivity mode is rejected instead of read as 0 or 1."""
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=bytes.fromhex(f"10010003455F9381A2006A31372F302F333131303002{value}"),
+        random_bytes=bytes.fromhex("5F93"),
+        path=AtomRequestPath.CONNECTIVITY_MODE,
+    )
+
+    with pytest.raises(ValueError, match="^Invalid response data type$"):
+        response.parse()
