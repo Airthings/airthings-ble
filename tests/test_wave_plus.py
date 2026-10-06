@@ -1,8 +1,10 @@
 import logging
 
+import pytest
 from airthings_ble.command_decode import WaveRadonAndPlusCommandDecode
 from airthings_ble.const import (
     BATTERY,
+    CHAR_UUID_WAVE_PLUS_DATA,
     CO2,
     HUMIDITY,
     ILLUMINANCE,
@@ -12,7 +14,7 @@ from airthings_ble.const import (
     TEMPERATURE,
     VOC,
 )
-from airthings_ble.sensor_decoders import _decode_wave_plus
+from airthings_ble.sensor_decoders import SENSOR_DECODERS, _decode_wave_plus
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -44,3 +46,38 @@ def test_wave_plus_sensor_data() -> None:
     assert decoded_data[CO2] == 797
     assert decoded_data[ILLUMINANCE] == 5
     assert decoded_data[PRESSURE] == 999.92
+
+
+def test_wave_plus_sensor_data_below_zero() -> None:
+    """Test wave plus temperature below zero."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVE_PLUS_DATA)](
+        bytearray.fromhex("01380d800b0022000cfe4cc31d036c0000007d05")
+    )
+
+    assert decoded_data[TEMPERATURE] == -5.0
+    assert decoded_data[HUMIDITY] == 28.0
+    assert decoded_data[RADON_1DAY_AVG] == 11
+    assert decoded_data[RADON_LONGTERM_AVG] == 34
+    assert decoded_data[PRESSURE] == 999.92
+    assert decoded_data[CO2] == 797
+    assert decoded_data[VOC] == 108
+
+
+@pytest.mark.parametrize(
+    ("raw_temperature", "temperature"),
+    [
+        pytest.param("60f0", -40.0, id="min"),
+        pytest.param("5ff0", None, id="below_min"),
+        pytest.param("1027", 100.0, id="max"),
+        pytest.param("1127", None, id="above_max"),
+    ],
+)
+def test_wave_plus_temperature_bounds(
+    raw_temperature: str, temperature: float | None
+) -> None:
+    """Test wave plus temperatures are kept only between -40 and 100 °C."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVE_PLUS_DATA)](
+        bytearray.fromhex(f"01380d800b002200{raw_temperature}4cc31d036c0000007d05")
+    )
+
+    assert decoded_data[TEMPERATURE] == temperature
