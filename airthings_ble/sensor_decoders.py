@@ -29,9 +29,12 @@ from .const import (
     TEMPERATURE,
     TEMPERATURE_MAX,
     TEMPERATURE_MIN,
+    UINT16_NO_VALUE,
     VOC,
     VOC_MAX,
 )
+
+_TEMPERATURE_BYTES = slice(8, 10)
 
 
 def _decode_base(
@@ -80,10 +83,16 @@ def _decode_wave_plus(
         data[ILLUMINANCE] = illuminance_converter(value=val[2])
         data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
         data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
-        data[TEMPERATURE] = validate_value(
-            value=val[6] / 100.0,
-            min_value=TEMPERATURE_MIN,
-            max_value=TEMPERATURE_MAX,
+        # Firmware reports an invalid temperature while humidity is missing.
+        data[TEMPERATURE] = (
+            None
+            if data[HUMIDITY] is None
+            or int.from_bytes(raw_data[_TEMPERATURE_BYTES], "little") == UINT16_NO_VALUE
+            else validate_value(
+                value=val[6] / 100.0,
+                min_value=TEMPERATURE_MIN,
+                max_value=TEMPERATURE_MAX,
+            )
         )
         data[PRESSURE] = validate_value(val[7] / 50.0, max_value=PRESSURE_MAX)
         data[CO2] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
@@ -105,10 +114,16 @@ def _decode_wave_radon(
         data[HUMIDITY] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
         data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
         data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
-        data[TEMPERATURE] = validate_value(
-            value=val[6] / 100.0,
-            min_value=TEMPERATURE_MIN,
-            max_value=TEMPERATURE_MAX,
+        # Firmware reports an invalid temperature while humidity is missing.
+        data[TEMPERATURE] = (
+            None
+            if data[HUMIDITY] is None
+            or int.from_bytes(raw_data[_TEMPERATURE_BYTES], "little") == UINT16_NO_VALUE
+            else validate_value(
+                value=val[6] / 100.0,
+                min_value=TEMPERATURE_MIN,
+                max_value=TEMPERATURE_MAX,
+            )
         )
         return data
 
