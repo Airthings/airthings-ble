@@ -185,6 +185,7 @@ class AirthingsBluetoothDeviceData:
         self.device_info = AirthingsDeviceInfo()
         self.max_attempts = max_attempts
         self._unread_device_info: set[str] = set()
+        self._warned_outdated_firmware = False
 
     def set_max_attempts(self, max_attempts: int) -> None:
         """Set the number of attempts."""
@@ -339,7 +340,7 @@ class AirthingsBluetoothDeviceData:
                     try:
                         await command_data_receiver.wait_for_message(5)
                     except asyncio.TimeoutError:
-                        self.logger.warning("Timeout getting command data.")
+                        self.logger.debug("Timeout getting command data.")
                 except BaseException:
                     await self._stop_notify_after_error(client, characteristic)
                     raise
@@ -373,7 +374,8 @@ class AirthingsBluetoothDeviceData:
             self.device_info.sw_version
         )
 
-        if device.firmware.need_firmware_upgrade:
+        if device.firmware.need_firmware_upgrade and not self._warned_outdated_firmware:
+            self._warned_outdated_firmware = True
             self.logger.warning(
                 "The firmware for this device (%s) is not up to date, "
                 "please update to %s or newer using the Airthings app.",
@@ -429,7 +431,7 @@ class AirthingsBluetoothDeviceData:
             try:
                 await command_data_receiver.wait_for_message(5)
             except asyncio.TimeoutError:
-                self.logger.warning("Timeout getting command data.")
+                self.logger.debug("Timeout getting command data.")
         except BaseException:
             await self._stop_notify_after_error(client, atom_notify)
             raise

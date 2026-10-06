@@ -1,3 +1,5 @@
+import logging
+
 import pytest
 
 
@@ -5,6 +7,7 @@ import pytest
 def fail_on_command_timeout(
     request: pytest.FixtureRequest, caplog: pytest.LogCaptureFixture
 ):
+    caplog.set_level(logging.DEBUG)
     yield
     if request.node.get_closest_marker("command_timeout") is None:
         assert not [
