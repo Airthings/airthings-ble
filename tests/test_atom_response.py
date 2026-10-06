@@ -3,6 +3,7 @@ import logging
 import pytest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
+from airthings_ble.connectivity_mode import AirthingsConnectivityMode
 
 _LOGGER = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
@@ -145,3 +146,31 @@ def test_invalid_responses(response: bytes, exception: str) -> None:
     )
     with pytest.raises(ValueError, match=f"^{exception}$"):
         atom_response.parse()
+
+
+def test_atom_response_connectivity_mode_not_configured() -> None:
+    """Test connectivity mode 0 is reported as not configured."""
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=bytes.fromhex("10010003455F9381A2006A31372F302F33313130300200"),
+        random_bytes=bytes.fromhex("5F93"),
+        path=AtomRequestPath.CONNECTIVITY_MODE,
+    )
+
+    assert response.parse() == {
+        "connectivity_mode": AirthingsConnectivityMode.NOT_CONFIGURED.value
+    }
+
+
+@pytest.mark.parametrize("value", ["F4", "F5"])
+def test_atom_response_connectivity_mode_boolean(value: str) -> None:
+    """Test a boolean connectivity mode is rejected instead of read as 0 or 1."""
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=bytes.fromhex(f"10010003455F9381A2006A31372F302F333131303002{value}"),
+        random_bytes=bytes.fromhex("5F93"),
+        path=AtomRequestPath.CONNECTIVITY_MODE,
+    )
+
+    with pytest.raises(ValueError, match="^Invalid response data type$"):
+        response.parse()
