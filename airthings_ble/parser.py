@@ -541,6 +541,7 @@ class AirthingsBluetoothDeviceData:
         if name := ble_device.name:
             if "Renew" in name or "View" in name:
                 raise UnsupportedDeviceError(f"Model {name} is not supported")
+        timed_out = False
         for attempt in range(self.max_attempts):
             is_final_attempt = attempt == self.max_attempts - 1
             try:
@@ -555,6 +556,11 @@ class AirthingsBluetoothDeviceData:
                 if is_final_attempt:
                     raise
                 self.logger.debug("Bleak error: %s", err)
+            except TimeoutError:
+                if is_final_attempt or timed_out:
+                    raise
+                timed_out = True
+                self.logger.debug("Timeout updating %s", ble_device.address)
         raise RuntimeError("Should not reach this point")
 
     async def _update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
