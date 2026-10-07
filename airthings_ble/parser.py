@@ -19,7 +19,7 @@ from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.command_decode import COMMAND_DECODERS, AtomCommandDecode
 from airthings_ble.radon_level import get_radon_level
-from airthings_ble.sensor_decoders import SENSOR_DECODERS
+from airthings_ble.sensor_decoders import SENSOR_DECODERS, validate_value
 
 from .const import (
     ATOM_BAT,
@@ -74,6 +74,8 @@ from .const import (
     RADON_YEAR_AVG,
     RADON_YEAR_LEVEL,
     TEMPERATURE,
+    TEMPERATURE_MAX,
+    TEMPERATURE_MIN,
     UPDATE_TIMEOUT,
     VOC,
 )
@@ -456,7 +458,11 @@ class AirthingsBluetoothDeviceData:
 
             if (temperature := sensor_data.get(ATOM_TEMPERATURE)) is not None:
                 # Temperature reported as kelvin
-                new_values[TEMPERATURE] = round(float(temperature) / 100.0 - 273.15, 2)
+                new_values[TEMPERATURE] = validate_value(
+                    value=round(float(temperature) / 100.0 - 273.15, 2),
+                    min_value=TEMPERATURE_MIN,
+                    max_value=TEMPERATURE_MAX,
+                )
 
             if (noise := sensor_data.get(ATOM_NOISE)) is not None:
                 new_values[NOISE] = noise

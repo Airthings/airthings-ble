@@ -3,6 +3,7 @@ import logging
 import pytest
 from airthings_ble import AirthingsBluetoothDeviceData
 from airthings_ble.const import (
+    CHAR_UUID_TEMPERATURE,
     CHAR_UUID_RADON_1DAYAVG,
     CHAR_UUID_RADON_LONG_TERM_AVG,
     RADON_1DAY_AVG,
@@ -71,3 +72,21 @@ async def test_wave_gen_1_radon_sentinel_has_no_level(
         RADON_LONGTERM_LEVEL: "fair",
     }
     assert RADON_1DAY_LEVEL not in device.sensors
+
+
+@pytest.mark.parametrize(
+    ("raw", "expected"),
+    [
+        ("60f0", -40.0),
+        ("5ff0", None),
+        ("0ffb", -12.65),
+        ("1027", 100.0),
+        ("1127", None),
+        ("0080", None),
+    ],
+)
+def test_wave_gen_1_temperature_range(raw: str, expected: float | None) -> None:
+    """Test Wave Gen 1 temperatures outside -40 to 100 °C are rejected."""
+    decoded = SENSOR_DECODERS[str(CHAR_UUID_TEMPERATURE)](bytearray.fromhex(raw))
+
+    assert decoded == {"temperature": expected}

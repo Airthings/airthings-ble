@@ -52,7 +52,11 @@ def _decode_base(
 
 
 def _decode_attr(
-    name: str, format_type: str, scale: float, max_value: Optional[float] = None
+    name: str,
+    format_type: str,
+    scale: float,
+    max_value: Optional[float] = None,
+    min_value: Optional[float] = None,
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     """same as base decoder, but expects only one value.. for real"""
 
@@ -61,10 +65,11 @@ def _decode_attr(
         res: float | None = None
         if len(val) == 1:
             res = val[0] * scale
-        if res is not None and max_value is not None:
-            # Verify that the result is not above the maximum allowed value
-            if res > max_value:
-                res = None
+        if res is not None and (
+            (max_value is not None and res > max_value)
+            or (min_value is not None and res < min_value)
+        ):
+            res = None
         data: dict[str, float | None | str] = {name: res}
         return data
 
@@ -226,7 +231,11 @@ SENSOR_DECODERS: dict[
         name="illuminance_accelerometer", format_type="BB", scale=1.0
     ),
     str(CHAR_UUID_TEMPERATURE): _decode_attr(
-        name="temperature", format_type="h", scale=1.0 / 100.0
+        name="temperature",
+        format_type="h",
+        scale=1.0 / 100.0,
+        max_value=TEMPERATURE_MAX,
+        min_value=TEMPERATURE_MIN,
     ),
     str(CHAR_UUID_WAVE_2_DATA): _decode_wave_radon(
         name="Wave2", format_type="<4B2Hh5H", scale=1.0
