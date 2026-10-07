@@ -174,6 +174,11 @@ class NotificationReceiver:
         if self._full_message_received() and not self._future.done():
             self._future.set_result(None)
 
+    @property
+    def complete(self) -> bool:
+        """Whether the full message has been received."""
+        return self._full_message_received()
+
     def _on_timeout(self) -> None:
         if not self._future.done():
             self._future.set_exception(

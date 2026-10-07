@@ -346,6 +346,9 @@ class AirthingsBluetoothDeviceData:
                     raise
                 await self._stop_notify(client, characteristic)
 
+                if not command_data_receiver.complete:
+                    continue
+
                 command_sensor_data = decoder.decode_data(
                     logger=self.logger, raw_data=command_data_receiver.message
                 )
@@ -436,6 +439,9 @@ class AirthingsBluetoothDeviceData:
             await self._stop_notify_after_error(client, atom_notify)
             raise
         await self._stop_notify(client, atom_notify)
+
+        if not command_data_receiver.complete:
+            return None
 
         return decoder.decode_data(
             logger=self.logger,
