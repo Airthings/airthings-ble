@@ -38,3 +38,27 @@ def test_corentium_home_2_sensor_data(
     assert sensors["radon_week_avg"] == expected_radon_values[1]
     assert sensors["radon_month_avg"] == expected_radon_values[2]
     assert sensors["radon_year_avg"] == expected_radon_values[3]
+
+
+@pytest.mark.parametrize(
+    ("kelvin", "expected"),
+    [
+        (23315, -40.0),
+        (23314, None),
+        (26050, -12.65),
+        (37315, 100.0),
+        (37316, None),
+        (0, None),
+    ],
+)
+def test_atom_temperature_range(kelvin: int, expected: float | None) -> None:
+    """Test Atom temperatures outside -40 to 100 °C are rejected."""
+    sensors: dict[str, str | float | None] = {}
+
+    AirthingsBluetoothDeviceData(logger=Logger("test_logger"))._parse_sensor_data(
+        device=AirthingsDevice(),
+        sensors=sensors,
+        sensor_data={"TMP": kelvin},
+    )
+
+    assert sensors["temperature"] == expected

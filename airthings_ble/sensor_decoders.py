@@ -28,9 +28,13 @@ from .const import (
     RADON_MAX,
     TEMPERATURE,
     TEMPERATURE_MAX,
+    TEMPERATURE_MIN,
+    UINT16_NO_VALUE,
     VOC,
     VOC_MAX,
 )
+
+_TEMPERATURE_BYTES = slice(8, 10)
 
 
 def _decode_base(
@@ -48,7 +52,11 @@ def _decode_base(
 
 
 def _decode_attr(
-    name: str, format_type: str, scale: float, max_value: Optional[float] = None
+    name: str,
+    format_type: str,
+    scale: float,
+    max_value: Optional[float] = None,
+    min_value: Optional[float] = None,
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     """same as base decoder, but expects only one value.. for real"""
 
@@ -57,10 +65,11 @@ def _decode_attr(
         res: float | None = None
         if len(val) == 1:
             res = val[0] * scale
-        if res is not None and max_value is not None:
-            # Verify that the result is not above the maximum allowed value
-            if res > max_value:
-                res = None
+        if res is not None and (
+            (max_value is not None and res > max_value)
+            or (min_value is not None and res < min_value)
+        ):
+            res = None
         data: dict[str, float | None | str] = {name: res}
         return data
 
@@ -79,8 +88,16 @@ def _decode_wave_plus(
         data[ILLUMINANCE] = illuminance_converter(value=val[2])
         data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
         data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
-        data[TEMPERATURE] = validate_value(
-            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
+        # Firmware reports an invalid temperature while humidity is missing.
+        data[TEMPERATURE] = (
+            None
+            if data[HUMIDITY] is None
+            or int.from_bytes(raw_data[_TEMPERATURE_BYTES], "little") == UINT16_NO_VALUE
+            else validate_value(
+                value=val[6] / 100.0,
+                min_value=TEMPERATURE_MIN,
+                max_value=TEMPERATURE_MAX,
+            )
         )
         data[PRESSURE] = validate_value(val[7] / 50.0, max_value=PRESSURE_MAX)
         data[CO2] = validate_value(value=val[8] * 1.0, max_value=CO2_MAX)
@@ -102,8 +119,16 @@ def _decode_wave_radon(
         data[HUMIDITY] = validate_value(value=val[1] / 2.0, max_value=PERCENTAGE_MAX)
         data[RADON_1DAY_AVG] = validate_value(value=val[4], max_value=RADON_MAX)
         data[RADON_LONGTERM_AVG] = validate_value(value=val[5], max_value=RADON_MAX)
-        data[TEMPERATURE] = validate_value(
-            value=val[6] / 100.0, max_value=TEMPERATURE_MAX
+        # Firmware reports an invalid temperature while humidity is missing.
+        data[TEMPERATURE] = (
+            None
+            if data[HUMIDITY] is None
+            or int.from_bytes(raw_data[_TEMPERATURE_BYTES], "little") == UINT16_NO_VALUE
+            else validate_value(
+                value=val[6] / 100.0,
+                min_value=TEMPERATURE_MIN,
+                max_value=TEMPERATURE_MAX,
+            )
         )
         return data
 
@@ -120,7 +145,9 @@ def _decode_wave_mini(
         data[DATE_TIME] = str(datetime.isoformat(datetime.now()))
         data[ILLUMINANCE] = illuminance_converter(value=val[0])
         data[TEMPERATURE] = validate_value(
-            value=round(val[2] / 100.0 - 273.15, 2), max_value=TEMPERATURE_MAX
+            value=round(val[2] / 100.0 - 273.15, 2),
+            min_value=TEMPERATURE_MIN,
+            max_value=TEMPERATURE_MAX,
         )
         data[PRESSURE] = float(val[3] / 50.0)
         data[HUMIDITY] = validate_value(value=val[4] / 100.0, max_value=PERCENTAGE_MAX)
@@ -167,9 +194,10 @@ def _decode_wave_illum_accel(
     return handler
 
 
-def validate_value(value: float, max_value: float) -> Optional[float]:
+def validate_value(
+    value: float, max_value: float, min_value: float = 0
+) -> Optional[float]:
     """Validate if the given 'value' is within the specified range [min, max]"""
-    min_value = 0
     if min_value <= value <= max_value:
         return value
     return None
@@ -203,13 +231,17 @@ SENSOR_DECODERS: dict[
         name="illuminance_accelerometer", format_type="BB", scale=1.0
     ),
     str(CHAR_UUID_TEMPERATURE): _decode_attr(
-        name="temperature", format_type="h", scale=1.0 / 100.0
+        name="temperature",
+        format_type="h",
+        scale=1.0 / 100.0,
+        max_value=TEMPERATURE_MAX,
+        min_value=TEMPERATURE_MIN,
     ),
     str(CHAR_UUID_WAVE_2_DATA): _decode_wave_radon(
-        name="Wave2", format_type="<4B8H", scale=1.0
+        name="Wave2", format_type="<4B2Hh5H", scale=1.0
     ),
     str(CHAR_UUID_WAVE_PLUS_DATA): _decode_wave_plus(
-        name="Plus", format_type="<4B8H", scale=0
+        name="Plus", format_type="<4B2Hh5H", scale=0
     ),
     str(CHAR_UUID_WAVEMINI_DATA): _decode_wave_mini(
         name="WaveMini", format_type="<2B5HLL", scale=1.0
