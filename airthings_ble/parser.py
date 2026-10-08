@@ -540,10 +540,10 @@ class AirthingsBluetoothDeviceData:
             sensors.update(new_values)
 
     def _handle_disconnect(
-        self, disconnect_future: asyncio.Future[bool], client: BleakClient
+        self, disconnect_future: asyncio.Future[bool], address: str, _: BleakClient
     ) -> None:
         """Handle disconnect from device."""
-        self.logger.debug("Disconnected from %s", client.address)
+        self.logger.debug("Disconnected from %s", address)
         if not disconnect_future.done():
             disconnect_future.set_result(True)
 
@@ -588,7 +588,7 @@ class AirthingsBluetoothDeviceData:
                 ble_device,
                 ble_device.address,
                 disconnected_callback=partial(
-                    self._handle_disconnect, disconnect_future
+                    self._handle_disconnect, disconnect_future, ble_device.address
                 ),
             )
         )
@@ -597,7 +597,7 @@ class AirthingsBluetoothDeviceData:
                 interrupt(
                     disconnect_future,
                     DisconnectedError,
-                    f"Disconnected from {client.address}",
+                    f"Disconnected from {ble_device.address}",
                 ),
                 asyncio.timeout(UPDATE_TIMEOUT),
             ):
