@@ -143,13 +143,17 @@ def _decode_wave_mini(
         val = vals[name]
         data: dict[str, float | None | str] = {}
         data[DATE_TIME] = str(datetime.isoformat(datetime.now()))
-        data[ILLUMINANCE] = illuminance_converter(value=val[0])
+        data[ILLUMINANCE] = (
+            None
+            if int.from_bytes(raw_data[0:2], "little") == UINT16_NO_VALUE
+            else illuminance_converter(value=val[0])
+        )
         data[TEMPERATURE] = validate_value(
             value=round(val[2] / 100.0 - 273.15, 2),
             min_value=TEMPERATURE_MIN,
             max_value=TEMPERATURE_MAX,
         )
-        data[PRESSURE] = float(val[3] / 50.0)
+        data[PRESSURE] = None if val[3] == UINT16_NO_VALUE else float(val[3] / 50.0)
         data[HUMIDITY] = validate_value(value=val[4] / 100.0, max_value=PERCENTAGE_MAX)
         data[VOC] = validate_value(value=val[5] * 1.0, max_value=VOC_MAX)
         return data

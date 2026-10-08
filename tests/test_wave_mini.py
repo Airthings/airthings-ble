@@ -69,3 +69,51 @@ def test_wave_mini_temperature_bounds(
     )
 
     assert decoded_data[TEMPERATURE] == temperature
+
+
+def test_wave_mini_sensor_data_before_first_measurement() -> None:
+    """Test Wave Mini values that are not measured yet are dropped."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVEMINI_DATA)](
+        bytearray.fromhex("ffffffffffffffffffffffffffffffffffffffff")
+    )
+
+    assert decoded_data[ILLUMINANCE] is None
+    assert decoded_data[TEMPERATURE] is None
+    assert decoded_data[PRESSURE] is None
+    assert decoded_data[HUMIDITY] is None
+    assert decoded_data[VOC] is None
+
+
+@pytest.mark.parametrize(
+    ("raw_illuminance", "illuminance"),
+    [
+        pytest.param("ffff", None, id="not_measured"),
+        pytest.param("ff00", 100, id="max"),
+        pytest.param("feff", 99, id="high_byte_set"),
+        pytest.param("1800", 9, id="normal"),
+    ],
+)
+def test_wave_mini_illuminance(raw_illuminance: str, illuminance: int | None) -> None:
+    """Test Wave Mini illuminance is dropped only when it is not measured yet."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVEMINI_DATA)](
+        bytearray.fromhex(f"{raw_illuminance}327431c168102e000000ff940700ffffffff")
+    )
+
+    assert decoded_data[ILLUMINANCE] == illuminance
+
+
+@pytest.mark.parametrize(
+    ("raw_pressure", "pressure"),
+    [
+        pytest.param("ffff", None, id="not_measured"),
+        pytest.param("feff", 1310.68, id="max"),
+        pytest.param("31c1", 989.14, id="normal"),
+    ],
+)
+def test_wave_mini_pressure(raw_pressure: str, pressure: float | None) -> None:
+    """Test Wave Mini pressure is dropped only when it is not measured yet."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_WAVEMINI_DATA)](
+        bytearray.fromhex(f"18003274{raw_pressure}68102e000000ff940700ffffffff")
+    )
+
+    assert decoded_data[PRESSURE] == pressure
