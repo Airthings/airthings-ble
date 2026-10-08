@@ -3,9 +3,10 @@ import logging
 import pytest
 from airthings_ble import AirthingsBluetoothDeviceData
 from airthings_ble.const import (
-    CHAR_UUID_TEMPERATURE,
+    CHAR_UUID_DATETIME,
     CHAR_UUID_RADON_1DAYAVG,
     CHAR_UUID_RADON_LONG_TERM_AVG,
+    CHAR_UUID_TEMPERATURE,
     RADON_1DAY_AVG,
     RADON_1DAY_LEVEL,
     RADON_LONGTERM_AVG,
@@ -74,19 +75,29 @@ async def test_wave_gen_1_radon_sentinel_has_no_level(
     assert RADON_1DAY_LEVEL not in device.sensors
 
 
+def test_wave_gen_1_date_time() -> None:
+    """Test the Wave Gen 1 clock characteristic decodes to an ISO timestamp."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_DATETIME)](
+        bytearray.fromhex("e8070a060c1e00")
+    )
+
+    assert decoded_data == {"date_time": "2024-10-06T12:30:00"}
+
+
 @pytest.mark.parametrize(
     ("raw", "expected"),
     [
+        ("6608", 21.5),
+        ("0cfe", -5.0),
         ("60f0", -40.0),
         ("5ff0", None),
-        ("0ffb", -12.65),
         ("1027", 100.0),
         ("1127", None),
         ("0080", None),
     ],
 )
-def test_wave_gen_1_temperature_range(raw: str, expected: float | None) -> None:
-    """Test Wave Gen 1 temperatures outside -40 to 100 °C are rejected."""
-    decoded = SENSOR_DECODERS[str(CHAR_UUID_TEMPERATURE)](bytearray.fromhex(raw))
+def test_wave_gen_1_temperature(raw: str, expected: float | None) -> None:
+    """Test Wave Gen 1 temperature is signed hundredths within -40 to 100 °C."""
+    decoded_data = SENSOR_DECODERS[str(CHAR_UUID_TEMPERATURE)](bytearray.fromhex(raw))
 
-    assert decoded == {"temperature": expected}
+    assert decoded_data == {"temperature": expected}

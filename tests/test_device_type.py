@@ -90,3 +90,26 @@ def test_battery_calculation() -> None:
     assert AirthingsDeviceType.WAVE_ENHANCE_EU.battery_percentage(2.2) == 5
     assert AirthingsDeviceType.WAVE_ENHANCE_EU.battery_percentage(2.1) == 0
     assert AirthingsDeviceType.WAVE_ENHANCE_EU.battery_percentage(2.0) == 0
+
+
+@pytest.mark.parametrize(
+    ("device_type", "current", "required", "need_upgrade"),
+    [
+        (AirthingsDeviceType.WAVE_ENHANCE_EU, "T-SUB-2.6.0-master+0", (2, 6, 1), True),
+        (AirthingsDeviceType.WAVE_ENHANCE_US, "T-SUB-2.6.1-master+0", (2, 6, 1), False),
+        (AirthingsDeviceType.CORENTIUM_HOME_2, "R-SUB-1.3.3-master+0", (1, 3, 4), True),
+        (AirthingsDeviceType.WAVE_PLUS, "G-BLE-1.5.3-master+0", None, False),
+        (AirthingsDeviceType.WAVE_GEN_1, "1.0.0", None, False),
+    ],
+)
+def test_need_firmware_upgrade(
+    device_type: AirthingsDeviceType,
+    current: str,
+    required: tuple[int, int, int] | None,
+    need_upgrade: bool,
+) -> None:
+    """Test only Atom devices have a minimum firmware version."""
+    firmware = device_type.need_firmware_upgrade(current)
+
+    assert firmware.required_version == required
+    assert firmware.need_firmware_upgrade is need_upgrade

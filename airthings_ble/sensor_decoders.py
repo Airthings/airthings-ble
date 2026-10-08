@@ -61,17 +61,13 @@ def _decode_attr(
     """same as base decoder, but expects only one value.. for real"""
 
     def handler(raw_data: bytearray) -> dict[str, float | None | str]:
-        val = struct.unpack(format_type, raw_data)
-        res: float | None = None
-        if len(val) == 1:
-            res = val[0] * scale
-        if res is not None and (
-            (max_value is not None and res > max_value)
-            or (min_value is not None and res < min_value)
+        (val,) = struct.unpack(format_type, raw_data)
+        res = val * scale
+        if (max_value is not None and res > max_value) or (
+            min_value is not None and res < min_value
         ):
-            res = None
-        data: dict[str, float | None | str] = {name: res}
-        return data
+            return {name: None}
+        return {name: res}
 
     return handler
 

@@ -4,6 +4,7 @@ from uuid import UUID
 
 import cbor2
 import pytest
+from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.const import (
     ATOM_RESPONSE_HEADER,
     CHAR_UUID_FIRMWARE_REV,
@@ -72,7 +73,8 @@ class FakeClient:
         gatt: dict[UUID, bytes],
         services: list[FakeService] | None = None,
         failing: set[UUID] | None = None,
-        atom_latest_values: dict[str, Any] | None = None,
+        atom_latest_values: Any = None,
+        atom_connectivity_mode: Any = None,
         chunk_size: int | None = None,
         extra_notification: bytes | None = None,
         write_error: Exception | None = None,
@@ -81,13 +83,17 @@ class FakeClient:
         stall_stop_notify: bool = False,
         command_response: bytes | None = None,
         read_delay: float = 0,
+        silent_commands: bool = False,
         read_error: BleakError | None = None,
+        disconnect_on_read: UUID | None = None,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
         self._gatt = {str(uuid): value for uuid, value in gatt.items()}
         self._failing = {str(uuid) for uuid in failing or set()}
-        self._atom_latest_values = atom_latest_values or ATOM_LATEST_VALUES
+        self._atom_latest_values = (
+            ATOM_LATEST_VALUES if atom_latest_values is None else atom_latest_values
+        )
         self._chunk_size = chunk_size
         self._extra_notification = extra_notification
         self._write_error = write_error
@@ -96,11 +102,22 @@ class FakeClient:
         self._stall_stop_notify = stall_stop_notify
         self._command_response = command_response
         self._read_delay = read_delay
+        self._atom_connectivity_mode = (
+            ATOM_CONNECTIVITY_MODE_BLE
+            if atom_connectivity_mode is None
+            else atom_connectivity_mode
+        )
+        self._silent_commands = silent_commands
+        self._read_error = read_error
+        self._disconnect_on_read = (
+            None if disconnect_on_read is None else str(disconnect_on_read)
+        )
+        self.disconnected_callback: Callable[[Any], None] | None = None
+        self.cache_cleared = False
         self.reads: list[str] = []
         self.notifications: list[bytes] = []
-        self._read_error = read_error
         self._callback: Callable[[Any, bytearray], None] | None = None
-        self.cache_cleared = False
+        self._notify_uuid: str | None = None
         self.stop_notify_calls = 0
         self.disconnected = False
 
@@ -109,6 +126,10 @@ class FakeClient:
         self.reads.append(uuid)
         if self._read_delay:
             await asyncio.sleep(self._read_delay)
+        if uuid == self._disconnect_on_read:
+            assert self.disconnected_callback is not None
+            self.disconnected_callback(self)
+            await asyncio.Event().wait()
         if uuid in self._failing:
             raise self._read_error or BleakError(f"Failed to read {uuid}")
         return bytearray(self._gatt[uuid])
@@ -118,10 +139,21 @@ class FakeClient:
     ) -> None:
         if self._callback is not None:
             raise ValueError("Characteristic notifications already started")
+        notify_uuid = str(getattr(char_specifier, "uuid", char_specifier))
+        self._assert_in_services(notify_uuid)
+        self._notify_uuid = notify_uuid
         self._callback = callback
+
+    def _assert_in_services(self, uuid: str) -> None:
+        known = {c.uuid for service in self.services for c in service.characteristics}
+        assert uuid in known, f"{uuid} is not in the device's services"
 
     async def stop_notify(self, char_specifier: Any) -> None:
         self.stop_notify_calls += 1
+        stop_uuid = str(getattr(char_specifier, "uuid", char_specifier))
+        assert (
+            stop_uuid == self._notify_uuid
+        ), f"stopped {stop_uuid} while notifying on {self._notify_uuid}"
         if self._stall_stop_notify:
             await asyncio.Event().wait()
         if self._stop_notify_error is not None:
@@ -133,26 +165,40 @@ class FakeClient:
         return self._callback is not None
 
     async def write_gatt_char(self, characteristic: Any, data: bytearray) -> None:
+        write_uuid = str(getattr(characteristic, "uuid", characteristic))
+        self._assert_in_services(write_uuid)
+        expected_notify_uuid = (
+            str(COMMAND_UUID_ATOM_NOTIFY)
+            if write_uuid == str(COMMAND_UUID_ATOM)
+            else write_uuid
+        )
+        assert (
+            self._notify_uuid == expected_notify_uuid
+        ), f"wrote {write_uuid} while notifying on {self._notify_uuid}"
         if self._write_error is not None:
             raise self._write_error
         if self._stall_write:
             await asyncio.Event().wait()
-        write_uuid = str(getattr(characteristic, "uuid", characteristic))
         if write_uuid == str(COMMAND_UUID_ATOM):
             assert (
                 data[0:2] == b"\x03\x01" and data[4:7] == b"\x81\xa1\x00"
             ), f"malformed Atom request {data.hex()}"
         else:
             assert data == b"\x6d", f"malformed Wave command {data.hex()}"
+        if self._silent_commands:
+            return
         if self._command_response is not None:
             self._notify(characteristic, self._command_response)
             return
         random_bytes = bytes(data[2:4])
         path = cbor2.loads(bytes(data[7:]))
-        if path.endswith("31012"):
+        if path == AtomRequestPath.LATEST_VALUES:
             payload: int | bytes = cbor2.dumps(self._atom_latest_values)
         else:
-            payload = ATOM_CONNECTIVITY_MODE_BLE
+            assert (
+                path == AtomRequestPath.CONNECTIVITY_MODE
+            ), f"unknown Atom path {path}"
+            payload = self._atom_connectivity_mode
         response = (
             ATOM_RESPONSE_HEADER + random_bytes + cbor2.dumps([{0: path, 2: payload}])
         )
@@ -198,6 +244,8 @@ class FakeClient:
 
     async def disconnect(self) -> None:
         self.disconnected = True
+        if self.disconnected_callback is not None:
+            self.disconnected_callback(self)
 
     async def clear_cache(self) -> None:
         self.cache_cleared = True
@@ -219,7 +267,9 @@ def use_clients(monkeypatch: pytest.MonkeyPatch, *clients: FakeClient) -> None:
     remaining = list(clients)
 
     async def fake_establish_connection(*args: Any, **kwargs: Any) -> FakeClient:
-        return remaining.pop(0)
+        client = remaining.pop(0)
+        client.disconnected_callback = kwargs["disconnected_callback"]
+        return client
 
     monkeypatch.setattr(
         "airthings_ble.parser.establish_connection", fake_establish_connection
