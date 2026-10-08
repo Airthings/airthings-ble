@@ -4,19 +4,20 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: New version tag
+        description: New version tag, e.g. 1.3.0 or 1.3.0rc1
         required: true
-      prerelease:
-        description: Is this a pre-release?
-        required: false
-        default: false
-        type: boolean
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   final-linting:
+    if: github.ref == 'refs/heads/main'
     uses: ./.github/workflows/ci.yml
   build-publish:
     name: Build and publish to PyPI
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
     needs: final-linting
     environment:
@@ -25,6 +26,8 @@ jobs:
     permissions:
       id-token: write  # IMPORTANT: this permission is mandatory for trusted publishing
       contents: write
+    env:
+      TAG: ${{ github.event.inputs.tag }}
     steps:
       - name: Checkout source
         uses: actions/checkout@v7
@@ -37,34 +40,52 @@ jobs:
         with:
           python-version: '3.14'
 
+      - name: Validate tag
+        id: tag
+        run: |
+          number='(0|[1-9][0-9]*)'
+          if ! [[ "$TAG" =~ ^$number\.$number\.$number((a|b|rc)$number)?$ ]]; then
+            echo "::error::'$TAG' is not a version like 1.3.0 or 1.3.0rc1"
+            exit 1
+          fi
+          tag_check=0
+          git ls-remote --exit-code --tags origin "refs/tags/$TAG" > /dev/null || tag_check=$?
+          if [ "$tag_check" -eq 0 ]; then
+            echo "::error::Tag $TAG already exists"
+            exit 1
+          elif [ "$tag_check" -ne 2 ]; then
+            echo "::error::Could not check whether tag $TAG exists"
+            exit 1
+          fi
+          pypi=$(curl -sS -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/airthings-ble/$TAG/json")
+          if [ "$pypi" = "200" ]; then
+            echo "::error::airthings-ble $TAG is already on PyPI"
+            exit 1
+          elif [ "$pypi" != "404" ]; then
+            echo "::error::Could not check PyPI for $TAG (HTTP $pypi)"
+            exit 1
+          fi
+          if [[ "$TAG" =~ (a|b|rc)[0-9]+$ ]]; then
+            echo "prerelease=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "prerelease=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Update pyproject.toml Version
         run: |
           pip install tomlkit
           python -c "
-          import tomlkit
-          tag = '${{ github.event.inputs.tag }}'
+          import os, tomlkit
           with open('pyproject.toml', 'r') as file:
             content = tomlkit.parse(file.read())
-          content['project']['version'] = tag
+          content['project']['version'] = os.environ['TAG']
           with open('pyproject.toml', 'w') as file:
             file.write(tomlkit.dumps(content))
           "
 
       - name: Update __init__.py version
         run: |
-          version="${{ github.event.inputs.tag }}"
-          file="airthings_ble/__init__.py"
-          sed -i "s/__version__\\s*=\\s*[\"'].*[\"']/__version__ = \"$version\"/" $file
-
-      - name: Commit and Push Changes
-        run: |
-          git config --global user.email "github-actions[bot]@users.noreply.github.com"
-          git config --global user.name "GitHub Actions"
-          git add pyproject.toml airthings_ble/__init__.py
-          git commit -m "Update version to ${{ github.event.inputs.tag }}"
-          git push
-          git tag ${{ github.event.inputs.tag }}
-          git push --tags
+          sed -i "s/__version__\\s*=\\s*[\"'].*[\"']/__version__ = \"$TAG\"/" airthings_ble/__init__.py
 
       - name: Build source and wheel distributions
         run: |
@@ -72,14 +93,36 @@ jobs:
           python -m build
           twine check --strict dist/*
 
+      - name: Install and import the built wheel
+        run: |
+          python -m venv /tmp/wheel-test
+          /tmp/wheel-test/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/wheel-test/bin/python -c "
+          import importlib, os, pkgutil
+          import airthings_ble
+          assert airthings_ble.__version__ == os.environ['TAG'], airthings_ble.__version__
+          for module in pkgutil.walk_packages(airthings_ble.__path__, 'airthings_ble.'):
+            importlib.import_module(module.name)
+          "
+
+      - name: Commit, tag and push
+        run: |
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          git config --global user.name "GitHub Actions"
+          git add pyproject.toml airthings_ble/__init__.py
+          git commit -m "Update version to $TAG"
+          git tag "$TAG"
+          git push --atomic origin HEAD:main "refs/tags/$TAG"
+
       - name: Publish distribution to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
 
       - name: Release
         uses: softprops/action-gh-release@v3
         with:
-          files: dist/${{ env.name }}/*
+          files: dist/*
+          fail_on_unmatched_files: true
           tag_name: ${{ github.event.inputs.tag }}
           generate_release_notes: true
-          prerelease: ${{ github.event.inputs.prerelease }}
-      
+          prerelease: ${{ steps.tag.outputs.prerelease }}
