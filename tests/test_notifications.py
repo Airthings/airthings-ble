@@ -104,26 +104,81 @@ async def test_notification_after_timeout() -> None:
 
 
 @pytest.mark.asyncio
-async def test_atom_receiver_waits_for_complete_cbor() -> None:
-    """Test the Atom receiver is incomplete until its CBOR payload is."""
+@pytest.mark.parametrize(
+    ("fragments", "expected"),
+    [
+        (["100100aabbcc"], "aabbcc"),
+        (["100300aa", "000200bb", "000300cc"], "aabbcc"),
+        (["100300aa", "000300cc", "000200bb"], "aabbcc"),
+        (["000300cc", "100300aa", "000200bb"], "aabbcc"),
+        (["300200aa", "200200bb"], "aabb"),
+        (["400200dd", "100200aa", "000200bb"], "aabb"),
+        (["100200aa", "000100dd", "000200bb"], "aabb"),
+        (["100200aa", "300100dd", "000200bb"], "aabb"),
+    ],
+)
+async def test_atom_receiver_reassembles_fragments(
+    fragments: list[str], expected: str
+) -> None:
+    """Test the Atom receiver joins the fragments of one response in order."""
     receiver = AtomNotificationReceiver()
-    receiver(None, bytearray.fromhex("10010003451234"))
-    receiver(None, bytearray.fromhex("81a2"))
+    for fragment in fragments:
+        receiver(None, bytearray.fromhex(fragment))
 
-    with pytest.raises(asyncio.TimeoutError):
-        await receiver.wait_for_message(0.01)
-
-    receiver(None, bytearray.fromhex("00010203"))
-    assert receiver.message == bytearray.fromhex("1001000345123481a200010203")
+    await receiver.wait_for_message(1)
+    assert receiver.message == bytearray.fromhex(expected)
 
 
 @pytest.mark.asyncio
-async def test_atom_receiver_completes_on_invalid_cbor() -> None:
-    """Test the Atom receiver hands invalid CBOR over to be rejected by parsing."""
+@pytest.mark.parametrize(
+    "fragments",
+    [
+        ["100300aa", "000200bb"],
+        ["000200bb", "000300cc"],
+        ["100000aa"],
+        [""],
+        ["10"],
+        ["1003"],
+        ["110100aa"],
+        ["100200aa", "200200bb"],
+        ["100200aa", "000100bb"],
+        ["100002aa", "000200bb"],
+    ],
+)
+async def test_atom_receiver_waits_for_every_fragment(fragments: list[str]) -> None:
+    """Test the Atom receiver ignores invalid fragments and waits for missing ones."""
     receiver = AtomNotificationReceiver()
-    receiver(None, bytearray.fromhex("1001000345123481a2ff"))
+    for fragment in fragments:
+        receiver(None, bytearray.fromhex(fragment))
+
+    with pytest.raises(asyncio.TimeoutError):
+        await receiver.wait_for_message(0.01)
+    assert not receiver.complete
+
+
+@pytest.mark.asyncio
+async def test_atom_receiver_completes_after_timeout() -> None:
+    """Test an Atom response that completes after the wait timed out is kept."""
+    receiver = AtomNotificationReceiver()
+    receiver(None, bytearray.fromhex("100200aa"))
+    with pytest.raises(asyncio.TimeoutError):
+        await receiver.wait_for_message(0.01)
+
+    receiver(None, bytearray.fromhex("000200bb"))
+
+    assert receiver.complete
+    assert receiver.message == bytearray.fromhex("aabb")
+
+
+@pytest.mark.asyncio
+async def test_atom_receiver_ignores_fragments_after_completion() -> None:
+    """Test a late fragment does not change a reassembled Atom response."""
+    receiver = AtomNotificationReceiver()
+    receiver(None, bytearray.fromhex("100100aa"))
+    receiver(None, bytearray.fromhex("100100bb"))
 
     await receiver.wait_for_message(1)
+    assert receiver.message == bytearray.fromhex("aa")
 
 
 @pytest.mark.asyncio

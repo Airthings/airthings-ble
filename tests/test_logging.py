@@ -87,7 +87,7 @@ async def test_command_timeout_is_not_a_warning(
     ("model", "services", "partial_response"),
     [
         ("2930", lambda: [FakeService([COMMAND_UUID_WAVE_PLUS])], "6d00"),
-        ("3220", lambda: [atom_service()], "1001000345123481a2"),
+        ("3220", lambda: [atom_service()], "1002000345123481a2"),
     ],
 )
 async def test_partial_command_response_is_not_decoded(

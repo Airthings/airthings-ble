@@ -20,7 +20,7 @@ def test_atom_response_wave_enhance_latest_values(
     response = AtomResponse(
         logger=_LOGGER,
         response=buffer_type.fromhex(
-            "1001000345a1b281a2006d32393939392f302f333130313202583ea9634e4f49"
+            "0345a1b281a2006d32393939392f302f333130313202583ea9634e4f49"
             + "182763544d501972f06348554d190d2f63434f321902dc63564f43190115634c5"
             + "55801635052531a005f364663424154190b346354494d1876"
         ),
@@ -52,7 +52,7 @@ def test_atom_response_corentium_home_2_latest_values(
     response = AtomResponse(
         logger=_LOGGER,
         response=buffer_type.fromhex(
-            "1001000345CCA481A2006D32393939392F302F3331303132025831A863523234"
+            "0345CCA481A2006D32393939392F302F3331303132025831A863523234"
             + "0363523744076352333007635231591263544D501973D76348554D190D8C63424"
             + "154190B816354494D19061D"
         ),
@@ -82,7 +82,7 @@ def test_atom_response_corentium_home_2_connectivity_mode(
 
     response = AtomResponse(
         logger=_LOGGER,
-        response=buffer_type.fromhex("10010003455F9381A2006A31372F302F33313130300204"),
+        response=buffer_type.fromhex("03455F9381A2006A31372F302F33313130300204"),
         random_bytes=random_bytes,
         path=AtomRequestPath.CONNECTIVITY_MODE,
     )
@@ -110,35 +110,35 @@ def test_empty_response() -> None:
     "response,exception",
     [
         (
-            bytes.fromhex("00000003455F9381A2006A31372F302F33313130300204"),
+            bytes.fromhex("03845F9381A2006A31372F302F33313130300204"),
             "Invalid response header",
         ),
         (
-            bytes.fromhex("10010003455F9381A2006A31372F302F33313130300204"),
+            bytes.fromhex("03455F9381A2006A31372F302F33313130300204"),
             "Invalid response checksum",
         ),
         (
-            bytes.fromhex("1001000345123482A2006A31372F302F33313130300204"),
+            bytes.fromhex("0345123482A2006A31372F302F33313130300204"),
             "Invalid response type",
         ),
         (
-            bytes.fromhex("100100034512348181006A31372F302F33313130300204"),
+            bytes.fromhex("034512348181006A31372F302F33313130300204"),
             "Invalid response array length",
         ),
         (
-            bytes.fromhex("10010003451234"),
+            bytes.fromhex("03451234"),
             "Response too short",
         ),
         (
-            bytes.fromhex("1001000345123481"),
+            bytes.fromhex("0345123481"),
             "Response too short",
         ),
         (
-            bytes.fromhex("1001000345123481A2006A31372F302F333131"),
+            bytes.fromhex("0345123481A2006A31372F302F333131"),
             "Invalid CBOR data",
         ),
         (
-            bytes.fromhex("1001000345123481A2006D32393939392F302F33313031320241A1"),
+            bytes.fromhex("0345123481A2006D32393939392F302F33313031320241A1"),
             "Invalid CBOR data",
         ),
     ],
@@ -161,7 +161,7 @@ def test_atom_response_connectivity_mode_not_configured() -> None:
     """Test connectivity mode 0 is reported as not configured."""
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex("10010003455F9381A2006A31372F302F33313130300200"),
+        response=bytes.fromhex("03455F9381A2006A31372F302F33313130300200"),
         random_bytes=bytes.fromhex("5F93"),
         path=AtomRequestPath.CONNECTIVITY_MODE,
     )
@@ -175,7 +175,7 @@ def test_atom_response_connectivity_mode_not_configured() -> None:
 def test_atom_command_decode_short_response(payload: bytes) -> None:
     """Test a truncated Atom response decodes to None instead of raising."""
     decoder = AtomCommandDecode(url=AtomRequestPath.LATEST_VALUES)
-    raw_data = bytearray.fromhex("1001000345") + decoder.request.random_bytes + payload
+    raw_data = bytearray.fromhex("0345") + decoder.request.random_bytes + payload
 
     assert decoder.decode_data(logger=_LOGGER, raw_data=raw_data) is None
 
@@ -185,7 +185,7 @@ def test_atom_response_connectivity_mode_boolean(value: str) -> None:
     """Test a boolean connectivity mode is rejected instead of read as 0 or 1."""
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex(f"10010003455F9381A2006A31372F302F333131303002{value}"),
+        response=bytes.fromhex(f"03455F9381A2006A31372F302F333131303002{value}"),
         random_bytes=bytes.fromhex("5F93"),
         path=AtomRequestPath.CONNECTIVITY_MODE,
     )

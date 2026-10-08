@@ -3,13 +3,12 @@ from logging import Logger
 import cbor2
 from airthings_ble.atom.request import AtomRequestPath
 from airthings_ble.connectivity_mode import AirthingsConnectivityMode
-from airthings_ble.const import CONNECTIVITY_MODE
+from airthings_ble.const import ATOM_RESPONSE_HEADER, CONNECTIVITY_MODE
 
 
 class AtomResponse:
     """Response for Airthings BLE Atom API"""
 
-    _header = bytearray.fromhex("1001000345")
     response: bytes | bytearray
     random_bytes: bytes
     path: AtomRequestPath
@@ -36,39 +35,39 @@ class AtomResponse:
             raise ValueError("Invalid CBOR data") from err
 
     def parse(self) -> dict[str, float | str | None] | None:
-        if self.response[0:5] != self._header:
+        if self.response[0:2] != ATOM_RESPONSE_HEADER:
             self.logger.error(
                 "Invalid response header, expected %s, but got %s",
-                self._header.hex(),
-                self.response[0:5].hex(),
+                ATOM_RESPONSE_HEADER.hex(),
+                self.response[0:2].hex(),
             )
             raise ValueError("Invalid response header")
 
-        if self.response[5:7] != self.random_bytes:
+        if self.response[2:4] != self.random_bytes:
             self.logger.debug(
                 "Invalid response checksum, expected %s, but got %s",
                 self.random_bytes.hex(),
-                self.response[5:7].hex(),
+                self.response[2:4].hex(),
             )
             raise ValueError("Invalid response checksum")
 
-        if len(self.response) < 9:
+        if len(self.response) < 6:
             raise ValueError("Response too short")
 
-        if self.response[7] != 0x81:
+        if self.response[4] != 0x81:
             self.logger.debug(
-                "Invalid response type, expected 81, but got %s", self.response[7]
+                "Invalid response type, expected 81, but got %s", self.response[4]
             )
             raise ValueError("Invalid response type")
 
-        if self.response[8] != 0xA2:
+        if self.response[5] != 0xA2:
             self.logger.debug(
                 "Invalid response array length, expected 2, but got %s",
-                self.response[8],
+                self.response[5],
             )
             raise ValueError("Invalid response array length")
 
-        data_bytes = self.response[7:]
+        data_bytes = self.response[4:]
         decoded_data = self._loads(data_bytes)
 
         if not isinstance(decoded_data, list):

@@ -5,6 +5,7 @@ from uuid import UUID
 import cbor2
 import pytest
 from airthings_ble.const import (
+    ATOM_RESPONSE_HEADER,
     CHAR_UUID_FIRMWARE_REV,
     CHAR_UUID_MODEL_NUMBER_STRING,
     COMMAND_UUID_ATOM,
@@ -16,8 +17,6 @@ from bleak.backends.device import BLEDevice
 ADDRESS = "AA:BB:CC:DD:EE:FF"
 ATOM_LATEST_VALUES = {"TMP": 29424, "HUM": 3375, "BAT": 2868, "TIM": 118}
 ATOM_CONNECTIVITY_MODE_BLE = 4
-
-_ATOM_RESPONSE_HEADER = bytes.fromhex("1001000345")
 
 CALLBACK_ERRORS: list[BaseException] = []
 
@@ -36,6 +35,16 @@ def _recording_errors(
 
 
 _NOTIFICATION_INTERVAL = 0.001
+
+
+def atom_fragments(response: bytes, size: int | None = None) -> list[bytes]:
+    """Split an Atom response into notifications of at most size bytes."""
+    step = (size or len(response) + 3) - 3
+    parts = [response[start : start + step] for start in range(0, len(response), step)]
+    return [b"\x10" + len(parts).to_bytes(2, "little") + parts[0]] + [
+        b"\x00" + position.to_bytes(2, "little") + part
+        for position, part in enumerate(parts[1:], start=2)
+    ]
 
 
 class FakeCharacteristic:
@@ -145,18 +154,21 @@ class FakeClient:
         else:
             payload = ATOM_CONNECTIVITY_MODE_BLE
         response = (
-            _ATOM_RESPONSE_HEADER + random_bytes + cbor2.dumps([{0: path, 2: payload}])
+            ATOM_RESPONSE_HEADER + random_bytes + cbor2.dumps([{0: path, 2: payload}])
         )
-        self._notify(characteristic, response)
+        self._send(characteristic, atom_fragments(response, self._chunk_size))
 
     def _notify(self, characteristic: Any, response: bytes) -> None:
+        size = self._chunk_size or len(response)
+        self._send(
+            characteristic,
+            [response[start : start + size] for start in range(0, len(response), size)],
+        )
+
+    def _send(self, characteristic: Any, chunks: list[bytes]) -> None:
         assert self._callback is not None
         loop = asyncio.get_running_loop()
         callback = _recording_errors(self._callback)
-        size = self._chunk_size or len(response)
-        chunks = [
-            response[start : start + size] for start in range(0, len(response), size)
-        ]
         start_time = loop.time()
         for index, chunk in enumerate(chunks):
             loop.call_at(

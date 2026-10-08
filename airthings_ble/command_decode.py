@@ -5,7 +5,6 @@ import struct
 from logging import Logger
 from typing import Any, Optional
 
-import cbor2
 
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
@@ -198,25 +197,55 @@ class NotificationReceiver:
                 timer_handle.cancel()
 
 
-# pylint: disable-next=too-few-public-methods
 class AtomNotificationReceiver(NotificationReceiver):
-    """Receiver for an Atom response, complete once its CBOR payload is."""
+    """Receiver that reassembles an Atom response from its fragments.
 
-    _HEADER_SIZE = 7
+    Every notification starts with a three byte fragment header. In the control
+    byte, the low nibble is the fragmentation version, bit 4 marks the first
+    fragment and the top three bits identify the response. The two little-endian
+    bytes after it hold the number of fragments in the first fragment, and the
+    fragment's position, counting from one, in the others.
+    """
+
+    _FRAGMENT_HEADER_SIZE = 3
 
     def __init__(self) -> None:
-        super().__init__(message_size=self._HEADER_SIZE)
+        super().__init__(message_size=0)
+        self._fragments: dict[int, dict[int, bytes]] = {}
+        self._fragment_count = 0
+        self._object_id: int | None = None
 
     def _full_message_received(self) -> bool:
-        if self.message is None or len(self.message) < self._HEADER_SIZE:
-            return False
-        try:
-            cbor2.loads(self.message[self._HEADER_SIZE :])
-        except cbor2.CBORDecodeEOF:
-            return False
-        except cbor2.CBORError:
-            return True
-        return True
+        return self.message is not None
+
+    def __call__(self, _: Any, data: bytearray) -> None:
+        if self.message is not None or len(data) < self._FRAGMENT_HEADER_SIZE:
+            return
+        control = data[0]
+        if control & 0x0F:
+            return
+        object_id = control & 0xE0
+        if self._object_id is not None and object_id != self._object_id:
+            return
+        number = int.from_bytes(data[1:3], "little")
+        fragments = self._fragments.setdefault(object_id, {})
+        payload = bytes(data[self._FRAGMENT_HEADER_SIZE :])
+        if control & 0x10:
+            self._object_id = object_id
+            self._fragment_count = number
+            fragments[1] = payload
+        elif number > 1:
+            fragments[number] = payload
+        if self._object_id is None:
+            return
+        fragments = self._fragments[self._object_id]
+        positions = range(1, self._fragment_count + 1)
+        if positions and all(position in fragments for position in positions):
+            self.message = bytearray(
+                b"".join(fragments[position] for position in positions)
+            )
+            if not self._future.done():
+                self._future.set_result(None)
 
 
 COMMAND_DECODERS: dict[str, CommandDecode] = {
