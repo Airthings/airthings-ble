@@ -57,14 +57,15 @@ jobs:
             echo "::error::Could not check whether tag $TAG exists"
             exit 1
           fi
-          pypi=$(curl -sS -o /dev/null -w '%{http_code}' "https://pypi.org/pypi/airthings-ble/$TAG/json")
-          if [ "$pypi" = "200" ]; then
-            echo "::error::airthings-ble $TAG is already on PyPI"
-            exit 1
-          elif [ "$pypi" != "404" ]; then
-            echo "::error::Could not check PyPI for $TAG (HTTP $pypi)"
-            exit 1
-          fi
+          pip install packaging
+          python -c "
+          import json, os, urllib.request
+          from packaging.version import Version
+          releases = json.load(urllib.request.urlopen('https://pypi.org/pypi/airthings-ble/json', timeout=30))['releases']
+          latest = max(Version(v) for v in releases)
+          if Version(os.environ['TAG']) <= latest:
+            raise SystemExit(f'::error::{os.environ[\"TAG\"]} is not newer than {latest}, the latest on PyPI')
+          "
           if [[ "$TAG" =~ (a|b|rc)[0-9]+$ ]]; then
             echo "prerelease=true" >> "$GITHUB_OUTPUT"
           else
