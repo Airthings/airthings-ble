@@ -5,6 +5,7 @@ import struct
 from logging import Logger
 from typing import Any, Optional
 
+
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
@@ -21,6 +22,7 @@ class CommandDecode:
 
     cmd: bytes | bytearray = b"\x6d"
     format_type: str
+    _header_size = 2
 
     def decode_data(
         self,
@@ -48,19 +50,22 @@ class CommandDecode:
             )
             return None
 
-        if len(raw_data[2:]) != struct.calcsize(self.format_type):
+        payload = raw_data[self._header_size :]
+        if len(payload) != struct.calcsize(self.format_type):
             logger.warning(
                 "Wrong length data received (%s) versus expected (%s)",
-                len(raw_data[2:]),
+                len(payload),
                 struct.calcsize(self.format_type),
             )
             return None
 
-        return struct.unpack(self.format_type, raw_data[2:])
+        return struct.unpack(self.format_type, payload)
 
     def make_data_receiver(self) -> "NotificationReceiver":
         """Creates a notification receiver for the command."""
-        return NotificationReceiver(struct.calcsize(self.format_type))
+        return NotificationReceiver(
+            self._header_size + struct.calcsize(self.format_type)
+        )
 
 
 class WaveRadonAndPlusCommandDecode(CommandDecode):
@@ -121,6 +126,9 @@ class AtomCommandDecode(CommandDecode):
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with battery"""
+        if raw_data is None:
+            logger.debug("Validate data: No data received")
+            return None
         try:
             response = AtomResponse(
                 logger=logger,
@@ -133,6 +141,10 @@ class AtomCommandDecode(CommandDecode):
         except ValueError as err:
             logger.error("Failed to decode command response: %s", err)
             return None
+
+    def make_data_receiver(self) -> "NotificationReceiver":
+        """Creates a notification receiver for the command."""
+        return AtomNotificationReceiver()
 
 
 class NotificationReceiver:
@@ -158,8 +170,13 @@ class NotificationReceiver:
             self.message = data
         elif not self._full_message_received():
             self.message += data
-        if self._full_message_received():
+        if self._full_message_received() and not self._future.done():
             self._future.set_result(None)
+
+    @property
+    def complete(self) -> bool:
+        """Whether the full message has been received."""
+        return self._full_message_received()
 
     def _on_timeout(self) -> None:
         if not self._future.done():
@@ -178,6 +195,57 @@ class NotificationReceiver:
                 await self._future
             finally:
                 timer_handle.cancel()
+
+
+class AtomNotificationReceiver(NotificationReceiver):
+    """Receiver that reassembles an Atom response from its fragments.
+
+    Every notification starts with a three byte fragment header. In the control
+    byte, the low nibble is the fragmentation version, bit 4 marks the first
+    fragment and the top three bits identify the response. The two little-endian
+    bytes after it hold the number of fragments in the first fragment, and the
+    fragment's position, counting from one, in the others.
+    """
+
+    _FRAGMENT_HEADER_SIZE = 3
+
+    def __init__(self) -> None:
+        super().__init__(message_size=0)
+        self._fragments: dict[int, dict[int, bytes]] = {}
+        self._fragment_count = 0
+        self._object_id: int | None = None
+
+    def _full_message_received(self) -> bool:
+        return self.message is not None
+
+    def __call__(self, _: Any, data: bytearray) -> None:
+        if self.message is not None or len(data) < self._FRAGMENT_HEADER_SIZE:
+            return
+        control = data[0]
+        if control & 0x0F:
+            return
+        object_id = control & 0xE0
+        if self._object_id is not None and object_id != self._object_id:
+            return
+        number = int.from_bytes(data[1:3], "little")
+        fragments = self._fragments.setdefault(object_id, {})
+        payload = bytes(data[self._FRAGMENT_HEADER_SIZE :])
+        if control & 0x10:
+            self._object_id = object_id
+            self._fragment_count = number
+            fragments[1] = payload
+        elif number > 1:
+            fragments[number] = payload
+        if self._object_id is None:
+            return
+        fragments = self._fragments[self._object_id]
+        positions = range(1, self._fragment_count + 1)
+        if positions and all(position in fragments for position in positions):
+            self.message = bytearray(
+                b"".join(fragments[position] for position in positions)
+            )
+            if not self._future.done():
+                self._future.set_result(None)
 
 
 COMMAND_DECODERS: dict[str, CommandDecode] = {

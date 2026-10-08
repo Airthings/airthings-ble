@@ -11,6 +11,7 @@ from logging import Logger
 
 from async_interrupt import interrupt
 from bleak import BleakClient, BleakError
+from bleak.backends.characteristic import BleakGATTCharacteristic
 from bleak.backends.device import BLEDevice
 from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
@@ -73,6 +74,7 @@ from .const import (
     RADON_WEEK_LEVEL,
     RADON_YEAR_AVG,
     RADON_YEAR_LEVEL,
+    STOP_NOTIFY_TIMEOUT,
     TEMPERATURE,
     TEMPERATURE_MAX,
     TEMPERATURE_MIN,
@@ -182,6 +184,8 @@ class AirthingsBluetoothDeviceData:
         self.is_metric = is_metric
         self.device_info = AirthingsDeviceInfo()
         self.max_attempts = max_attempts
+        self._unread_device_info: set[str] = set()
+        self._warned_outdated_firmware = False
 
     def set_max_attempts(self, max_attempts: int) -> None:
         """Set the number of attempts."""
@@ -212,15 +216,20 @@ class AirthingsBluetoothDeviceData:
         self.logger.debug("Fetching device info characteristics: %s", characteristics)
 
         for characteristic in characteristics:
-            if did_first_sync and characteristic.name != "firmware_rev":
-                # Only the sw_version can change once set, so we can skip the rest.
+            if (
+                did_first_sync
+                and characteristic.name != "firmware_rev"
+                and characteristic.name not in self._unread_device_info
+            ):
                 continue
 
             try:
                 data = await client.read_gatt_char(characteristic.uuid)
             except BleakError as err:
                 self.logger.debug("Get device characteristics exception: %s", err)
+                self._unread_device_info.add(characteristic.name)
                 continue
+            self._unread_device_info.discard(characteristic.name)
             if characteristic.name == "manufacturer":
                 device_info.manufacturer = data.decode(characteristic.format)
             elif characteristic.name == "hardware_rev":
@@ -324,13 +333,21 @@ class AirthingsBluetoothDeviceData:
 
                 # Set up the notification handlers
                 await client.start_notify(characteristic, command_data_receiver)
-                # send command to this 'indicate' characteristic
-                await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
-                # Wait for up to one second to see if a callback comes in.
                 try:
-                    await command_data_receiver.wait_for_message(5)
-                except asyncio.TimeoutError:
-                    self.logger.warning("Timeout getting command data.")
+                    # send command to this 'indicate' characteristic
+                    await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
+                    # Wait for up to one second to see if a callback comes in.
+                    try:
+                        await command_data_receiver.wait_for_message(5)
+                    except asyncio.TimeoutError:
+                        self.logger.debug("Timeout getting command data.")
+                except BaseException:
+                    await self._stop_notify_after_error(client, characteristic)
+                    raise
+                await self._stop_notify(client, characteristic)
+
+                if not command_data_receiver.complete:
+                    continue
 
                 command_sensor_data = decoder.decode_data(
                     logger=self.logger, raw_data=command_data_receiver.message
@@ -348,9 +365,6 @@ class AirthingsBluetoothDeviceData:
 
                     sensors.update(new_values)
 
-                # Stop notification handler
-                await client.stop_notify(characteristic)
-
     async def _atom_sensor_data(
         self,
         client: BleakClient,
@@ -363,7 +377,8 @@ class AirthingsBluetoothDeviceData:
             self.device_info.sw_version
         )
 
-        if device.firmware.need_firmware_upgrade:
+        if device.firmware.need_firmware_upgrade and not self._warned_outdated_firmware:
+            self._warned_outdated_firmware = True
             self.logger.warning(
                 "The firmware for this device (%s) is not up to date, "
                 "please update to %s or newer using the Airthings app.",
@@ -412,22 +427,40 @@ class AirthingsBluetoothDeviceData:
             char_specifier=atom_notify, callback=command_data_receiver
         )
 
-        # send command to this 'indicate' characteristic
-        await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
-        # Wait for up to five seconds to see if a callback comes in.
         try:
-            await command_data_receiver.wait_for_message(5)
-        except asyncio.TimeoutError:
-            self.logger.warning("Timeout getting command data.")
+            # send command to this 'indicate' characteristic
+            await client.write_gatt_char(atom_write, bytearray(decoder.cmd))
+            # Wait for up to five seconds to see if a callback comes in.
+            try:
+                await command_data_receiver.wait_for_message(5)
+            except asyncio.TimeoutError:
+                self.logger.debug("Timeout getting command data.")
+        except BaseException:
+            await self._stop_notify_after_error(client, atom_notify)
+            raise
+        await self._stop_notify(client, atom_notify)
 
-        data = decoder.decode_data(
+        if not command_data_receiver.complete:
+            return None
+
+        return decoder.decode_data(
             logger=self.logger,
             raw_data=command_data_receiver.message,
         )
 
-        await client.stop_notify(atom_notify)
+    async def _stop_notify(
+        self, client: BleakClient, characteristic: BleakGATTCharacteristic
+    ) -> None:
+        async with asyncio.timeout(STOP_NOTIFY_TIMEOUT):
+            await client.stop_notify(characteristic)
 
-        return data
+    async def _stop_notify_after_error(
+        self, client: BleakClient, characteristic: BleakGATTCharacteristic
+    ) -> None:
+        try:
+            await self._stop_notify(client, characteristic)
+        except Exception as err:  # pylint: disable=broad-exception-caught
+            self.logger.debug("Failed to stop notifications: %s", err)
 
     def _parse_sensor_data(
         self,
@@ -522,6 +555,7 @@ class AirthingsBluetoothDeviceData:
         if name := ble_device.name:
             if "Renew" in name or "View" in name:
                 raise UnsupportedDeviceError(f"Model {name} is not supported")
+        timed_out = False
         for attempt in range(self.max_attempts):
             is_final_attempt = attempt == self.max_attempts - 1
             try:
@@ -536,6 +570,11 @@ class AirthingsBluetoothDeviceData:
                 if is_final_attempt:
                     raise
                 self.logger.debug("Bleak error: %s", err)
+            except TimeoutError:
+                if is_final_attempt or timed_out:
+                    raise
+                timed_out = True
+                self.logger.debug("Timeout updating %s", ble_device.address)
         raise RuntimeError("Should not reach this point")
 
     async def _update_device(self, ble_device: BLEDevice) -> AirthingsDevice:
