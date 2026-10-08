@@ -1,0 +1,17 @@
+changelog:
+  exclude:
+    labels:
+      - nochangelog
+  categories:
+    - title: Fixes
+      labels:
+        - bug
+    - title: New
+      labels:
+        - enhancement
+    - title: Dependencies
+      labels:
+        - dependencies
+    - title: Other changes
+      labels:
+        - "*"
