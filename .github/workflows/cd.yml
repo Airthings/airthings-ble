@@ -100,11 +100,15 @@ jobs:
           /tmp/wheel-test/bin/pip install dist/*.whl
           cd /tmp
           /tmp/wheel-test/bin/python -c "
-          import importlib, os, pkgutil
+          import importlib, os, pathlib
           import airthings_ble
           assert airthings_ble.__version__ == os.environ['TAG'], airthings_ble.__version__
-          for module in pkgutil.walk_packages(airthings_ble.__path__, 'airthings_ble.'):
-            importlib.import_module(module.name)
+          root = pathlib.Path(airthings_ble.__file__).parent
+          assert 'site-packages' in root.parts, root
+          for path in sorted(root.rglob('*.py')):
+            module = '.'.join(path.relative_to(root.parent).with_suffix('').parts).removesuffix('.__init__')
+            importlib.import_module(module)
+            print('imported', module)
           "
 
       - name: Commit, tag and push
