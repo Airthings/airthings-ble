@@ -1,4 +1,4 @@
-# airthings-ble
+# airthings-ble (label check test, do not merge)
 
 Library to control Airthings devices through BLE, primarily meant to be used in
 the [Home Assistant integration](https://www.home-assistant.io/integrations/airthings_ble/).
