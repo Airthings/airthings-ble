@@ -414,7 +414,7 @@ def test_parse_advertisement_data_without_battery_status(
         "wave_radon_low_charge_still_full",
         "wave_radon_stopped",
         "wave_plus_smartlink",
-        "wave_mini_smartlink_not_advertised",
+        "wave_mini_mode_not_advertised",
         "corentium_home_2",
         "uuid_only",
         "flags_not_filled_in",
