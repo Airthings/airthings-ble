@@ -8,12 +8,8 @@
     "after 4am and before 11am on the first day of the month"
   ],
   "minimumReleaseAge": "3 days",
+  "labels": ["nochangelog"],
   "packageRules": [
-    {
-      "description": "Anything not matched below stays out of the release notes.",
-      "matchPackageNames": ["*"],
-      "labels": ["nochangelog"]
-    },
     {
       "description": "Runtime dependencies reach Home Assistant users; keep them separate and in the release notes.",
       "matchManagers": ["poetry"],
