@@ -1,0 +1,67 @@
+name: PR labels
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: pr-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  release-notes-label:
+    name: Release notes label
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Set the label from the checked type of change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+          BODY: ${{ github.event.pull_request.body }}
+          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
+        run: |
+          managed="bug enhancement breaking dependencies nochangelog"
+
+          checked=""
+          while IFS= read -r line; do
+            [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]+\[[xX]\][[:space:]]+(.*[^[:space:]])[[:space:]]*$ ]] || continue
+            case "${BASH_REMATCH[1]}" in
+              "Bugfix") checked+=" bug" ;;
+              "New feature or device support") checked+=" enhancement" ;;
+              "Breaking change") checked+=" breaking" ;;
+              "Dependency upgrade") checked+=" dependencies" ;;
+              "Code quality, tests, CI or documentation") checked+=" nochangelog" ;;
+            esac
+          done < <(printf '%s\n' "$BODY" | tr -d '\r' | perl -0pe 's/<!--.*?-->//gs')
+          read -ra checked <<< "$checked"
+
+          if (( ${#checked[@]} > 1 )); then
+            echo "::error::Check only one box under Type of change"
+            exit 1
+          fi
+
+          if (( ${#checked[@]} == 0 )); then
+            if jq -e --arg managed "$managed" 'any(.[]; IN($managed | split(" ")[]))' <<< "$LABELS" > /dev/null; then
+              echo "No box checked under Type of change; keeping the existing release notes label"
+              exit 0
+            fi
+            echo "::error::Check one box under Type of change"
+            exit 1
+          fi
+
+          wanted="${checked[0]}"
+          while IFS= read -r label; do
+            if [[ "$label" != "$wanted" && " $managed " == *" $label "* ]]; then
+              gh api --method DELETE "repos/$REPO/issues/$PR/labels/$label" > /dev/null
+              echo "Removed $label"
+            fi
+          done < <(jq -r '.[]' <<< "$LABELS")
+          if ! jq -e --arg wanted "$wanted" 'index($wanted)' <<< "$LABELS" > /dev/null; then
+            gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$wanted" > /dev/null
+            echo "Added $wanted"
+          fi
