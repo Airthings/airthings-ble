@@ -9,7 +9,12 @@ _WAVE_PLUS_UUID = "b42e1c08-ade7-11e4-89d3-123b93f75cba"
 _WAVE_MINI_UUID = "b42e3882-ade7-11e4-89d3-123b93f75cba"
 _WAVE_RADON_UUID = "b42e4a8e-ade7-11e4-89d3-123b93f75cba"
 _SHARED_UUID = "b42e90a2-ade7-11e4-89d3-123b93f75cba"
-_SUPPORTED_MODEL_CODES = {"2900", "2920", "2930", "2950", "3210", "3220", "3250"}
+_EXACT_MODEL_CODES = {"2900", "2920", "2930", "2950"}
+_RANGE_PREFIXES = {
+    "321": AirthingsDeviceType.WAVE_ENHANCE_EU,
+    "322": AirthingsDeviceType.WAVE_ENHANCE_US,
+    "325": AirthingsDeviceType.CORENTIUM_HOME_2,
+}
 
 
 def _manufacturer_data(serial_number: int) -> bytes:
@@ -159,6 +164,7 @@ def test_parse_advertisement_data_ignores_everything_else(
         ("9c7ca7ae0900", AirthingsDeviceType.WAVE_PLUS),
         ("7fb754bf0000", AirthingsDeviceType.WAVE_ENHANCE_EU),
         ("eb4dedbf0000", AirthingsDeviceType.WAVE_ENHANCE_US),
+        ("394cedbf0000", AirthingsDeviceType.WAVE_ENHANCE_EU),
         ("e2416eb00000", None),
         ("969d6fb00000", None),
         ("623a9fb10000", None),
@@ -178,16 +184,19 @@ def test_parse_captured_advertisements(
 
 
 def test_parse_advertisement_data_only_classifies_supported_model_codes() -> None:
-    """Test every four-digit model code other than the supported ones is ignored."""
+    """Test Wave needs its exact model code, Wave Enhance and Corentium Home 2 their range."""
     for model_code in map(str, range(1000, 4295)):
         result = parse_advertisement_data(
             manufacturer_data=_manufacturer_data(int(f"{model_code}000123")),
             service_uuids=[_SHARED_UUID],
         )
 
-        if model_code in _SUPPORTED_MODEL_CODES:
+        if model_code in _EXACT_MODEL_CODES:
             assert result is not None, model_code
             assert result.model.value == model_code
+        elif model_code[:3] in _RANGE_PREFIXES:
+            assert result is not None, model_code
+            assert result.model is _RANGE_PREFIXES[model_code[:3]]
         else:
             assert result is None, model_code
 
