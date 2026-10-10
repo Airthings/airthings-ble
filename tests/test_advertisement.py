@@ -1,5 +1,6 @@
 import pytest
 from airthings_ble import (
+    AirthingsBatteryStatus,
     AirthingsConnectivityMode,
     AirthingsDeviceType,
     parse_advertisement_data,
@@ -314,3 +315,81 @@ def test_parse_advertisement_data_connectivity_mode_needs_serial_model(
     assert result is not None
     assert result.model is AirthingsDeviceType.WAVE_PLUS
     assert result.connectivity_mode is None
+
+
+@pytest.mark.parametrize(
+    ("serial_number", "flags", "expected"),
+    [
+        (2930022176, 0x000B, AirthingsBatteryStatus.FULL),
+        (2930022176, 0x010B, AirthingsBatteryStatus.LOW),
+        (2930022176, 0x020B, AirthingsBatteryStatus.LIMITED),
+        (2930022176, 0x030B, AirthingsBatteryStatus.STOPPED),
+        (2930022176, 0x1300, AirthingsBatteryStatus.STOPPED),
+        (2930022176, 0xFCFF, AirthingsBatteryStatus.FULL),
+        (2930022176, 0x5AA5, None),
+        (2950020534, 0x0000, AirthingsBatteryStatus.FULL),
+        (2950020534, 0x0100, AirthingsBatteryStatus.LOW),
+        (2950020534, 0x0200, AirthingsBatteryStatus.LIMITED),
+        (2950020534, 0x0300, AirthingsBatteryStatus.STOPPED),
+        (2950020534, 0x5AA5, None),
+        (2920040229, 0x0300, None),
+        (2900060343, 0x0300, None),
+        (3210000255, 0x0300, None),
+        (3220000235, 0x0300, None),
+        (3250001289, 0x0300, None),
+    ],
+)
+def test_parse_advertisement_data_battery_status(
+    serial_number: int, flags: int, expected: AirthingsBatteryStatus | None
+) -> None:
+    """Test the battery status is decoded only for the Wave Plus and Wave Radon."""
+    result = parse_advertisement_data(
+        manufacturer_data=serial_number.to_bytes(4, "little")
+        + flags.to_bytes(2, "little"),
+        service_uuids=[_SHARED_UUID],
+    )
+
+    assert result is not None
+    assert result.battery_status is expected
+
+
+@pytest.mark.parametrize(
+    ("manufacturer_data", "expected"),
+    [
+        ("2097a4ae0b00", AirthingsBatteryStatus.FULL),
+        ("9c7ca7ae0900", AirthingsBatteryStatus.FULL),
+        ("7fb754bf0000", None),
+    ],
+)
+def test_parse_captured_advertisements_battery_status(
+    manufacturer_data: str, expected: AirthingsBatteryStatus | None
+) -> None:
+    """Test the battery status of manufacturer data captured from real devices."""
+    result = parse_advertisement_data(
+        manufacturer_data=bytes.fromhex(manufacturer_data),
+        service_uuids=[_SHARED_UUID],
+    )
+
+    assert result is not None
+    assert result.battery_status is expected
+
+
+@pytest.mark.parametrize(
+    ("manufacturer_data", "service_uuids"),
+    [
+        ((2930022176).to_bytes(4, "little"), [_SHARED_UUID]),
+        ((2950020534).to_bytes(4, "little") + b"\x03", [_SHARED_UUID]),
+        (None, [_WAVE_PLUS_UUID]),
+        ((2910123456).to_bytes(4, "little") + b"\x00\x03", [_WAVE_PLUS_UUID]),
+    ],
+)
+def test_parse_advertisement_data_without_battery_status(
+    manufacturer_data: bytes | None, service_uuids: list[str]
+) -> None:
+    """Test no battery status without a flags word from a serial-identified model."""
+    result = parse_advertisement_data(
+        manufacturer_data=manufacturer_data, service_uuids=service_uuids
+    )
+
+    assert result is not None
+    assert result.battery_status is None

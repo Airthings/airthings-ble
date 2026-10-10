@@ -5,8 +5,11 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from .battery_status import AirthingsBatteryStatus
 from .connectivity_mode import AirthingsConnectivityMode
 from .const import (
+    ADVERTISEMENT_BATTERY_STATUS_MASK,
+    ADVERTISEMENT_BATTERY_STATUS_SHIFT,
     ADVERTISEMENT_FLAG_SMARTLINK,
     ADVERTISEMENT_FLAGS_UNPOPULATED,
     AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL,
@@ -18,6 +21,12 @@ _RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
     ("322", AirthingsDeviceType.WAVE_ENHANCE_US),
     ("325", AirthingsDeviceType.CORENTIUM_HOME_2),
 )
+_BATTERY_STATUSES = (
+    AirthingsBatteryStatus.FULL,
+    AirthingsBatteryStatus.LOW,
+    AirthingsBatteryStatus.LIMITED,
+    AirthingsBatteryStatus.STOPPED,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -27,6 +36,7 @@ class AirthingsAdvertisementData:
     model: AirthingsDeviceType
     serial_number: str | None = None
     connectivity_mode: AirthingsConnectivityMode | None = None
+    battery_status: AirthingsBatteryStatus | None = None
 
 
 def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
@@ -38,24 +48,36 @@ def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
     return serial_number
 
 
-def _flags(manufacturer_data: bytes | bytearray | None) -> int | None:
-    if manufacturer_data is None or len(manufacturer_data) < 6:
-        return None
-    return int.from_bytes(manufacturer_data[4:6], "little")
-
-
-def _connectivity_mode(
-    model: AirthingsDeviceType, flags: int | None
-) -> AirthingsConnectivityMode | None:
+def _flags(
+    model: AirthingsDeviceType, manufacturer_data: bytes | bytearray | None
+) -> int | None:
     if (
         model not in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
-        or flags is None
-        or flags == ADVERTISEMENT_FLAGS_UNPOPULATED
+        or manufacturer_data is None
+        or len(manufacturer_data) < 6
     ):
+        return None
+    flags = int.from_bytes(manufacturer_data[4:6], "little")
+    if flags == ADVERTISEMENT_FLAGS_UNPOPULATED:
+        return None
+    return flags
+
+
+def _connectivity_mode(flags: int | None) -> AirthingsConnectivityMode | None:
+    if flags is None:
         return None
     if flags & ADVERTISEMENT_FLAG_SMARTLINK:
         return AirthingsConnectivityMode.SMARTLINK
     return AirthingsConnectivityMode.BLE
+
+
+def _battery_status(flags: int | None) -> AirthingsBatteryStatus | None:
+    if flags is None:
+        return None
+    return _BATTERY_STATUSES[
+        (flags >> ADVERTISEMENT_BATTERY_STATUS_SHIFT)
+        & ADVERTISEMENT_BATTERY_STATUS_MASK
+    ]
 
 
 def _model_from_serial_number(serial_number: str) -> AirthingsDeviceType | None:
@@ -98,15 +120,22 @@ def parse_advertisement_data(
     identified only by service UUID, flags the device has not filled in yet, or
     data too short to carry them. None means unknown, not BLE. A SmartLink
     device should not be polled over BLE.
+
+    `battery_status` is the battery status a Wave Plus or Wave Radon advertises,
+    and None in the same cases as `connectivity_mode`. A device advertising
+    STOPPED has been seen refusing BLE connections. The status is coarse: FULL
+    has been seen down to a few percent, so it is not a battery level.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
         model := _model_from_serial_number(serial_number)
     ):
+        flags = _flags(model, manufacturer_data)
         return AirthingsAdvertisementData(
             model=model,
             serial_number=serial_number,
-            connectivity_mode=_connectivity_mode(model, _flags(manufacturer_data)),
+            connectivity_mode=_connectivity_mode(flags),
+            battery_status=_battery_status(flags),
         )
     if model := _model_from_service_uuids(service_uuids):
         return AirthingsAdvertisementData(model=model, serial_number=serial_number)
