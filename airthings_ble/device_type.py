@@ -35,12 +35,17 @@ class AirthingsDeviceType(Enum):
         ]
 
     @classmethod
+    def from_model_code(cls, model_code: str) -> "AirthingsDeviceType | None":
+        """Get the supported device type for an exact model code."""
+        for device_type in cls:
+            if device_type.value == model_code and device_type is not cls.UNKNOWN:
+                return device_type
+        return None
+
+    @classmethod
     def from_raw_value(cls, value: str) -> "AirthingsDeviceType":
         """Get device type from raw value."""
-        for device_type in cls:
-            if device_type.value == value:
-                return device_type
-        return AirthingsDeviceType.UNKNOWN
+        return cls.from_model_code(value) or AirthingsDeviceType.UNKNOWN
 
     @property
     # pylint: disable=too-many-return-statements
