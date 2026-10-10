@@ -14,8 +14,8 @@ _RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
     ("322", AirthingsDeviceType.WAVE_ENHANCE_US),
     ("325", AirthingsDeviceType.CORENTIUM_HOME_2),
 )
-_GRIFFIN_MODELS = (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
-_MERLIN_MODELS = (AirthingsDeviceType.WAVE_MINI,)
+_WAVE_PLUS_AND_RADON = (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
+_WAVE_MINI = (AirthingsDeviceType.WAVE_MINI,)
 _UNPOPULATED_FLAGS = 0x5AA5
 _SMARTLINK_FLAG = 1 << 12
 
@@ -49,10 +49,10 @@ def _connectivity_mode(
 ) -> AirthingsConnectivityMode | None:
     if flags is None:
         return None
-    if model in _GRIFFIN_MODELS:
+    if model in _WAVE_PLUS_AND_RADON:
         if flags == _UNPOPULATED_FLAGS:
             return None
-    elif model in _MERLIN_MODELS:
+    elif model in _WAVE_MINI:
         if flags >> 14:
             return None
     else:
@@ -98,10 +98,11 @@ def parse_advertisement_data(
 
     `connectivity_mode` is SMARTLINK when a Wave Plus, Wave Radon or Wave Mini
     advertises that it is connected to an Airthings hub, BLE when it advertises
-    that it is not, and None when the advertisement does not say (other models,
-    a model identified only by service UUID, or a Wave Mini firmware without hub
-    support). Do not poll a SmartLink device over BLE: Airthings' own app only
-    connects to one for pairing and settings.
+    that it is not, and None when the advertisement does not say: other models,
+    a model identified only by service UUID, a Wave Mini firmware without hub
+    support, flags the device has not filled in yet, or data too short to carry
+    them. None means unknown, not BLE. Do not poll a SmartLink device over BLE:
+    Airthings' own app only connects to one for pairing and settings.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
