@@ -4,10 +4,12 @@ import pytest
 from airthings_ble.command_decode import WaveMiniCommandDecode
 from airthings_ble.const import (
     BATTERY,
+    BLE_VERSION,
     CHAR_UUID_WAVEMINI_DATA,
     HUMIDITY,
     ILLUMINANCE,
     PRESSURE,
+    SUB_VERSION,
     TEMPERATURE,
     VOC,
 )
@@ -24,7 +26,7 @@ def test_wave_mini_command_decode() -> None:
         raw_data=bytearray.fromhex(
             "6d0064000000c800000001020304f4015802bc02000020038403b80b4c04b0040000"
         ),
-    ) == {BATTERY: 3.0}
+    ) == {BATTERY: 3.0, BLE_VERSION: "0.0.0", SUB_VERSION: None}
 
 
 def test_wave_mini_sensor_data() -> None:

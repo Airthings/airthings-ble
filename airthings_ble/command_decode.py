@@ -5,16 +5,38 @@ import struct
 from logging import Logger
 from typing import Any, Optional
 
-
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
 from airthings_ble.const import (
     BATTERY,
+    BLE_VERSION,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    MSP_VERSION,
+    SUB_VERSION,
 )
+
+_GRIFFIN_WAVE_PLUS = 2
+_GRIFFIN_DATE_CODED_MSP_VERSIONS = (0x0798, 0x1E98, 0x03C8, 0x04C8)
+_MERLIN_SUB_VERSION_REPORTED = 0x8000
+
+
+def _griffin_msp_version(device_type: int, raw: int) -> str | None:
+    """Decode the 16-bit MSP version of a Wave Plus or Wave Radon."""
+    if raw == 0xFFFF:
+        return None
+    if device_type == _GRIFFIN_WAVE_PLUS and raw in _GRIFFIN_DATE_CODED_MSP_VERSIONS:
+        return f"{2010 + (raw & 0x0F)}-{(raw >> 4) & 0x0F:02d}-{raw >> 8:02d}"
+    return f"{raw >> 14}.{(raw >> 8) & 0x3F}.{(raw >> 6) & 0x03}"
+
+
+def _semantic_version(raw: int) -> str | None:
+    """Decode a 32-bit major.minor.patch.build version."""
+    if raw == 0xFFFFFFFF:
+        return None
+    return f"{raw >> 24}.{(raw >> 16) & 0xFF}.{(raw >> 8) & 0xFF}"
 
 
 class CommandDecode:
@@ -78,11 +100,12 @@ class WaveRadonAndPlusCommandDecode(CommandDecode):
     def decode_data(
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
+        """Decoder returns dict with battery and chip versions"""
 
         if val := self.validate_data(logger, raw_data):
-            res = {}
+            res: dict[str, float | str | None] = {}
             res[BATTERY] = val[13] / 1000.0
+            res[MSP_VERSION] = _griffin_msp_version(device_type=val[1], raw=val[3])
             return res
 
         return None
@@ -98,12 +121,17 @@ class WaveMiniCommandDecode(CommandDecode):
     def decode_data(
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
+        """Decoder returns dict with battery and chip versions"""
 
         if val := self.validate_data(logger, raw_data):
-            res = {}
+            res: dict[str, float | str | None] = {}
             res[BATTERY] = val[11] / 1000.0
-
+            res[BLE_VERSION] = _semantic_version(val[1])
+            res[SUB_VERSION] = (
+                _semantic_version(val[8])
+                if val[12] & _MERLIN_SUB_VERSION_REPORTED
+                else None
+            )
             return res
 
         return None

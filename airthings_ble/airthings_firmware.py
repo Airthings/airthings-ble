@@ -1,6 +1,25 @@
 """Airthings firmware version handling."""
 
+import dataclasses
 import re
+
+_BLE_REVISION = re.compile(r"^[A-Z]-BLE-(\d+\.\d+\.\d+)(?:-|$)")
+
+
+@dataclasses.dataclass(frozen=True)
+class AirthingsChipVersions:
+    """Firmware version of each chip in the device, None when not reported."""
+
+    ble: str | None = None
+    msp: str | None = None
+    sub: str | None = None
+
+
+def ble_version_from_revision(revision: str) -> str | None:
+    """Extract the BLE chip version from a firmware revision string."""
+    if match_obj := _BLE_REVISION.match(revision):
+        return match_obj.group(1)
+    return None
 
 
 class AirthingsFirmwareVersion:

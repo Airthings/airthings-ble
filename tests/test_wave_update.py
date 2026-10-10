@@ -3,7 +3,12 @@ from typing import Any
 from uuid import UUID
 
 import pytest
-from airthings_ble import AirthingsBluetoothDeviceData, AirthingsDeviceType
+from airthings_ble import (
+    AirthingsBluetoothDeviceData,
+    AirthingsChipVersions,
+    AirthingsDeviceType,
+)
+from airthings_ble.command_decode import COMMAND_DECODERS, CommandDecode
 from airthings_ble.const import (
     CHAR_UUID_DATETIME,
     CHAR_UUID_HARDWARE_REV,
@@ -18,6 +23,7 @@ from airthings_ble.const import (
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    MSP_VERSION,
 )
 
 from fakes import FakeClient, FakeService, ble_device, device_info_gatt, use_clients
@@ -40,9 +46,10 @@ def _wave_client(
     data: str,
     command_uuid: UUID,
     command: str,
+    firmware: str = "G-BLE-1.5.3-master+0",
     **kwargs: Any,
 ) -> FakeClient:
-    gatt = device_info_gatt(model, "G-BLE-1.5.3-master+0")
+    gatt = device_info_gatt(model, firmware)
     gatt[data_uuid] = bytes.fromhex(data)
     return FakeClient(
         gatt,
@@ -83,6 +90,8 @@ async def test_wave_plus_update(monkeypatch: pytest.MonkeyPatch) -> None:
         "voc": 108.0,
         "battery": 100,
     }
+    assert device.sw_version == "G-BLE-1.5.3-master+0"
+    assert device.chip_versions == AirthingsChipVersions(ble="1.5.3", msp="2.2.0")
 
 
 @pytest.mark.asyncio
@@ -113,6 +122,7 @@ async def test_wave_radon_update(monkeypatch: pytest.MonkeyPatch) -> None:
         "temperature": 24.71,
         "battery": 100,
     }
+    assert device.chip_versions == AirthingsChipVersions(ble="1.5.3", msp="2.2.0")
 
 
 @pytest.mark.asyncio
@@ -141,6 +151,40 @@ async def test_wave_mini_update(monkeypatch: pytest.MonkeyPatch) -> None:
         "voc": 46.0,
         "battery": 15,
     }
+    assert device.chip_versions == AirthingsChipVersions(ble="1.5.3")
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("firmware", "ble_version"),
+    [
+        pytest.param("M-BLE-2.4.0-master+0", "2.4.0", id="from_firmware_revision"),
+        pytest.param("2.4.9", "2.4.9", id="from_self_check"),
+    ],
+)
+async def test_wave_mini_chip_versions(
+    monkeypatch: pytest.MonkeyPatch, firmware: str, ble_version: str
+) -> None:
+    """Test a Wave Mini reports its BLE and SUB versions."""
+    use_clients(
+        monkeypatch,
+        _wave_client(
+            "2920",
+            CHAR_UUID_WAVEMINI_DATA,
+            _WAVE_MINI_DATA,
+            COMMAND_UUID_WAVE_MINI,
+            "6d0064000000070904020102030"
+            "4f401580200020202200384"
+            "03b80b4cc4b0040000",
+            firmware=firmware,
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    device = await data.update_device(ble_device())
+
+    assert device.sw_version == firmware
+    assert device.chip_versions == AirthingsChipVersions(ble=ble_version, sub="2.2.2")
 
 
 @pytest.mark.asyncio
@@ -218,6 +262,7 @@ async def test_wave_gen_1_update(
         "illuminance": 69,
         "accelerometer": "12.0",
     }
+    assert device.chip_versions == AirthingsChipVersions()
 
 
 @pytest.mark.asyncio
@@ -280,6 +325,7 @@ async def test_wave_command_timeout_keeps_sensor_data(
 
     assert "Timeout getting command data" in caplog.text
     assert "battery" not in device.sensors
+    assert device.chip_versions == AirthingsChipVersions(ble="1.5.3")
     assert device.sensors["co2"] == 797.0
     assert not client.notifying
 
@@ -322,3 +368,39 @@ async def test_rejected_wave_command_response_gives_no_battery(
     assert message in caplog.text
     assert "battery" not in device.sensors
     assert device.sensors["co2"] == 797.0
+    assert device.chip_versions == AirthingsChipVersions(ble="1.5.3")
+
+
+@pytest.mark.asyncio
+async def test_command_response_without_battery(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test a command response without a battery reading still sets chip versions."""
+    monkeypatch.setitem(
+        COMMAND_DECODERS, str(COMMAND_UUID_WAVE_PLUS), _NoBatteryCommandDecode()
+    )
+    use_clients(
+        monkeypatch,
+        _wave_client(
+            "2930",
+            CHAR_UUID_WAVE_PLUS_DATA,
+            _WAVE_PLUS_DATA,
+            COMMAND_UUID_WAVE_PLUS,
+            _WAVE_PLUS_COMMAND,
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    device = await data.update_device(ble_device())
+
+    assert "battery" not in device.sensors
+    assert device.chip_versions == AirthingsChipVersions(ble="1.5.3", msp="2.2.0")
+
+
+class _NoBatteryCommandDecode(CommandDecode):
+    format_type = "<L2BH2B9H"
+
+    def decode_data(
+        self, logger: logging.Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
+        return {MSP_VERSION: "2.2.0"}

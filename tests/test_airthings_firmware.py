@@ -1,4 +1,7 @@
-from airthings_ble.airthings_firmware import AirthingsFirmwareVersion
+from airthings_ble.airthings_firmware import (
+    AirthingsFirmwareVersion,
+    ble_version_from_revision,
+)
 from pytest import mark
 
 
@@ -68,3 +71,20 @@ def test_airthings_firmware_invalid_required_version() -> None:
     assert fw.need_firmware_upgrade is False
     assert fw.current_version == (1, 0, 1)
     assert fw.required_version is None
+
+
+@mark.parametrize(
+    ("revision", "version"),
+    [
+        ("G-BLE-2.4.0-master+0", "2.4.0"),
+        ("G-BLE-1.0.0", "1.0.0"),
+        ("G-BLE-1.10.12-beta+001", "1.10.12"),
+        ("T-SUB-2.6.0-master+0", None),
+        ("G-MSP-1.0.0", None),
+        ("G-BLE-1.0.0.1", None),
+        ("1.0.0", None),
+        ("", None),
+    ],
+)
+def test_ble_version_from_revision(revision: str, version: str | None) -> None:
+    assert ble_version_from_revision(revision) == version

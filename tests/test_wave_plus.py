@@ -8,6 +8,7 @@ from airthings_ble.const import (
     CO2,
     HUMIDITY,
     ILLUMINANCE,
+    MSP_VERSION,
     PRESSURE,
     RADON_1DAY_AVG,
     RADON_LONGTERM_AVG,
@@ -27,7 +28,7 @@ def test_wave_plus_command_decode() -> None:
         raw_data=bytearray.fromhex(
             "6d00600c04000100008211ff00000000c04c20001f3560007006B80B0900"
         ),
-    ) == {BATTERY: 3.0}
+    ) == {BATTERY: 3.0, MSP_VERSION: "2.2.0"}
 
 
 def test_wave_plus_sensor_data() -> None:
