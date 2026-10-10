@@ -32,10 +32,26 @@ def test_parse_advertisement_data_ignores_invalid_serial_shape() -> None:
     result = parse_advertisement_data(
         local_name=None,
         manufacturer_data=b"\x01\x02\x03\x04\x00\x00",
-        service_uuids=[AIRTHINGS_SHARED_SERVICE_UUID],
+        service_uuids=None,
     )
 
     assert result is None
+
+
+@pytest.mark.parametrize("manufacturer_data", [None, b"", b"\x01", b"\x01\x02\x03\x04"])
+def test_parse_advertisement_data_shared_uuid_without_serial_is_unknown(
+    manufacturer_data: bytes | None,
+) -> None:
+    """Test the shared service UUID alone marks an unclassified Airthings device."""
+    result = parse_advertisement_data(
+        local_name=None,
+        manufacturer_data=manufacturer_data,
+        service_uuids=[AIRTHINGS_SHARED_SERVICE_UUID],
+    )
+
+    assert result is not None
+    assert result.serial_number is None
+    assert result.unknown is True
 
 
 def test_parse_supported_advertisement_data_from_serial_number() -> None:
@@ -158,14 +174,14 @@ def test_parse_advertisement_data_keeps_unlisted_ranges_unknown() -> None:
     """Test a serial range that is not listed stays unknown, not unsupported."""
     result = parse_advertisement_data(
         local_name="Airthings Tern CO2",
-        manufacturer_data=_manufacturer_data(3110002645),
+        manufacturer_data=_manufacturer_data(3300002645),
         service_uuids=[AIRTHINGS_SHARED_SERVICE_UUID],
     )
 
     assert result is not None
     assert result.model is None
-    assert result.serial_number == "3110002645"
-    assert result.model_code == "3110"
+    assert result.serial_number == "3300002645"
+    assert result.model_code == "3300"
     assert result.unsupported_name is None
     assert result.known_unsupported is False
     assert result.unknown is True
@@ -196,7 +212,7 @@ def test_parse_supported_advertisement_data_from_unique_service_uuid() -> None:
     assert result is not None
     assert result.model is AirthingsDeviceType.WAVE_PLUS
     assert result.serial_number is None
-    assert result.model_code is None
+    assert result.model_code == "2930"
     assert result.unsupported_name is None
     assert result.known_unsupported is False
     assert result.unknown is False
@@ -230,7 +246,7 @@ def test_parse_advertisement_data_unique_uuid_wins_for_unknown_serial() -> None:
     assert result is not None
     assert result.model is AirthingsDeviceType.WAVE_MINI
     assert result.serial_number == "3990123456"
-    assert result.model_code == "3990"
+    assert result.model_code == "2920"
     assert result.unsupported_name is None
     assert result.known_unsupported is False
     assert result.unknown is False
@@ -357,16 +373,14 @@ def test_parse_advertisement_data_ignores_other_brands_named_view() -> None:
     assert result is None
 
 
-_SUPPORTED_MODEL_CODES = {"2900", "2920", "2930", "2950", "3210", "3220", "3250"}
+_SUPPORTED_PREFIXES = ("2900", "2920", "2930", "2950", "3210", "3220", "3250")
 _UNSUPPORTED_PREFIXES = ("2960", "2980", "2989", "281", "282", "410")
 
 
 def test_parse_advertisement_data_never_classifies_other_serial_ranges() -> None:
     """Test every other serial range is unknown, never a model or unsupported."""
     for model_code in map(str, range(2000, 4295)):
-        if model_code in _SUPPORTED_MODEL_CODES or model_code.startswith(
-            _UNSUPPORTED_PREFIXES
-        ):
+        if model_code.startswith(_SUPPORTED_PREFIXES + _UNSUPPORTED_PREFIXES):
             continue
         result = parse_advertisement_data(
             local_name="Airthings device",
@@ -378,3 +392,94 @@ def test_parse_advertisement_data_never_classifies_other_serial_ranges() -> None
         assert result.model is None, model_code
         assert result.known_unsupported is False, model_code
         assert result.unknown is True, model_code
+
+
+@pytest.mark.parametrize(
+    ("serial_number", "expected"),
+    [
+        (2900060343, AirthingsDeviceType.WAVE_GEN_1),
+        (2920040229, AirthingsDeviceType.WAVE_MINI),
+        (2950020534, AirthingsDeviceType.WAVE_RADON),
+        (3210000255, AirthingsDeviceType.WAVE_ENHANCE_EU),
+        (3220000235, AirthingsDeviceType.WAVE_ENHANCE_US),
+        (3250001289, AirthingsDeviceType.CORENTIUM_HOME_2),
+    ],
+)
+def test_parse_advertisement_data_maps_model_codes(
+    serial_number: int, expected: AirthingsDeviceType
+) -> None:
+    """Test each supported model code maps to its model and model code."""
+    result = parse_advertisement_data(
+        local_name=None,
+        manufacturer_data=_manufacturer_data(serial_number),
+        service_uuids=None,
+    )
+
+    assert result is not None
+    assert result.model is expected
+    assert result.model_code == expected.value
+
+
+@pytest.mark.parametrize(
+    ("serial_number", "service_uuids", "expected"),
+    [
+        (2810123456, ["b42e77de-ade7-11e4-89d3-123b93f75cba"], "Hub"),
+        (2820123456, None, "Hub"),
+        (2960123456, None, "View Plus"),
+        (2980123456, None, "View Pollution"),
+        (2989123456, None, "View Radon"),
+        (4100123456, None, "Renew"),
+    ],
+)
+def test_parse_advertisement_data_unsupported_serial_without_shared_uuid(
+    serial_number: int, service_uuids: list[str] | None, expected: str
+) -> None:
+    """Test an unsupported serial range is recognised whatever UUIDs are advertised."""
+    result = parse_advertisement_data(
+        local_name=None,
+        manufacturer_data=_manufacturer_data(serial_number),
+        service_uuids=service_uuids,
+    )
+
+    assert result is not None
+    assert result.known_unsupported is True
+    assert result.unsupported_name == expected
+
+
+def test_parse_advertisement_data_unique_uuid_wins_over_unsupported_name() -> None:
+    """Test a supported model's unique UUID beats a name that looks unsupported."""
+    result = parse_advertisement_data(
+        local_name="View from the kitchen",
+        manufacturer_data=b"",
+        service_uuids=[_WAVE_PLUS_UUID, AIRTHINGS_SHARED_SERVICE_UUID],
+    )
+
+    assert result is not None
+    assert result.model is AirthingsDeviceType.WAVE_PLUS
+    assert result.known_unsupported is False
+
+
+def test_parse_advertisement_data_name_needs_shared_uuid() -> None:
+    """Test the unsupported-name fallback is not applied without the shared UUID."""
+    result = parse_advertisement_data(
+        local_name="Airthings View Plus",
+        manufacturer_data=b"\x01\x02",
+        service_uuids=None,
+    )
+
+    assert result is None
+
+
+@pytest.mark.parametrize("serial_number", [2988123456, 2931123456, 2961123456])
+def test_parse_advertisement_data_other_four_digit_codes_are_unknown(
+    serial_number: int,
+) -> None:
+    """Test Wave and View serials outside their exact model codes stay unknown."""
+    result = parse_advertisement_data(
+        local_name=None,
+        manufacturer_data=_manufacturer_data(serial_number),
+        service_uuids=[AIRTHINGS_SHARED_SERVICE_UUID],
+    )
+
+    assert result is not None
+    assert result.unknown is True
