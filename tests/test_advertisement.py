@@ -1,5 +1,6 @@
 import pytest
 from airthings_ble import (
+    AirthingsConnectivityMode,
     AirthingsDeviceType,
     parse_advertisement_data,
 )
@@ -214,3 +215,96 @@ def test_parse_advertisement_data_only_classifies_supported_model_codes() -> Non
 def test_from_model_code(model_code: str, expected: AirthingsDeviceType | None) -> None:
     """Test model code lookup never returns UNKNOWN."""
     assert AirthingsDeviceType.from_model_code(model_code) is expected
+
+
+@pytest.mark.parametrize(
+    ("serial_number", "flags", "expected"),
+    [
+        (2930022176, 0x000B, AirthingsConnectivityMode.BLE),
+        (2930022176, 0x100B, AirthingsConnectivityMode.SMARTLINK),
+        (2930022176, 0x5AA5, None),
+        (2950020534, 0x0000, AirthingsConnectivityMode.BLE),
+        (2950020534, 0x1000, AirthingsConnectivityMode.SMARTLINK),
+        (2950020534, 0xF000, AirthingsConnectivityMode.SMARTLINK),
+        (2950020534, 0x5AA5, None),
+        (2920040229, 0x0000, AirthingsConnectivityMode.BLE),
+        (2920040229, 0x1000, AirthingsConnectivityMode.SMARTLINK),
+        (2920040229, 0x4000, None),
+        (2920040229, 0x5000, None),
+        (2920040229, 0x8000, None),
+        (2920040229, 0x5AA5, None),
+        (2900060343, 0x1000, None),
+        (3210000255, 0x1000, None),
+        (3220000235, 0x1000, None),
+        (3250001289, 0x1000, None),
+    ],
+)
+def test_parse_advertisement_data_connectivity_mode(
+    serial_number: int, flags: int, expected: AirthingsConnectivityMode | None
+) -> None:
+    """Test the hub connected flag is decoded only where the model advertises it."""
+    result = parse_advertisement_data(
+        manufacturer_data=serial_number.to_bytes(4, "little")
+        + flags.to_bytes(2, "little"),
+        service_uuids=[_SHARED_UUID],
+    )
+
+    assert result is not None
+    assert result.connectivity_mode is expected
+
+
+@pytest.mark.parametrize(
+    ("manufacturer_data", "expected"),
+    [
+        ("2097a4ae0b00", AirthingsConnectivityMode.BLE),
+        ("9c7ca7ae0900", AirthingsConnectivityMode.BLE),
+        ("7fb754bf0000", None),
+        ("eb4dedbf0000", None),
+    ],
+)
+def test_parse_captured_advertisements_connectivity_mode(
+    manufacturer_data: str, expected: AirthingsConnectivityMode | None
+) -> None:
+    """Test the connectivity mode of manufacturer data captured from real devices."""
+    result = parse_advertisement_data(
+        manufacturer_data=bytes.fromhex(manufacturer_data),
+        service_uuids=[_SHARED_UUID],
+    )
+
+    assert result is not None
+    assert result.connectivity_mode is expected
+
+
+@pytest.mark.parametrize(
+    "manufacturer_data",
+    [
+        (2930022176).to_bytes(4, "little"),
+        (2930022176).to_bytes(4, "little") + b"\x00",
+        (2920040229).to_bytes(4, "little") + b"\x00",
+    ],
+)
+def test_parse_advertisement_data_without_flags(manufacturer_data: bytes) -> None:
+    """Test manufacturer data too short for the flags word has no connectivity mode."""
+    result = parse_advertisement_data(
+        manufacturer_data=manufacturer_data, service_uuids=[_SHARED_UUID]
+    )
+
+    assert result is not None
+    assert result.connectivity_mode is None
+
+
+@pytest.mark.parametrize(
+    "manufacturer_data",
+    [None, (2910123456).to_bytes(4, "little") + b"\x00\x10"],
+)
+def test_parse_advertisement_data_connectivity_mode_needs_serial_model(
+    manufacturer_data: bytes | None,
+) -> None:
+    """Test a model identified only by service UUID has no connectivity mode."""
+    result = parse_advertisement_data(
+        manufacturer_data=manufacturer_data, service_uuids=[_WAVE_PLUS_UUID]
+    )
+
+    assert result is not None
+    assert result.model is AirthingsDeviceType.WAVE_PLUS
+    assert result.connectivity_mode is None
