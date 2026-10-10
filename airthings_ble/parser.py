@@ -201,7 +201,8 @@ class AirthingsBluetoothDeviceData:
         self.is_metric = is_metric
         self.device_info = AirthingsDeviceInfo()
         self._self_check_versions: dict[AirthingsChip, str] = {}
-        self._sub_chip_version: tuple[str, str] | None = None
+        self._sub_chip_version: str | None = None
+        self._sub_chip_version_sw_version: str | None = None
         self.max_attempts = max_attempts
         self._unread_device_info: set[str] = set()
         self._warned_outdated_firmware = False
@@ -288,23 +289,23 @@ class AirthingsBluetoothDeviceData:
 
     def _chip_versions(self) -> dict[AirthingsChip, str]:
         versions = dict(self._self_check_versions)
-        if sub := self._cached_sub_chip_version():
-            versions[AirthingsChip.SUB] = sub
+        if (
+            self._sub_chip_version
+            and self._sub_chip_version_sw_version == self.device_info.sw_version
+        ):
+            versions[AirthingsChip.SUB] = self._sub_chip_version
         if ble := ble_version_from_revision(self.device_info.sw_version):
             versions[AirthingsChip.BLE] = ble
         return versions
-
-    def _cached_sub_chip_version(self) -> str | None:
-        if self._sub_chip_version is None:
-            return None
-        sw_version, version = self._sub_chip_version
-        return version if sw_version == self.device_info.sw_version else None
 
     async def _read_sub_chip_version(
         self, client: BleakClient, characteristic: BleakGATTCharacteristic
     ) -> None:
         sw_version = self.device_info.sw_version
-        if self._cached_sub_chip_version() or not supports_sub_chip_version(sw_version):
+        if (
+            self._sub_chip_version_sw_version == sw_version
+            or not supports_sub_chip_version(sw_version)
+        ):
             return
         decoder = SubChipVersionCommandDecode()
         receiver = decoder.make_data_receiver()
@@ -321,8 +322,10 @@ class AirthingsBluetoothDeviceData:
             self.logger.debug("Failed to read the SUB chip version: %r", err)
             return
         result = decoder.decode_data(logger=self.logger, raw_data=receiver.message)
-        if result and isinstance(version := result.get(AirthingsChip.SUB), str):
-            self._sub_chip_version = (sw_version, version)
+        if result is not None:
+            version = result.get(AirthingsChip.SUB)
+            self._sub_chip_version = version if isinstance(version, str) else None
+            self._sub_chip_version_sw_version = sw_version
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice

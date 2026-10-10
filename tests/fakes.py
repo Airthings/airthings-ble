@@ -88,7 +88,9 @@ class FakeClient:
         silent_commands: bool = False,
         read_error: BleakError | None = None,
         disconnect_on_read: UUID | None = None,
-        sub_chip_version_response: bytes | None = SUB_CHIP_VERSION_RESPONSE,
+        sub_chip_version_response: bytes | list[bytes] | None = (
+            SUB_CHIP_VERSION_RESPONSE
+        ),
         sub_chip_version_error: Exception | None = None,
     ) -> None:
         self.address = ADDRESS
@@ -194,8 +196,11 @@ class FakeClient:
         elif data == SUB_CHIP_VERSION_REQUEST:
             if self._sub_chip_version_error is not None:
                 raise self._sub_chip_version_error
-            if self._sub_chip_version_response is not None:
-                self._notify(characteristic, self._sub_chip_version_response)
+            response = self._sub_chip_version_response
+            if isinstance(response, list):
+                self._send(characteristic, response)
+            elif response is not None:
+                self._notify(characteristic, response)
             return
         else:
             assert data == b"\x6d", f"malformed Wave command {data.hex()}"
