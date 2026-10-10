@@ -23,9 +23,9 @@ jobs:
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
           BODY: ${{ github.event.pull_request.body }}
-          LABELS: ${{ toJSON(github.event.pull_request.labels.*.name) }}
         run: |
           managed="bug enhancement breaking dependencies nochangelog"
+          current_labels() { gh api "repos/$REPO/issues/$PR/labels" --jq '[.[].name]'; }
 
           checked=""
           while IFS= read -r line; do
@@ -45,23 +45,31 @@ jobs:
             exit 1
           fi
 
+          labels=$(current_labels)
+
           if (( ${#checked[@]} == 0 )); then
-            if jq -e --arg managed "$managed" 'any(.[]; IN($managed | split(" ")[]))' <<< "$LABELS" > /dev/null; then
+            if ! jq -e --arg managed "$managed" 'any(.[]; IN($managed | split(" ")[]))' <<< "$labels" > /dev/null; then
+              sleep 10
+              labels=$(current_labels)
+            fi
+            if jq -e --arg managed "$managed" 'any(.[]; IN($managed | split(" ")[]))' <<< "$labels" > /dev/null; then
               echo "No box checked under Type of change; keeping the existing release notes label"
               exit 0
             fi
-            echo "::error::Check one box under Type of change"
+            echo "::error::Check one box under Type of change, and keep the text of the options unchanged"
             exit 1
           fi
 
           wanted="${checked[0]}"
           while IFS= read -r label; do
             if [[ "$label" != "$wanted" && " $managed " == *" $label "* ]]; then
-              gh api --method DELETE "repos/$REPO/issues/$PR/labels/$label" > /dev/null
+              if ! error=$(gh api --method DELETE "repos/$REPO/issues/$PR/labels/$label" 2>&1 > /dev/null); then
+                [[ "$error" == *"HTTP 404"* ]] || { echo "$error"; exit 1; }
+              fi
               echo "Removed $label"
             fi
-          done < <(jq -r '.[]' <<< "$LABELS")
-          if ! jq -e --arg wanted "$wanted" 'index($wanted)' <<< "$LABELS" > /dev/null; then
+          done < <(jq -r '.[]' <<< "$labels")
+          if ! jq -e --arg wanted "$wanted" 'index($wanted)' <<< "$labels" > /dev/null; then
             gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$wanted" > /dev/null
             echo "Added $wanted"
           fi
