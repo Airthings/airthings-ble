@@ -387,6 +387,59 @@ def _wave_mini_self_check(ble_version: str, sub_version: str) -> str:
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("command", "silent"),
+    [
+        pytest.param(
+            _wave_mini_self_check("07090402", "00020202"),
+            True,
+            id="timeout",
+            marks=pytest.mark.command_timeout,
+        ),
+        pytest.param(
+            "6e" + _wave_mini_self_check("07090402", "00020202")[2:],
+            False,
+            id="rejected_response",
+        ),
+    ],
+)
+async def test_wave_mini_failed_self_check_keeps_cached_versions(
+    monkeypatch: pytest.MonkeyPatch, command: str, silent: bool
+) -> None:
+    """Test a Wave Mini keeps its self-check BLE and SUB versions after a failure."""
+    monkeypatch.setattr("airthings_ble.parser.COMMAND_TIMEOUT", 0.01)
+    use_clients(
+        monkeypatch,
+        _wave_client(
+            "2920",
+            CHAR_UUID_WAVEMINI_DATA,
+            _WAVE_MINI_DATA,
+            COMMAND_UUID_WAVE_MINI,
+            _wave_mini_self_check("07090402", "00020202"),
+            firmware="unknown",
+        ),
+        _wave_client(
+            "2920",
+            CHAR_UUID_WAVEMINI_DATA,
+            _WAVE_MINI_DATA,
+            COMMAND_UUID_WAVE_MINI,
+            command,
+            firmware="unknown",
+            silent_commands=silent,
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    first = await data.update_device(ble_device())
+    second = await data.update_device(ble_device())
+
+    expected = AirthingsChipVersions(ble="2.4.9", sub="2.2.2")
+    assert first.chip_versions == expected
+    assert "battery" not in second.sensors
+    assert second.chip_versions == expected
+
+
+@pytest.mark.asyncio
 async def test_self_check_clears_unset_sub_version(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

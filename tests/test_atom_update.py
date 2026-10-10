@@ -2,7 +2,11 @@ import logging
 from typing import Any
 
 import pytest
-from airthings_ble import AirthingsBluetoothDeviceData, AirthingsDeviceType
+from airthings_ble import (
+    AirthingsBluetoothDeviceData,
+    AirthingsChipVersions,
+    AirthingsDeviceType,
+)
 from airthings_ble.const import COMMAND_UUID_ATOM
 
 from fakes import (
@@ -78,6 +82,7 @@ async def test_wave_enhance_update(
     assert device.friendly_name() == "Airthings Wave Enhance"
     assert device.firmware.need_firmware_upgrade is False
     assert device.sensors == _WAVE_ENHANCE_SENSORS
+    assert device.chip_versions == AirthingsChipVersions()
 
 
 @pytest.mark.asyncio
@@ -120,6 +125,7 @@ async def test_corentium_home_2_update(
         "radon_year_avg": pytest.approx(radon[3]),
         "radon_year_level": "poor",
     }
+    assert device.chip_versions == AirthingsChipVersions()
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ from airthings_ble.command_decode import (
     WaveMiniCommandDecode,
     WaveRadonAndPlusCommandDecode,
 )
-from airthings_ble.const import BLE_VERSION, MSP_VERSION, SUB_VERSION
+from airthings_ble.const import BATTERY, BLE_VERSION, MSP_VERSION, SUB_VERSION
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -86,44 +86,34 @@ def test_wave_plus_msp_version(
     assert decoded[MSP_VERSION] == version
 
 
-def _wave_mini_response(ble_version: str, sub_version: str, flags: str) -> bytearray:
+def _wave_mini_response(ble_version: str, sub_version: str) -> bytearray:
     return bytearray.fromhex(
-        f"6d0064000000{ble_version}01020304f4015802{sub_version}20038403b80b{flags}b0040000"
+        f"6d0064000000{ble_version}01020304f4015802{sub_version}20038403b80b4cc4b0040000"
     )
 
 
 @pytest.mark.parametrize(
-    ("ble_raw", "sub_raw", "flags", "ble_version", "sub_version"),
+    ("ble_raw", "sub_raw", "ble_version", "sub_version"),
     [
-        pytest.param(
-            "00000402", "00020202", "4cc4", "2.4.0", "2.2.2", id="sub_flag_set"
-        ),
-        pytest.param(
-            "07090402", "00020202", "4c44", "2.4.9", "2.2.2", id="sub_flag_clear"
-        ),
-        pytest.param("ffffffff", "ffffffff", "4cc4", None, None, id="versions_not_set"),
-        pytest.param("c8000000", "00000000", "4cc4", None, None, id="zero_versions"),
-        pytest.param("00000402", "ffffffff", "4cc4", "2.4.0", None, id="sub_not_set"),
-        pytest.param("00000402", "00020202", "0000", "2.4.0", "2.2.2", id="no_flags"),
-        pytest.param(
-            "00000402", "00020202", "ffff", "2.4.0", "2.2.2", id="flags_not_available"
-        ),
+        pytest.param("00000402", "00020202", "2.4.0", "2.2.2", id="versions_set"),
+        pytest.param("ffffffff", "ffffffff", None, None, id="versions_not_set"),
+        pytest.param("c8000000", "00000000", None, None, id="zero_versions"),
+        pytest.param("00000402", "ffffffff", "2.4.0", None, id="sub_not_set"),
     ],
 )
 def test_wave_mini_chip_versions(
     ble_raw: str,
     sub_raw: str,
-    flags: str,
     ble_version: str | None,
     sub_version: str | None,
 ) -> None:
     """Test the BLE and SUB versions are decoded from the Wave Mini self-check."""
     decoded = WaveMiniCommandDecode().decode_data(
-        _LOGGER, _wave_mini_response(ble_raw, sub_raw, flags)
+        _LOGGER, _wave_mini_response(ble_raw, sub_raw)
     )
 
     assert decoded == {
-        "battery": 3.0,
+        BATTERY: 3.0,
         BLE_VERSION: ble_version,
         SUB_VERSION: sub_version,
     }
