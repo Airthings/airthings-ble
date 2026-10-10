@@ -89,6 +89,29 @@ def test_parse_advertisement_data_accepts_bytearray() -> None:
     assert result.serial_number == "3210123456"
 
 
+@pytest.mark.parametrize(
+    ("manufacturer_data", "service_uuids"),
+    [
+        (b"\x01\x02\x03", [_WAVE_MINI_UUID]),
+        (b"\x01\x02\x03\x04", [_WAVE_MINI_UUID]),
+        (None, [_WAVE_MINI_UUID, _WAVE_MINI_UUID]),
+        (None, [_SHARED_UUID, _WAVE_MINI_UUID]),
+        (None, ["0000180f-0000-1000-8000-00805f9b34fb", _WAVE_MINI_UUID]),
+    ],
+)
+def test_parse_advertisement_data_unique_uuid_without_usable_serial(
+    manufacturer_data: bytes | None, service_uuids: list[str]
+) -> None:
+    """Test a unique UUID identifies the model when the serial is unusable."""
+    result = parse_advertisement_data(
+        manufacturer_data=manufacturer_data, service_uuids=service_uuids
+    )
+
+    assert result is not None
+    assert result.model is AirthingsDeviceType.WAVE_MINI
+    assert result.serial_number is None
+
+
 def test_parse_advertisement_data_serial_wins_over_unique_uuid() -> None:
     """Test the model code in the serial beats a unique UUID for another model."""
     result = parse_advertisement_data(
