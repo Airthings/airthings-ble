@@ -1,24 +1,17 @@
 """Airthings firmware version handling."""
 
-import dataclasses
 import re
+from enum import Enum
 
 _BLE_REVISION = re.compile(r"^[A-Z]-BLE-(\d+)\.(\d+)\.(\d+)(?:[-+]|$)")
 
 
-@dataclasses.dataclass(frozen=True)
-class AirthingsChipVersions:
-    """Firmware version of each chip in the device, None when not reported.
+class AirthingsChip(str, Enum):
+    """Chip in an Airthings device that runs its own firmware."""
 
-    The msp version of some 2018 Wave Plus firmware is a date (YYYY-MM-DD)
-    instead of major.minor.patch. The sub version is not set for Wave Enhance
-    and Corentium Home 2, since it is not known which chip their firmware
-    revision describes.
-    """
-
-    ble: str | None = None
-    msp: str | None = None
-    sub: str | None = None
+    BLE = "BLE"
+    MSP = "MSP"
+    SUB = "SUB"
 
 
 def ble_version_from_revision(revision: str) -> str | None:

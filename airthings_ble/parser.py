@@ -17,7 +17,7 @@ from bleak.backends.service import BleakGATTService
 from bleak_retry_connector import BleakClientWithServiceCache, establish_connection
 
 from airthings_ble.airthings_firmware import (
-    AirthingsChipVersions,
+    AirthingsChip,
     AirthingsFirmwareVersion,
     ble_version_from_revision,
 )
@@ -40,7 +40,6 @@ from .const import (
     ATOM_TEMPERATURE,
     ATOM_VOC,
     BATTERY,
-    BLE_VERSION,
     BQ_TO_PCI_MULTIPLIER,
     CHAR_UUID_DATETIME,
     CHAR_UUID_DEVICE_NAME,
@@ -67,7 +66,6 @@ from .const import (
     DEFAULT_MAX_UPDATE_ATTEMPTS,
     HUMIDITY,
     LUX,
-    MSP_VERSION,
     NOISE,
     PRESSURE,
     RADON_1DAY_AVG,
@@ -81,7 +79,6 @@ from .const import (
     RADON_YEAR_AVG,
     RADON_YEAR_LEVEL,
     STOP_NOTIFY_TIMEOUT,
-    SUB_VERSION,
     TEMPERATURE,
     TEMPERATURE_MAX,
     TEMPERATURE_MIN,
@@ -130,10 +127,6 @@ class UnsupportedDeviceError(Exception):
     """Unsupported device."""
 
 
-def _version(value: float | str | None) -> str | None:
-    return value if isinstance(value, str) else None
-
-
 def short_address(address: str) -> str:
     """Convert a Bluetooth address to a short address."""
     return address.replace("-", "").replace(":", "")[-6:].upper()
@@ -171,8 +164,8 @@ class AirthingsDevice(AirthingsDeviceInfo):
     firmware: AirthingsFirmwareVersion = dataclasses.field(
         default_factory=AirthingsFirmwareVersion, compare=False
     )
-    chip_versions: AirthingsChipVersions = dataclasses.field(
-        default_factory=AirthingsChipVersions, compare=False
+    chip_versions: dict[AirthingsChip, str] = dataclasses.field(
+        default_factory=lambda: {}, compare=False
     )
 
     def friendly_name(self) -> str:
@@ -197,7 +190,7 @@ class AirthingsBluetoothDeviceData:
         self.logger = logger
         self.is_metric = is_metric
         self.device_info = AirthingsDeviceInfo()
-        self._self_check_versions = AirthingsChipVersions()
+        self._self_check_versions: dict[AirthingsChip, str] = {}
         self.max_attempts = max_attempts
         self._unread_device_info: set[str] = set()
         self._warned_outdated_firmware = False
@@ -282,14 +275,11 @@ class AirthingsBluetoothDeviceData:
             name = field.name
             setattr(device, name, getattr(device_info, name))
 
-    def _chip_versions(self) -> AirthingsChipVersions:
-        self_check = self._self_check_versions
-        return AirthingsChipVersions(
-            ble=ble_version_from_revision(self.device_info.sw_version)
-            or self_check.ble,
-            msp=self_check.msp,
-            sub=self_check.sub,
-        )
+    def _chip_versions(self) -> dict[AirthingsChip, str]:
+        versions = dict(self._self_check_versions)
+        if ble := ble_version_from_revision(self.device_info.sw_version):
+            versions[AirthingsChip.BLE] = ble
+        return versions
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
@@ -373,11 +363,11 @@ class AirthingsBluetoothDeviceData:
                     continue
                 if (bat_data := command_sensor_data.get(BATTERY)) is not None:
                     sensors[BATTERY] = device.model.battery_percentage(float(bat_data))
-                self._self_check_versions = AirthingsChipVersions(
-                    ble=_version(command_sensor_data.get(BLE_VERSION)),
-                    msp=_version(command_sensor_data.get(MSP_VERSION)),
-                    sub=_version(command_sensor_data.get(SUB_VERSION)),
-                )
+                self._self_check_versions = {
+                    chip: version
+                    for chip in AirthingsChip
+                    if isinstance(version := command_sensor_data.get(chip), str)
+                }
 
     async def _atom_sensor_data(
         self,

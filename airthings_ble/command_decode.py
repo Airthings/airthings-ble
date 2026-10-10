@@ -6,17 +6,15 @@ from logging import Logger
 from typing import Any, Optional
 
 
+from airthings_ble.airthings_firmware import AirthingsChip
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
 from airthings_ble.const import (
     BATTERY,
-    BLE_VERSION,
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
-    MSP_VERSION,
-    SUB_VERSION,
     UINT16_NO_VALUE,
 )
 
@@ -115,7 +113,7 @@ class WaveRadonAndPlusCommandDecode(CommandDecode):
         if val := self.validate_data(logger, raw_data):
             res: dict[str, float | str | None] = {}
             res[BATTERY] = val[13] / 1000.0
-            res[MSP_VERSION] = _msp_version(device_type=val[1], raw=val[3])
+            res[AirthingsChip.MSP] = _msp_version(device_type=val[1], raw=val[3])
             return res
 
         return None
@@ -136,8 +134,8 @@ class WaveMiniCommandDecode(CommandDecode):
         if val := self.validate_data(logger, raw_data):
             res: dict[str, float | str | None] = {}
             res[BATTERY] = val[11] / 1000.0
-            res[BLE_VERSION] = _semantic_version(val[1])
-            res[SUB_VERSION] = _semantic_version(val[8])
+            res[AirthingsChip.BLE] = _semantic_version(val[1])
+            res[AirthingsChip.SUB] = _semantic_version(val[8])
             return res
 
         return None

@@ -4,7 +4,7 @@ from typing import Any
 import pytest
 from airthings_ble import (
     AirthingsBluetoothDeviceData,
-    AirthingsChipVersions,
+    AirthingsChip,
     AirthingsDeviceType,
 )
 from airthings_ble.const import COMMAND_UUID_ATOM
@@ -82,7 +82,7 @@ async def test_wave_enhance_update(
     assert device.friendly_name() == "Airthings Wave Enhance"
     assert device.firmware.need_firmware_upgrade is False
     assert device.sensors == _WAVE_ENHANCE_SENSORS
-    assert device.chip_versions == AirthingsChipVersions()
+    assert device.chip_versions == {}
 
 
 @pytest.mark.asyncio
@@ -125,7 +125,7 @@ async def test_corentium_home_2_update(
         "radon_year_avg": pytest.approx(radon[3]),
         "radon_year_level": "poor",
     }
-    assert device.chip_versions == AirthingsChipVersions()
+    assert device.chip_versions == {}
 
 
 @pytest.mark.asyncio

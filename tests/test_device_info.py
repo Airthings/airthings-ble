@@ -3,7 +3,7 @@ import logging
 import pytest
 from airthings_ble import (
     AirthingsBluetoothDeviceData,
-    AirthingsChipVersions,
+    AirthingsChip,
     AirthingsDevice,
 )
 from airthings_ble.const import CHAR_UUID_DEVICE_NAME, CHAR_UUID_SERIAL_NUMBER_STRING
@@ -70,5 +70,5 @@ def test_short_address(address: str) -> None:
 def test_chip_versions_do_not_affect_equality() -> None:
     """Test devices that differ only in chip versions compare equal."""
     assert AirthingsDevice(
-        chip_versions=AirthingsChipVersions(ble="2.4.0", msp="2.2.0")
-    ) == AirthingsDevice(chip_versions=AirthingsChipVersions())
+        chip_versions={AirthingsChip.BLE: "2.4.0", AirthingsChip.MSP: "2.2.0"}
+    ) == AirthingsDevice(chip_versions={})

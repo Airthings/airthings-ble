@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from airthings_ble import AirthingsChip
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.command_decode import (
     AtomCommandDecode,
@@ -8,7 +9,7 @@ from airthings_ble.command_decode import (
     WaveMiniCommandDecode,
     WaveRadonAndPlusCommandDecode,
 )
-from airthings_ble.const import BATTERY, BLE_VERSION, MSP_VERSION, SUB_VERSION
+from airthings_ble.const import BATTERY
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -83,7 +84,7 @@ def test_wave_plus_msp_version(
     )
 
     assert decoded is not None
-    assert decoded[MSP_VERSION] == version
+    assert decoded[AirthingsChip.MSP] == version
 
 
 def _wave_mini_response(ble_version: str, sub_version: str) -> bytearray:
@@ -114,8 +115,8 @@ def test_wave_mini_chip_versions(
 
     assert decoded == {
         BATTERY: 3.0,
-        BLE_VERSION: ble_version,
-        SUB_VERSION: sub_version,
+        AirthingsChip.BLE: ble_version,
+        AirthingsChip.SUB: sub_version,
     }
 
 
@@ -134,17 +135,17 @@ def test_atom_without_response(caplog: pytest.LogCaptureFixture) -> None:
         (
             WaveRadonAndPlusCommandDecode(),
             "6d001e331400020080840cff00000000404d1800c7340b00f804310a0900",
-            {MSP_VERSION: "2.4.2"},
+            {AirthingsChip.MSP: "2.4.2"},
         ),
         (
             WaveRadonAndPlusCommandDecode(),
             "6d00d3600200014f008501ff00000000c04e1800133439002f000a0b1900",
-            {MSP_VERSION: "2.5.0"},
+            {AirthingsChip.MSP: "2.5.0"},
         ),
         (
             WaveMiniCommandDecode(),
             "6d006d750200000201020304090a2c008833000202024000410076120380ffffffff",
-            {BLE_VERSION: "2.1.2", SUB_VERSION: "2.2.2"},
+            {AirthingsChip.BLE: "2.1.2", AirthingsChip.SUB: "2.2.2"},
         ),
     ],
     ids=["wave_plus", "wave_radon", "wave_mini"],
