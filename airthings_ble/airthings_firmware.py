@@ -3,12 +3,18 @@
 import dataclasses
 import re
 
-_BLE_REVISION = re.compile(r"^[A-Z]-BLE-(\d+\.\d+\.\d+)(?:-|$)")
+_BLE_REVISION = re.compile(r"^[A-Z]-BLE-(\d+)\.(\d+)\.(\d+)(?:[-+]|$)")
 
 
 @dataclasses.dataclass(frozen=True)
 class AirthingsChipVersions:
-    """Firmware version of each chip in the device, None when not reported."""
+    """Firmware version of each chip in the device, None when not reported.
+
+    The msp version of some 2018 Wave Plus firmware is a date (YYYY-MM-DD)
+    instead of major.minor.patch. The sub version is not set for Wave Enhance
+    and Corentium Home 2, since it is not known which chip their firmware
+    revision describes.
+    """
 
     ble: str | None = None
     msp: str | None = None
@@ -17,9 +23,11 @@ class AirthingsChipVersions:
 
 def ble_version_from_revision(revision: str) -> str | None:
     """Extract the BLE chip version from a firmware revision string."""
-    if match_obj := _BLE_REVISION.match(revision):
-        return match_obj.group(1)
-    return None
+    if not (match_obj := _BLE_REVISION.match(revision)):
+        return None
+    if any(int(part) > 0xFF for part in match_obj.groups()):
+        return None
+    return ".".join(str(int(part)) for part in match_obj.groups())
 
 
 class AirthingsFirmwareVersion:

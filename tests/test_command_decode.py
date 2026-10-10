@@ -52,7 +52,7 @@ def test_base_command_decoder_returns_no_values() -> None:
     assert CommandDecode().decode_data(_LOGGER, bytearray(b"\x6d")) == {}
 
 
-def _griffin_response(device_type: str, msp_version: str) -> bytearray:
+def _wave_plus_response(device_type: str, msp_version: str) -> bytearray:
     return bytearray.fromhex(
         f"6d00600c0400{device_type}00{msp_version}11ff00000000c04c20001f3560007006b80b0900"
     )
@@ -66,23 +66,27 @@ def _griffin_response(device_type: str, msp_version: str) -> bytearray:
         pytest.param("02", "3f7f", "1.63.0", id="build_bits_ignored"),
         pytest.param("02", "c804", "2018-12-04", id="wave_plus_date_coded"),
         pytest.param("02", "981e", "2018-09-30", id="wave_plus_date_coded_2"),
+        pytest.param("02", "9807", "2018-09-07", id="wave_plus_date_coded_3"),
+        pytest.param("02", "c803", "2018-12-03", id="wave_plus_date_coded_4"),
         pytest.param("01", "c804", "0.4.3", id="wave_radon_not_date_coded"),
         pytest.param("02", "ffff", None, id="not_reported"),
+        pytest.param("02", "0000", None, id="zero"),
+        pytest.param("01", "3f00", None, id="zero_with_build_bits"),
     ],
 )
-def test_griffin_msp_version(
+def test_wave_plus_msp_version(
     device_type: str, raw_version: str, version: str | None
 ) -> None:
-    """Test the MSP version is decoded from bytes 8-9 of the Griffin self-check."""
+    """Test the MSP version is decoded from the Wave Plus / Wave Radon self-check."""
     decoded = WaveRadonAndPlusCommandDecode().decode_data(
-        _LOGGER, _griffin_response(device_type, raw_version)
+        _LOGGER, _wave_plus_response(device_type, raw_version)
     )
 
     assert decoded is not None
     assert decoded[MSP_VERSION] == version
 
 
-def _merlin_response(ble_version: str, sub_version: str, flags: str) -> bytearray:
+def _wave_mini_response(ble_version: str, sub_version: str, flags: str) -> bytearray:
     return bytearray.fromhex(
         f"6d0064000000{ble_version}01020304f4015802{sub_version}20038403b80b{flags}b0040000"
     )
@@ -98,18 +102,26 @@ def _merlin_response(ble_version: str, sub_version: str, flags: str) -> bytearra
             "07090402", "00020202", "4c44", "2.4.9", None, id="sub_not_reported"
         ),
         pytest.param("ffffffff", "ffffffff", "4cc4", None, None, id="versions_not_set"),
+        pytest.param("c8000000", "00000000", "4cc4", None, None, id="zero_versions"),
+        pytest.param("00000402", "00020202", "0000", "2.4.0", None, id="no_flags"),
+        pytest.param(
+            "00000402", "00020202", "0080", "2.4.0", "2.2.2", id="only_sub_flag"
+        ),
+        pytest.param(
+            "00000402", "00020202", "ffff", "2.4.0", None, id="flags_not_available"
+        ),
     ],
 )
-def test_merlin_chip_versions(
+def test_wave_mini_chip_versions(
     ble_raw: str,
     sub_raw: str,
     flags: str,
     ble_version: str | None,
     sub_version: str | None,
 ) -> None:
-    """Test the BLE and SUB versions are decoded from the Merlin self-check."""
+    """Test the BLE and SUB versions are decoded from the Wave Mini self-check."""
     decoded = WaveMiniCommandDecode().decode_data(
-        _LOGGER, _merlin_response(ble_raw, sub_raw, flags)
+        _LOGGER, _wave_mini_response(ble_raw, sub_raw, flags)
     )
 
     assert decoded == {

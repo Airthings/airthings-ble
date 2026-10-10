@@ -160,6 +160,7 @@ async def test_wave_mini_update(monkeypatch: pytest.MonkeyPatch) -> None:
     [
         pytest.param("M-BLE-2.4.0-master+0", "2.4.0", id="from_firmware_revision"),
         pytest.param("2.4.9", "2.4.9", id="from_self_check"),
+        pytest.param("M-BLE-999.2.3", "2.4.9", id="invalid_revision"),
     ],
 )
 async def test_wave_mini_chip_versions(
@@ -173,9 +174,9 @@ async def test_wave_mini_chip_versions(
             CHAR_UUID_WAVEMINI_DATA,
             _WAVE_MINI_DATA,
             COMMAND_UUID_WAVE_MINI,
-            "6d0064000000070904020102030"
-            "4f401580200020202200384"
-            "03b80b4cc4b0040000",
+            "6d00640000000709040201020304"
+            "f401580200020202"
+            "20038403b80b4cc4b0040000",
             firmware=firmware,
         ),
     )
@@ -328,6 +329,38 @@ async def test_wave_command_timeout_keeps_sensor_data(
     assert device.chip_versions == AirthingsChipVersions(ble="1.5.3")
     assert device.sensors["co2"] == 797.0
     assert not client.notifying
+
+
+@pytest.mark.asyncio
+@pytest.mark.command_timeout
+async def test_wave_command_timeout_keeps_chip_versions(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test chip versions from an earlier self-check survive a timed out one."""
+    monkeypatch.setattr("airthings_ble.parser.COMMAND_TIMEOUT", 0.01)
+    use_clients(
+        monkeypatch,
+        *(
+            _wave_client(
+                "2930",
+                CHAR_UUID_WAVE_PLUS_DATA,
+                _WAVE_PLUS_DATA,
+                COMMAND_UUID_WAVE_PLUS,
+                _WAVE_PLUS_COMMAND,
+                silent_commands=silent,
+            )
+            for silent in (False, True)
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    first = await data.update_device(ble_device())
+    second = await data.update_device(ble_device())
+
+    expected = AirthingsChipVersions(ble="1.5.3", msp="2.2.0")
+    assert first.chip_versions == expected
+    assert "battery" not in second.sensors
+    assert second.chip_versions == expected
 
 
 @pytest.mark.asyncio

@@ -5,6 +5,7 @@ import struct
 from logging import Logger
 from typing import Any, Optional
 
+
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
@@ -16,27 +17,41 @@ from airthings_ble.const import (
     COMMAND_UUID_WAVE_PLUS,
     MSP_VERSION,
     SUB_VERSION,
+    UINT16_NO_VALUE,
 )
 
-_GRIFFIN_WAVE_PLUS = 2
-_GRIFFIN_DATE_CODED_MSP_VERSIONS = (0x0798, 0x1E98, 0x03C8, 0x04C8)
-_MERLIN_SUB_VERSION_REPORTED = 0x8000
+_WAVE_PLUS_DEVICE_TYPE = 2
+_WAVE_PLUS_DATE_CODED_MSP_VERSIONS = (0x0798, 0x1E98, 0x03C8, 0x04C8)
+_SUB_VERSION_REPORTED = 0x8000
 
 
-def _griffin_msp_version(device_type: int, raw: int) -> str | None:
-    """Decode the 16-bit MSP version of a Wave Plus or Wave Radon."""
-    if raw == 0xFFFF:
+def _dotted_version(major: int, minor: int, patch: int) -> str | None:
+    if major == minor == patch == 0:
         return None
-    if device_type == _GRIFFIN_WAVE_PLUS and raw in _GRIFFIN_DATE_CODED_MSP_VERSIONS:
+    return f"{major}.{minor}.{patch}"
+
+
+def _msp_version(device_type: int, raw: int) -> str | None:
+    """Decode the 16-bit MSP version of a Wave Plus or Wave Radon."""
+    if raw == UINT16_NO_VALUE:
+        return None
+    if (
+        device_type == _WAVE_PLUS_DEVICE_TYPE
+        and raw in _WAVE_PLUS_DATE_CODED_MSP_VERSIONS
+    ):
         return f"{2010 + (raw & 0x0F)}-{(raw >> 4) & 0x0F:02d}-{raw >> 8:02d}"
-    return f"{raw >> 14}.{(raw >> 8) & 0x3F}.{(raw >> 6) & 0x03}"
+    return _dotted_version(raw >> 14, (raw >> 8) & 0x3F, (raw >> 6) & 0x03)
 
 
 def _semantic_version(raw: int) -> str | None:
     """Decode a 32-bit major.minor.patch.build version."""
     if raw == 0xFFFFFFFF:
         return None
-    return f"{raw >> 24}.{(raw >> 16) & 0xFF}.{(raw >> 8) & 0xFF}"
+    return _dotted_version(raw >> 24, (raw >> 16) & 0xFF, (raw >> 8) & 0xFF)
+
+
+def _sub_version_reported(flags: int) -> bool:
+    return flags != UINT16_NO_VALUE and bool(flags & _SUB_VERSION_REPORTED)
 
 
 class CommandDecode:
@@ -105,7 +120,7 @@ class WaveRadonAndPlusCommandDecode(CommandDecode):
         if val := self.validate_data(logger, raw_data):
             res: dict[str, float | str | None] = {}
             res[BATTERY] = val[13] / 1000.0
-            res[MSP_VERSION] = _griffin_msp_version(device_type=val[1], raw=val[3])
+            res[MSP_VERSION] = _msp_version(device_type=val[1], raw=val[3])
             return res
 
         return None
@@ -128,9 +143,7 @@ class WaveMiniCommandDecode(CommandDecode):
             res[BATTERY] = val[11] / 1000.0
             res[BLE_VERSION] = _semantic_version(val[1])
             res[SUB_VERSION] = (
-                _semantic_version(val[8])
-                if val[12] & _MERLIN_SUB_VERSION_REPORTED
-                else None
+                _semantic_version(val[8]) if _sub_version_reported(val[12]) else None
             )
             return res
 
