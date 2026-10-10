@@ -8,7 +8,6 @@ from dataclasses import dataclass
 from .connectivity_mode import AirthingsConnectivityMode
 from .const import (
     ADVERTISEMENT_FLAG_SMARTLINK,
-    ADVERTISEMENT_FLAGS_NO_HUB_SUPPORT,
     ADVERTISEMENT_FLAGS_UNPOPULATED,
     AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL,
 )
@@ -48,15 +47,11 @@ def _flags(manufacturer_data: bytes | bytearray | None) -> int | None:
 def _connectivity_mode(
     model: AirthingsDeviceType, flags: int | None
 ) -> AirthingsConnectivityMode | None:
-    if flags is None:
-        return None
-    if model in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON):
-        if flags == ADVERTISEMENT_FLAGS_UNPOPULATED:
-            return None
-    elif model is AirthingsDeviceType.WAVE_MINI:
-        if flags & ADVERTISEMENT_FLAGS_NO_HUB_SUPPORT:
-            return None
-    else:
+    if (
+        model not in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
+        or flags is None
+        or flags == ADVERTISEMENT_FLAGS_UNPOPULATED
+    ):
         return None
     if flags & ADVERTISEMENT_FLAG_SMARTLINK:
         return AirthingsConnectivityMode.SMARTLINK
@@ -97,13 +92,13 @@ def parse_advertisement_data(
     callers can skip the advertisement without connecting. None says nothing
     about later advertisements from the same address.
 
-    `connectivity_mode` is SMARTLINK when a Wave Plus, Wave Radon or Wave Mini
-    advertises that it is connected to an Airthings hub, BLE when it advertises
-    that it is not, and None when the advertisement does not say: other models,
-    a model identified only by service UUID, a Wave Mini firmware without hub
-    support, flags the device has not filled in yet, or data too short to carry
-    them. None means unknown, not BLE. Do not poll a SmartLink device over BLE:
-    Airthings' own app only connects to one for pairing and settings.
+    `connectivity_mode` is SMARTLINK when a Wave Plus or Wave Radon advertises
+    that it is connected to an Airthings hub, BLE when it advertises that it is
+    not, and None when the advertisement does not say: other models, a model
+    identified only by service UUID, flags the device has not filled in yet, or
+    data too short to carry them. None means unknown, not BLE. Do not poll a
+    SmartLink device over BLE: Airthings' own app only connects to one for
+    pairing and settings.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
