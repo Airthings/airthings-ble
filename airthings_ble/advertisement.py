@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
+from .connectivity_mode import AirthingsConnectivityMode
 from .const import AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL
 from .device_type import AirthingsDeviceType
 
@@ -13,6 +14,10 @@ _RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
     ("322", AirthingsDeviceType.WAVE_ENHANCE_US),
     ("325", AirthingsDeviceType.CORENTIUM_HOME_2),
 )
+_GRIFFIN_MODELS = (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
+_MERLIN_MODELS = (AirthingsDeviceType.WAVE_MINI,)
+_UNPOPULATED_FLAGS = 0x5AA5
+_SMARTLINK_FLAG = 1 << 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -21,6 +26,7 @@ class AirthingsAdvertisementData:
 
     model: AirthingsDeviceType
     serial_number: str | None = None
+    connectivity_mode: AirthingsConnectivityMode | None = None
 
 
 def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
@@ -30,6 +36,30 @@ def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
     if len(serial_number) != 10:
         return None
     return serial_number
+
+
+def _flags(manufacturer_data: bytes | bytearray | None) -> int | None:
+    if manufacturer_data is None or len(manufacturer_data) < 6:
+        return None
+    return int.from_bytes(manufacturer_data[4:6], "little")
+
+
+def _connectivity_mode(
+    model: AirthingsDeviceType, flags: int | None
+) -> AirthingsConnectivityMode | None:
+    if flags is None:
+        return None
+    if model in _GRIFFIN_MODELS:
+        if flags == _UNPOPULATED_FLAGS:
+            return None
+    elif model in _MERLIN_MODELS:
+        if flags >> 14:
+            return None
+    else:
+        return None
+    if flags & _SMARTLINK_FLAG:
+        return AirthingsConnectivityMode.SMARTLINK
+    return AirthingsConnectivityMode.BLE
 
 
 def _model_from_serial_number(serial_number: str) -> AirthingsDeviceType | None:
@@ -65,12 +95,23 @@ def parse_advertisement_data(
     Returns None for everything else, including other Airthings products, so
     callers can skip the advertisement without connecting. None says nothing
     about later advertisements from the same address.
+
+    `connectivity_mode` is SMARTLINK when a Wave Plus, Wave Radon or Wave Mini
+    advertises that it is connected to an Airthings hub, BLE when it advertises
+    that it is not, and None when the advertisement does not say (other models,
+    a model identified only by service UUID, or a Wave Mini firmware without hub
+    support). Do not poll a SmartLink device over BLE: Airthings' own app only
+    connects to one for pairing and settings.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
         model := _model_from_serial_number(serial_number)
     ):
-        return AirthingsAdvertisementData(model=model, serial_number=serial_number)
+        return AirthingsAdvertisementData(
+            model=model,
+            serial_number=serial_number,
+            connectivity_mode=_connectivity_mode(model, _flags(manufacturer_data)),
+        )
     if model := _model_from_service_uuids(service_uuids):
         return AirthingsAdvertisementData(model=model, serial_number=serial_number)
     return None
