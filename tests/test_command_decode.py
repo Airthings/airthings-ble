@@ -6,6 +6,7 @@ from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.command_decode import (
     AtomCommandDecode,
     CommandDecode,
+    SubChipVersionCommandDecode,
     WaveMiniCommandDecode,
     WaveRadonAndPlusCommandDecode,
 )
@@ -158,3 +159,45 @@ def test_captured_self_check_chip_versions(
 
     assert result is not None
     assert {key: result[key] for key in expected} == expected
+
+
+def test_sub_chip_version_request() -> None:
+    """Test the SUB chip version request asks for the SUB1 chip."""
+    assert SubChipVersionCommandDecode().cmd == bytes.fromhex("720100000000000000")
+
+
+@pytest.mark.parametrize(
+    ("response", "expected"),
+    [
+        pytest.param("720002050100", {AirthingsChip.SUB: "2.5.1"}, id="ok"),
+        pytest.param("7200020501ff", {AirthingsChip.SUB: "2.5.1"}, id="build_ignored"),
+        pytest.param("720102050100", None, id="bad_status"),
+        pytest.param("7200020501", None, id="too_short"),
+        pytest.param("72000205010000", None, id="too_long"),
+        pytest.param("72", None, id="status_only"),
+        pytest.param("7200ff050100", None, id="major_not_set"),
+        pytest.param("720002ff0100", None, id="minor_not_set"),
+        pytest.param("720000000000", None, id="all_zero"),
+        pytest.param("720030303031", None, id="ascii_0001"),
+        pytest.param("6d0002050100", None, id="other_command"),
+        pytest.param(None, None, id="no_data"),
+    ],
+)
+def test_sub_chip_version_response(
+    response: str | None, expected: dict[str, str] | None
+) -> None:
+    """Test the SUB chip version is decoded only from a valid response."""
+    raw_data = None if response is None else bytearray.fromhex(response)
+
+    assert SubChipVersionCommandDecode().decode_data(_LOGGER, raw_data) == expected
+
+
+@pytest.mark.asyncio
+async def test_sub_chip_version_receiver_completes_on_first_notification() -> None:
+    """Test a short SUB chip version reply is not waited out."""
+    receiver = SubChipVersionCommandDecode().make_data_receiver()
+    receiver(None, bytearray.fromhex("7201"))
+
+    await receiver.wait_for_message(0)
+
+    assert receiver.message == bytearray.fromhex("7201")

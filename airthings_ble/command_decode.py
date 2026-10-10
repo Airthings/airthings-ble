@@ -72,10 +72,10 @@ class CommandDecode:
             return None
 
         cmd = raw_data[0:1]
-        if cmd != self.cmd:
+        if cmd != self.cmd[0:1]:
             logger.warning(
                 "Result for wrong command received, expected %s got %s",
-                self.cmd.hex(),
+                self.cmd[0:1].hex(),
                 cmd.hex(),
             )
             return None
@@ -139,6 +139,44 @@ class WaveMiniCommandDecode(CommandDecode):
             return res
 
         return None
+
+
+class SubChipVersionCommandDecode(CommandDecode):
+    """Decoder for the Wave Plus and Wave Radon SUB chip version response"""
+
+    cmd = bytes([0x72, 0x01]) + bytes(7)
+    _header_size = 1
+    _UNRELEASED_VERSION = (0x30, 0x30, 0x30, 0x31)
+
+    def __init__(self) -> None:
+        """Initialize command decoder"""
+        self.format_type = "<5B"
+
+    def decode_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
+        """Decoder returns dict with the SUB chip version"""
+
+        if not (val := self.validate_data(logger, raw_data)):
+            return None
+        status, major, minor, patch, build = val
+        version = _dotted_version(major, minor, patch)
+        if (
+            status != 0
+            or version is None
+            or 0xFF in (major, minor)
+            or (major, minor, patch, build) == self._UNRELEASED_VERSION
+        ):
+            logger.debug("SUB chip version not available: %s", val)
+            return None
+        return {AirthingsChip.SUB: version}
+
+    def make_data_receiver(self) -> "NotificationReceiver":
+        """Creates a receiver that completes on the first notification.
+
+        A reply shorter than expected is then rejected instead of waited out.
+        """
+        return NotificationReceiver(1)
 
 
 class AtomCommandDecode(CommandDecode):
