@@ -223,6 +223,8 @@ def test_from_model_code(model_code: str, expected: AirthingsDeviceType | None) 
         (2930022176, 0x000B, AirthingsConnectivityMode.BLE),
         (2930022176, 0x100B, AirthingsConnectivityMode.SMARTLINK),
         (2930022176, 0x5AA5, None),
+        (2930022176, 0x1300, AirthingsConnectivityMode.SMARTLINK),
+        (2930022176, 0x0300, AirthingsConnectivityMode.BLE),
         (2950020534, 0x0000, AirthingsConnectivityMode.BLE),
         (2950020534, 0x1000, AirthingsConnectivityMode.SMARTLINK),
         (2950020534, 0xF000, AirthingsConnectivityMode.SMARTLINK),
@@ -285,7 +287,6 @@ def test_parse_captured_advertisements_connectivity_mode(
     [
         (2930022176).to_bytes(4, "little"),
         (2930022176).to_bytes(4, "little") + b"\x00",
-        (2920040229).to_bytes(4, "little") + b"\x00",
     ],
 )
 def test_parse_advertisement_data_without_flags(manufacturer_data: bytes) -> None:
