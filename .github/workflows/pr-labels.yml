@@ -26,6 +26,31 @@ jobs:
           managed="bug enhancement breaking dependencies nochangelog"
           current_labels() { gh api "repos/$REPO/issues/$PR/labels?per_page=100" --jq '[.[].name]'; }
 
+          marker="<!-- release-notes-label -->"
+          bot_comments() {
+            gh api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" \
+              --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id"
+          }
+          fail() {
+            local ids text
+            ids=$(bot_comments)
+            text="$marker"$'\n'"$1 Check exactly one box under **Type of change** in the description, and keep the heading and option text unchanged. The release notes label is then set automatically."
+            if [[ -n "$ids" ]]; then
+              gh api --method PATCH "repos/$REPO/issues/comments/${ids%%$'\n'*}" -f body="$text" > /dev/null
+            else
+              gh api --method POST "repos/$REPO/issues/$PR/comments" -f body="$text" > /dev/null
+            fi
+            echo "::error::$1"
+            exit 1
+          }
+          pass() {
+            local ids id
+            ids=$(bot_comments)
+            for id in $ids; do
+              gh api --method DELETE "repos/$REPO/issues/comments/$id" > /dev/null
+            done
+          }
+
           body=$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')
 
           checked=""
@@ -48,8 +73,7 @@ jobs:
           read -ra checked <<< "$checked"
 
           if (( ${#checked[@]} > 1 )); then
-            echo "::error::Check only one box under Type of change"
-            exit 1
+            fail "More than one box is checked under Type of change."
           fi
 
           labels=$(current_labels)
@@ -62,10 +86,10 @@ jobs:
             count=$(jq --arg managed "$managed" 'map(select(IN($managed | split(" ")[]))) | length' <<< "$labels")
             if (( count == 1 )); then
               echo "No box checked under Type of change; keeping the existing release notes label"
+              pass
               exit 0
             fi
-            echo "::error::Check one box under the Type of change heading, and keep the heading and option text unchanged"
-            exit 1
+            fail "No box is checked under Type of change."
           fi
 
           wanted="${checked[0]}"
@@ -81,3 +105,4 @@ jobs:
           done < <(jq -r '.[]' <<< "$labels")
           gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$wanted" > /dev/null
           echo "Set $wanted"
+          pass
