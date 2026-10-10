@@ -43,8 +43,8 @@ class AirthingsAdvertisementData:
         """Return whether the device should be polled over BLE right now.
 
         False when it is connected to an Airthings hub (SmartLink), or when its
-        battery status is STOPPED and it does not accept connections. An unknown
-        status does not prevent polling.
+        battery status is STOPPED. An unknown mode or status does not prevent
+        polling.
         """
         return (
             self.connectivity_mode is not AirthingsConnectivityMode.SMARTLINK
