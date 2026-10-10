@@ -11,8 +11,6 @@ from .const import (
     ADVERTISEMENT_FLAGS_NO_HUB_SUPPORT,
     ADVERTISEMENT_FLAGS_UNPOPULATED,
     AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL,
-    WAVE_MINI_MODELS,
-    WAVE_PLUS_AND_RADON_MODELS,
 )
 from .device_type import AirthingsDeviceType
 
@@ -52,10 +50,10 @@ def _connectivity_mode(
 ) -> AirthingsConnectivityMode | None:
     if flags is None:
         return None
-    if model in WAVE_PLUS_AND_RADON_MODELS:
+    if model in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON):
         if flags == ADVERTISEMENT_FLAGS_UNPOPULATED:
             return None
-    elif model in WAVE_MINI_MODELS:
+    elif model is AirthingsDeviceType.WAVE_MINI:
         if flags & ADVERTISEMENT_FLAGS_NO_HUB_SUPPORT:
             return None
     else:
