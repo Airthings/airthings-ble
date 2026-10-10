@@ -18,6 +18,8 @@ from bleak.backends.device import BLEDevice
 ADDRESS = "AA:BB:CC:DD:EE:FF"
 ATOM_LATEST_VALUES = {"TMP": 29424, "HUM": 3375, "BAT": 2868, "TIM": 118}
 ATOM_CONNECTIVITY_MODE_BLE = 4
+SUB_CHIP_VERSION_REQUEST = bytes.fromhex("720100000000000000")
+SUB_CHIP_VERSION_RESPONSE = bytes.fromhex("720002050100")
 
 CALLBACK_ERRORS: list[BaseException] = []
 
@@ -86,6 +88,8 @@ class FakeClient:
         silent_commands: bool = False,
         read_error: BleakError | None = None,
         disconnect_on_read: UUID | None = None,
+        sub_chip_version_response: bytes | None = SUB_CHIP_VERSION_RESPONSE,
+        sub_chip_version_error: Exception | None = None,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
@@ -108,6 +112,8 @@ class FakeClient:
             else atom_connectivity_mode
         )
         self._silent_commands = silent_commands
+        self._sub_chip_version_response = sub_chip_version_response
+        self._sub_chip_version_error = sub_chip_version_error
         self._read_error = read_error
         self._disconnect_on_read = (
             None if disconnect_on_read is None else str(disconnect_on_read)
@@ -116,6 +122,7 @@ class FakeClient:
         self.cache_cleared = False
         self.reads: list[str] = []
         self.notifications: list[bytes] = []
+        self.writes: list[bytes] = []
         self._callback: Callable[[Any, bytearray], None] | None = None
         self._notify_uuid: str | None = None
         self.stop_notify_calls = 0
@@ -175,6 +182,7 @@ class FakeClient:
         assert (
             self._notify_uuid == expected_notify_uuid
         ), f"wrote {write_uuid} while notifying on {self._notify_uuid}"
+        self.writes.append(bytes(data))
         if self._write_error is not None:
             raise self._write_error
         if self._stall_write:
@@ -183,6 +191,12 @@ class FakeClient:
             assert (
                 data[0:2] == b"\x03\x01" and data[4:7] == b"\x81\xa1\x00"
             ), f"malformed Atom request {data.hex()}"
+        elif data == SUB_CHIP_VERSION_REQUEST:
+            if self._sub_chip_version_error is not None:
+                raise self._sub_chip_version_error
+            if self._sub_chip_version_response is not None:
+                self._notify(characteristic, self._sub_chip_version_response)
+            return
         else:
             assert data == b"\x6d", f"malformed Wave command {data.hex()}"
         if self._silent_commands:
