@@ -10,21 +10,26 @@
   "minimumReleaseAge": "3 days",
   "packageRules": [
     {
+      "description": "Anything not matched below stays out of the release notes.",
+      "matchPackageNames": ["*"],
+      "labels": ["nochangelog"]
+    },
+    {
       "description": "Runtime dependencies reach Home Assistant users; keep them separate and in the release notes.",
       "matchManagers": ["poetry"],
       "matchDepTypes": ["dependencies"],
-      "addLabels": ["dependencies"]
+      "labels": ["dependencies"]
     },
     {
       "matchManagers": ["poetry"],
       "matchDepTypes": ["dev"],
       "groupName": "development tools",
-      "addLabels": ["nochangelog"]
+      "labels": ["nochangelog"]
     },
     {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions",
-      "addLabels": ["nochangelog"]
+      "labels": ["nochangelog"]
     }
   ]
 }
