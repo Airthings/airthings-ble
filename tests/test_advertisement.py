@@ -77,6 +77,18 @@ def test_parse_advertisement_data_keeps_serial_with_unique_uuid() -> None:
     assert result.serial_number == "2910123456"
 
 
+def test_parse_advertisement_data_accepts_bytearray() -> None:
+    """Test manufacturer data given as a bytearray is decoded like bytes."""
+    result = parse_advertisement_data(
+        manufacturer_data=bytearray(_manufacturer_data(3210123456)),
+        service_uuids=None,
+    )
+
+    assert result is not None
+    assert result.model is AirthingsDeviceType.WAVE_ENHANCE_EU
+    assert result.serial_number == "3210123456"
+
+
 def test_parse_advertisement_data_serial_wins_over_unique_uuid() -> None:
     """Test the model code in the serial beats a unique UUID for another model."""
     result = parse_advertisement_data(
