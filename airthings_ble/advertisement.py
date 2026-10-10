@@ -96,9 +96,8 @@ def parse_advertisement_data(
     that it is connected to an Airthings hub, BLE when it advertises that it is
     not, and None when the advertisement does not say: other models, a model
     identified only by service UUID, flags the device has not filled in yet, or
-    data too short to carry them. None means unknown, not BLE. Do not poll a
-    SmartLink device over BLE: Airthings' own app only connects to one for
-    pairing and settings.
+    data too short to carry them. None means unknown, not BLE. A SmartLink
+    device should not be polled over BLE.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
