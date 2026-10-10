@@ -122,9 +122,9 @@ def parse_advertisement_data(
     device should not be polled over BLE.
 
     `battery_status` is the battery status a Wave Plus or Wave Radon advertises,
-    and None in the same cases as `connectivity_mode`. A device that advertises
-    STOPPED does not accept BLE connections. The status is coarse: FULL has
-    been seen down to a few percent, so it is not a battery level.
+    and None in the same cases as `connectivity_mode`. A device advertising
+    STOPPED has been seen refusing BLE connections. The status is coarse: FULL
+    has been seen down to a few percent, so it is not a battery level.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
