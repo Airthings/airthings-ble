@@ -258,6 +258,8 @@ def test_parse_advertisement_data_connectivity_mode(
         ("2097a4ae0900", AirthingsConnectivityMode.BLE),
         ("b6bdd5af0800", AirthingsConnectivityMode.BLE),
         ("b6bdd5af2000", AirthingsConnectivityMode.BLE),
+        ("6648a5ae6010", AirthingsConnectivityMode.SMARTLINK),
+        ("6648a5ae4810", AirthingsConnectivityMode.SMARTLINK),
         ("25470cae0000", None),
         ("26540cae0000", None),
         ("8915b7c10000", None),
