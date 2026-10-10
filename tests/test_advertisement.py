@@ -1,7 +1,6 @@
 import pytest
 from airthings_ble import (
     AirthingsDeviceType,
-    extract_serial_number_from_manufacturer_data,
     parse_advertisement_data,
 )
 
@@ -16,22 +15,6 @@ _SUPPORTED_MODEL_CODES = {"2900", "2920", "2930", "2950", "3210", "3220", "3250"
 def _manufacturer_data(serial_number: int) -> bytes:
     """Build advertisement manufacturer data with an Airthings serial number."""
     return serial_number.to_bytes(4, "little") + b"\x00\x00"
-
-
-def test_extract_serial_number_from_manufacturer_data() -> None:
-    """Test serial number extraction from manufacturer data."""
-    assert (
-        extract_serial_number_from_manufacturer_data(_manufacturer_data(2930123456))
-        == "2930123456"
-    )
-    assert extract_serial_number_from_manufacturer_data(b"\xe4/\x00") is None
-    assert extract_serial_number_from_manufacturer_data(None) is None
-    assert (
-        extract_serial_number_from_manufacturer_data(
-            bytearray(_manufacturer_data(3210123456))
-        )
-        == "3210123456"
-    )
 
 
 @pytest.mark.parametrize(
@@ -112,6 +95,7 @@ def test_parse_advertisement_data_serial_wins_over_unique_uuid() -> None:
         (b"", [_SHARED_UUID]),
         (b"\x01\x02\x03", [_SHARED_UUID]),
         (b"\x01\x02\x03\x04\x00\x00", [_SHARED_UUID]),
+        (bytearray(b"\x01\x02\x03\x04"), None),
         (_manufacturer_data(2960015842), [_SHARED_UUID]),
         (_manufacturer_data(2980002402), [_SHARED_UUID]),
         (_manufacturer_data(2810123456), ["b42e77de-ade7-11e4-89d3-123b93f75cba"]),

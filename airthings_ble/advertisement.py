@@ -17,18 +17,11 @@ class AirthingsAdvertisementData:
     serial_number: str | None = None
 
 
-def extract_serial_number_from_manufacturer_data(
-    manufacturer_data: bytes | bytearray | None,
-) -> str | None:
-    """Extract the serial number from Airthings manufacturer data."""
+def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
     if manufacturer_data is None or len(manufacturer_data) < 4:
         return None
-    return str(int.from_bytes(manufacturer_data[0:4], "little"))
-
-
-def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
-    serial_number = extract_serial_number_from_manufacturer_data(manufacturer_data)
-    if serial_number is None or len(serial_number) != 10:
+    serial_number = str(int.from_bytes(manufacturer_data[0:4], "little"))
+    if len(serial_number) != 10:
         return None
     return serial_number
 
@@ -52,8 +45,10 @@ def parse_advertisement_data(
 
     `manufacturer_data` is the payload for the Airthings company id (820). The
     model comes from the model code in the serial number, or else from a service
-    UUID unique to one model. Returns None for everything else, including other
-    Airthings products, so callers can ignore it without connecting.
+    UUID unique to one model; `serial_number` is the advertised serial, if any.
+    Returns None for everything else, including other Airthings products, so
+    callers can skip the advertisement without connecting. None says nothing
+    about later advertisements from the same address.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (

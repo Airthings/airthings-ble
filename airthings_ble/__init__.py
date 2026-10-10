@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from .advertisement import (
     AirthingsAdvertisementData,
-    extract_serial_number_from_manufacturer_data,
     parse_advertisement_data,
 )
 from .connectivity_mode import AirthingsConnectivityMode
@@ -26,6 +25,5 @@ __all__ = [
     "AirthingsDeviceType",
     "DisconnectedError",
     "UnsupportedDeviceError",
-    "extract_serial_number_from_manufacturer_data",
     "parse_advertisement_data",
 ]
