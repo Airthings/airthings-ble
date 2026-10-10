@@ -1,0 +1,112 @@
+name: PR labels
+
+on:
+  pull_request_target:
+    types: [opened, edited, reopened, synchronize, labeled, unlabeled]
+
+permissions: {}
+
+concurrency:
+  group: pr-labels-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  release-notes-label:
+    name: Release notes label
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+      - name: Set the label from the checked type of change
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR: ${{ github.event.pull_request.number }}
+        run: |
+          managed="bug enhancement breaking dependencies nochangelog"
+          current_labels() { gh api "repos/$REPO/issues/$PR/labels?per_page=100" --jq '[.[].name]'; }
+
+          marker="<!-- release-notes-label -->"
+          bot_comments() {
+            gh api --paginate "repos/$REPO/issues/$PR/comments?per_page=100" \
+              --jq ".[] | select(.user.login == \"github-actions[bot]\" and (.body | startswith(\"$marker\"))) | .id"
+          }
+          fail() {
+            local ids text
+            echo "::error::$1"
+            ids=$(bot_comments)
+            text="$marker"$'\n'"$1 Check exactly one box under **Type of change** in the description, and keep the heading and option text unchanged. Once you do, the release notes label is set automatically."
+            if [[ -n "$ids" ]]; then
+              gh api --method PATCH "repos/$REPO/issues/comments/${ids%%$'\n'*}" -f body="$text" > /dev/null
+            else
+              gh api --method POST "repos/$REPO/issues/$PR/comments" -f body="$text" > /dev/null
+            fi
+            exit 1
+          }
+          pass() {
+            local ids id
+            ids=$(bot_comments) || return 0
+            for id in $ids; do
+              gh api --method DELETE "repos/$REPO/issues/comments/$id" > /dev/null || echo "::warning::Could not delete comment $id"
+            done
+          }
+
+          body=$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')
+
+          checked=""
+          in_section=false
+          while IFS= read -r line; do
+            if [[ "$line" =~ ^[[:space:]]{0,3}#{1,6}([[:space:]]|$) ]]; then
+              [[ "$line" =~ ^[[:space:]]{0,3}##[[:space:]]+Type\ of\ change[[:space:]#]*$ ]] && in_section=true || in_section=false
+              continue
+            fi
+            $in_section || continue
+            [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]+\[[xX]\][[:space:]]+(.*[^[:space:]])[[:space:]]*$ ]] || continue
+            case "${BASH_REMATCH[1]}" in
+              "Bugfix") checked+=" bug" ;;
+              "New feature or device support") checked+=" enhancement" ;;
+              "Breaking change") checked+=" breaking" ;;
+              "Dependency upgrade") checked+=" dependencies" ;;
+              "Code quality, tests, CI or documentation") checked+=" nochangelog" ;;
+              *) checked+=" unknown" ;;
+            esac
+          done < <(printf '%s\n' "$body" | tr -d '\r' | perl -0pe 's/<!--.*?-->//gs')
+          read -ra checked <<< "$checked"
+
+          if (( ${#checked[@]} > 1 )); then
+            fail "More than one box is checked under Type of change."
+          fi
+          if [[ "${checked[0]:-}" == unknown ]]; then
+            fail "The checked box under Type of change doesn't match any of the options."
+          fi
+
+          labels=$(current_labels)
+
+          if (( ${#checked[@]} == 0 )); then
+            if ! jq -e --arg managed "$managed" 'any(.[]; IN($managed | split(" ")[]))' <<< "$labels" > /dev/null; then
+              sleep 10
+              labels=$(current_labels)
+            fi
+            count=$(jq --arg managed "$managed" 'map(select(IN($managed | split(" ")[]))) | length' <<< "$labels")
+            if (( count == 1 )); then
+              echo "No box checked under Type of change; keeping the existing release notes label"
+              pass
+              exit 0
+            fi
+            fail "No box is checked under Type of change."
+          fi
+
+          wanted="${checked[0]}"
+          while IFS= read -r label; do
+            if [[ "$label" != "$wanted" && " $managed " == *" $label "* ]]; then
+              if error=$(gh api --method DELETE "repos/$REPO/issues/$PR/labels/$label" 2>&1 > /dev/null); then
+                echo "Removed $label"
+              elif [[ "$error" != *"HTTP 404"* ]]; then
+                echo "$error"
+                exit 1
+              fi
+            fi
+          done < <(jq -r '.[]' <<< "$labels")
+          gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$wanted" > /dev/null
+          echo "Set $wanted"
+          pass

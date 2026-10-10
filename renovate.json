@@ -8,23 +8,24 @@
     "after 4am and before 11am on the first day of the month"
   ],
   "minimumReleaseAge": "3 days",
+  "labels": ["nochangelog"],
   "packageRules": [
     {
       "description": "Runtime dependencies reach Home Assistant users; keep them separate and in the release notes.",
       "matchManagers": ["poetry"],
       "matchDepTypes": ["dependencies"],
-      "addLabels": ["dependencies"]
+      "labels": ["dependencies"]
     },
     {
       "matchManagers": ["poetry"],
       "matchDepTypes": ["dev"],
       "groupName": "development tools",
-      "addLabels": ["nochangelog"]
+      "labels": ["nochangelog"]
     },
     {
       "matchManagers": ["github-actions"],
       "groupName": "GitHub Actions",
-      "addLabels": ["nochangelog"]
+      "labels": ["nochangelog"]
     }
   ]
 }

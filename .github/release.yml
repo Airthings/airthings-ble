@@ -3,6 +3,9 @@ changelog:
     labels:
       - nochangelog
   categories:
+    - title: Breaking changes
+      labels:
+        - breaking
     - title: Fixes
       labels:
         - bug
