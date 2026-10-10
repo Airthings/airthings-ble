@@ -68,12 +68,16 @@ jobs:
               "Breaking change") checked+=" breaking" ;;
               "Dependency upgrade") checked+=" dependencies" ;;
               "Code quality, tests, CI or documentation") checked+=" nochangelog" ;;
+              *) checked+=" unknown" ;;
             esac
           done < <(printf '%s\n' "$body" | tr -d '\r' | perl -0pe 's/<!--.*?-->//gs')
           read -ra checked <<< "$checked"
 
           if (( ${#checked[@]} > 1 )); then
             fail "More than one box is checked under Type of change."
+          fi
+          if [[ "${checked[0]:-}" == unknown ]]; then
+            fail "The checked box under Type of change doesn't match any of the options."
           fi
 
           labels=$(current_labels)
