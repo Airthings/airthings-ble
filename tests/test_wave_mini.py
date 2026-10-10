@@ -26,7 +26,7 @@ def test_wave_mini_command_decode() -> None:
         raw_data=bytearray.fromhex(
             "6d0064000000c800000001020304f4015802bc02000020038403b80b4c04b0040000"
         ),
-    ) == {BATTERY: 3.0, BLE_VERSION: None, SUB_VERSION: None}
+    ) == {BATTERY: 3.0, BLE_VERSION: None, SUB_VERSION: "0.0.2"}
 
 
 def test_wave_mini_sensor_data() -> None:

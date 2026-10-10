@@ -83,6 +83,7 @@ def test_airthings_firmware_invalid_required_version() -> None:
         ("G-BLE-255.255.255", "255.255.255"),
         ("M-BLE-999.2.3", None),
         ("M-BLE-1.256.3-master+0", None),
+        ("M-BLE-0.0.0+5", None),
         ("T-SUB-2.6.0-master+0", None),
         ("G-MSP-1.0.0", None),
         ("G-BLE-1.0.0.1", None),

@@ -25,9 +25,10 @@ def ble_version_from_revision(revision: str) -> str | None:
     """Extract the BLE chip version from a firmware revision string."""
     if not (match_obj := _BLE_REVISION.match(revision)):
         return None
-    if any(int(part) > 0xFF for part in match_obj.groups()):
+    parts = [int(part) for part in match_obj.groups()]
+    if any(part > 0xFF for part in parts) or not any(parts):
         return None
-    return ".".join(str(int(part)) for part in match_obj.groups())
+    return ".".join(str(part) for part in parts)
 
 
 class AirthingsFirmwareVersion:

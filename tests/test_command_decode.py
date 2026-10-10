@@ -96,19 +96,17 @@ def _wave_mini_response(ble_version: str, sub_version: str, flags: str) -> bytea
     ("ble_raw", "sub_raw", "flags", "ble_version", "sub_version"),
     [
         pytest.param(
-            "00000402", "00020202", "4cc4", "2.4.0", "2.2.2", id="sub_reported"
+            "00000402", "00020202", "4cc4", "2.4.0", "2.2.2", id="sub_flag_set"
         ),
         pytest.param(
-            "07090402", "00020202", "4c44", "2.4.9", None, id="sub_not_reported"
+            "07090402", "00020202", "4c44", "2.4.9", "2.2.2", id="sub_flag_clear"
         ),
         pytest.param("ffffffff", "ffffffff", "4cc4", None, None, id="versions_not_set"),
         pytest.param("c8000000", "00000000", "4cc4", None, None, id="zero_versions"),
-        pytest.param("00000402", "00020202", "0000", "2.4.0", None, id="no_flags"),
+        pytest.param("00000402", "ffffffff", "4cc4", "2.4.0", None, id="sub_not_set"),
+        pytest.param("00000402", "00020202", "0000", "2.4.0", "2.2.2", id="no_flags"),
         pytest.param(
-            "00000402", "00020202", "0080", "2.4.0", "2.2.2", id="only_sub_flag"
-        ),
-        pytest.param(
-            "00000402", "00020202", "ffff", "2.4.0", None, id="flags_not_available"
+            "00000402", "00020202", "ffff", "2.4.0", "2.2.2", id="flags_not_available"
         ),
     ],
 )

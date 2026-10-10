@@ -22,7 +22,6 @@ from airthings_ble.const import (
 
 _WAVE_PLUS_DEVICE_TYPE = 2
 _WAVE_PLUS_DATE_CODED_MSP_VERSIONS = (0x0798, 0x1E98, 0x03C8, 0x04C8)
-_SUB_VERSION_REPORTED = 0x8000
 
 
 def _dotted_version(major: int, minor: int, patch: int) -> str | None:
@@ -48,10 +47,6 @@ def _semantic_version(raw: int) -> str | None:
     if raw == 0xFFFFFFFF:
         return None
     return _dotted_version(raw >> 24, (raw >> 16) & 0xFF, (raw >> 8) & 0xFF)
-
-
-def _sub_version_reported(flags: int) -> bool:
-    return flags != UINT16_NO_VALUE and bool(flags & _SUB_VERSION_REPORTED)
 
 
 class CommandDecode:
@@ -142,9 +137,7 @@ class WaveMiniCommandDecode(CommandDecode):
             res: dict[str, float | str | None] = {}
             res[BATTERY] = val[11] / 1000.0
             res[BLE_VERSION] = _semantic_version(val[1])
-            res[SUB_VERSION] = (
-                _semantic_version(val[8]) if _sub_version_reported(val[12]) else None
-            )
+            res[SUB_VERSION] = _semantic_version(val[8])
             return res
 
         return None
