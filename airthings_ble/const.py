@@ -28,6 +28,11 @@ CHAR_UUID_WAVE_PLUS_DATA = UUID("b42e2a68-ade7-11e4-89d3-123b93f75cba")
 CHAR_UUID_WAVE_2_DATA = UUID("b42e4dcc-ade7-11e4-89d3-123b93f75cba")
 CHAR_UUID_WAVEMINI_DATA = UUID("b42e3b98-ade7-11e4-89d3-123b93f75cba")
 
+SERVICE_UUID_WAVE_GEN_1 = UUID("b42e1f6e-ade7-11e4-89d3-123b93f75cba")
+SERVICE_UUID_WAVE_PLUS = UUID("b42e1c08-ade7-11e4-89d3-123b93f75cba")
+SERVICE_UUID_WAVE_MINI = UUID("b42e3882-ade7-11e4-89d3-123b93f75cba")
+SERVICE_UUID_WAVE_2 = UUID("b42e4a8e-ade7-11e4-89d3-123b93f75cba")
+
 COMMAND_UUID_WAVE_2 = UUID("b42e50d8-ade7-11e4-89d3-123b93f75cba")
 COMMAND_UUID_WAVE_PLUS = UUID("b42e2d06-ade7-11e4-89d3-123b93f75cba")
 COMMAND_UUID_WAVE_MINI = UUID("b42e3ef4-ade7-11e4-89d3-123b93f75cba")
@@ -88,8 +93,8 @@ RADON_YEAR_LEVEL = "radon_year_level"
 VOC = "voc"
 
 AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL: dict[str, AirthingsDeviceType] = {
-    "b42e1f6e-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_GEN_1,
-    "b42e1c08-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_PLUS,
-    "b42e3882-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_MINI,
-    "b42e4a8e-ade7-11e4-89d3-123b93f75cba": AirthingsDeviceType.WAVE_RADON,
+    str(SERVICE_UUID_WAVE_GEN_1): AirthingsDeviceType.WAVE_GEN_1,
+    str(SERVICE_UUID_WAVE_PLUS): AirthingsDeviceType.WAVE_PLUS,
+    str(SERVICE_UUID_WAVE_MINI): AirthingsDeviceType.WAVE_MINI,
+    str(SERVICE_UUID_WAVE_2): AirthingsDeviceType.WAVE_RADON,
 }
