@@ -29,7 +29,6 @@ from airthings_ble.const import (
     COMMAND_UUID_WAVE_PLUS,
     SUB_CHIP_VERSION_MAX_AGE,
 )
-
 from bleak import BleakError
 
 from fakes import (

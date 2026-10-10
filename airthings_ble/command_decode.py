@@ -5,7 +5,6 @@ import struct
 from logging import Logger
 from typing import Any, Optional
 
-
 from airthings_ble.airthings_firmware import AirthingsChip
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath

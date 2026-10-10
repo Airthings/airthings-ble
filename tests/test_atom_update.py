@@ -4,7 +4,6 @@ from typing import Any
 import pytest
 from airthings_ble import (
     AirthingsBluetoothDeviceData,
-    AirthingsChip,
     AirthingsDeviceType,
 )
 from airthings_ble.const import COMMAND_UUID_ATOM
