@@ -48,34 +48,31 @@ def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
     return serial_number
 
 
-def _flags(manufacturer_data: bytes | bytearray | None) -> int | None:
-    if manufacturer_data is None or len(manufacturer_data) < 6:
-        return None
-    return int.from_bytes(manufacturer_data[4:6], "little")
-
-
-def _connectivity_mode(
-    model: AirthingsDeviceType, flags: int | None
-) -> AirthingsConnectivityMode | None:
+def _flags(
+    model: AirthingsDeviceType, manufacturer_data: bytes | bytearray | None
+) -> int | None:
     if (
         model not in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
-        or flags is None
-        or flags == ADVERTISEMENT_FLAGS_UNPOPULATED
+        or manufacturer_data is None
+        or len(manufacturer_data) < 6
     ):
+        return None
+    flags = int.from_bytes(manufacturer_data[4:6], "little")
+    if flags == ADVERTISEMENT_FLAGS_UNPOPULATED:
+        return None
+    return flags
+
+
+def _connectivity_mode(flags: int | None) -> AirthingsConnectivityMode | None:
+    if flags is None:
         return None
     if flags & ADVERTISEMENT_FLAG_SMARTLINK:
         return AirthingsConnectivityMode.SMARTLINK
     return AirthingsConnectivityMode.BLE
 
 
-def _battery_status(
-    model: AirthingsDeviceType, flags: int | None
-) -> AirthingsBatteryStatus | None:
-    if (
-        model not in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
-        or flags is None
-        or flags == ADVERTISEMENT_FLAGS_UNPOPULATED
-    ):
+def _battery_status(flags: int | None) -> AirthingsBatteryStatus | None:
+    if flags is None:
         return None
     return _BATTERY_STATUSES[
         (flags >> ADVERTISEMENT_BATTERY_STATUS_SHIFT)
@@ -125,18 +122,18 @@ def parse_advertisement_data(
     device should not be polled over BLE.
 
     `battery_status` is the battery status a Wave Plus or Wave Radon advertises,
-    and None for other models or when the advertisement does not say.
+    and None in the same cases as `connectivity_mode`.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
         model := _model_from_serial_number(serial_number)
     ):
-        flags = _flags(manufacturer_data)
+        flags = _flags(model, manufacturer_data)
         return AirthingsAdvertisementData(
             model=model,
             serial_number=serial_number,
-            connectivity_mode=_connectivity_mode(model, flags),
-            battery_status=_battery_status(model, flags),
+            connectivity_mode=_connectivity_mode(flags),
+            battery_status=_battery_status(flags),
         )
     if model := _model_from_service_uuids(service_uuids):
         return AirthingsAdvertisementData(model=model, serial_number=serial_number)
