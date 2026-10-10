@@ -171,7 +171,9 @@ def test_sub_chip_version_request() -> None:
     [
         pytest.param("720002050100", {AirthingsChip.SUB: "2.5.1"}, id="ok"),
         pytest.param("7200020501ff", {AirthingsChip.SUB: "2.5.1"}, id="build_ignored"),
-        pytest.param("720102050100", {}, id="bad_status"),
+        pytest.param("720102050100", None, id="error_status"),
+        pytest.param("7201ff050100", {}, id="error_status_version_not_set"),
+        pytest.param("720100000000", {}, id="error_status_all_zero"),
         pytest.param("7200020501", {}, id="too_short"),
         pytest.param("72000205010000", {}, id="too_long"),
         pytest.param("72", {}, id="command_only"),
@@ -179,15 +181,13 @@ def test_sub_chip_version_request() -> None:
         pytest.param("720002ff0100", {}, id="minor_not_set"),
         pytest.param("720000000000", {}, id="all_zero"),
         pytest.param("720030303031", {}, id="ascii_0001"),
-        pytest.param("6d0002050100", None, id="other_command"),
-        pytest.param(None, None, id="no_data"),
     ],
 )
 def test_sub_chip_version_response(
-    response: str | None, expected: dict[str, str] | None
+    response: str, expected: dict[str, str] | None
 ) -> None:
-    """Test a SUB chip version reply decodes to a version or to unsupported."""
-    raw_data = None if response is None else bytearray.fromhex(response)
+    """Test a SUB chip version reply decodes to a version, unsupported or an error."""
+    raw_data = bytearray.fromhex(response)
 
     assert SubChipVersionCommandDecode().decode_data(_LOGGER, raw_data) == expected
 

@@ -153,23 +153,23 @@ class SubChipVersionCommandDecode(CommandDecode):
     ) -> dict[str, float | str | None] | None:
         """Decoder returns dict with the SUB chip version.
 
-        The dict is empty when the device reports that it has no SUB chip
-        version, and None is returned when there is no reply at all.
+        The dict is empty when the device cannot report a SUB chip version,
+        and None is returned for an error status that may pass.
         """
-        if raw_data is None or raw_data[0:1] != self.cmd[0:1]:
-            logger.debug("Validate data: No data received")
-            return None
-        if len(raw_data) == self._RESPONSE_SIZE:
-            _, status, major, minor, patch, build = raw_data
+        data = raw_data or bytearray()
+        if len(data) == self._RESPONSE_SIZE:
+            _, status, major, minor, patch, build = data
             version = _dotted_version(major, minor, patch)
             if (
-                status == 0
-                and version is not None
+                version is not None
                 and 0xFF not in (major, minor)
                 and (major, minor, patch, build) != self._UNRELEASED_VERSION
             ):
-                return {AirthingsChip.SUB: version}
-        logger.debug("SUB chip version not supported: %s", raw_data.hex())
+                if status == 0:
+                    return {AirthingsChip.SUB: version}
+                logger.debug("SUB chip version error status: %s", data.hex())
+                return None
+        logger.debug("SUB chip version not supported: %s", data.hex())
         return {}
 
     def make_data_receiver(self) -> "NotificationReceiver":

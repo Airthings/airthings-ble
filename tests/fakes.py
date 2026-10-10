@@ -92,6 +92,7 @@ class FakeClient:
             SUB_CHIP_VERSION_RESPONSE
         ),
         sub_chip_version_error: Exception | None = None,
+        stall_sub_chip_version: bool = False,
     ) -> None:
         self.address = ADDRESS
         self.services = services or []
@@ -116,6 +117,7 @@ class FakeClient:
         self._silent_commands = silent_commands
         self._sub_chip_version_response = sub_chip_version_response
         self._sub_chip_version_error = sub_chip_version_error
+        self._stall_sub_chip_version = stall_sub_chip_version
         self._read_error = read_error
         self._disconnect_on_read = (
             None if disconnect_on_read is None else str(disconnect_on_read)
@@ -196,6 +198,8 @@ class FakeClient:
         elif data == SUB_CHIP_VERSION_REQUEST:
             if self._sub_chip_version_error is not None:
                 raise self._sub_chip_version_error
+            if self._stall_sub_chip_version:
+                await asyncio.Event().wait()
             response = self._sub_chip_version_response
             if isinstance(response, list):
                 self._send(characteristic, response)

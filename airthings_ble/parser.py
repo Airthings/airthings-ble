@@ -87,6 +87,7 @@ from .const import (
     RADON_YEAR_LEVEL,
     STOP_NOTIFY_TIMEOUT,
     SUB_CHIP_VERSION_MAX_AGE,
+    SUB_CHIP_VERSION_MAX_FAILURES,
     TEMPERATURE,
     TEMPERATURE_MAX,
     TEMPERATURE_MIN,
@@ -210,6 +211,8 @@ class AirthingsBluetoothDeviceData:
         self._sub_chip_version: str | None = None
         self._sub_chip_version_key: tuple[str | None, str | None] | None = None
         self._sub_chip_version_read_at = 0.0
+        self._sub_chip_version_failures = 0
+        self._sub_chip_version_failed_key: tuple[str | None, str | None] | None = None
         self.max_attempts = max_attempts
         self._unread_device_info: set[str] = set()
         self._warned_outdated_firmware = False
@@ -325,23 +328,43 @@ class AirthingsBluetoothDeviceData:
         decoder = SubChipVersionCommandDecode()
         receiver = decoder.make_data_receiver()
         try:
-            await client.start_notify(characteristic, receiver)
-            try:
+            async with asyncio.timeout(CHIP_VERSION_TIMEOUT):
+                await client.start_notify(characteristic, receiver)
                 await client.write_gatt_char(characteristic, bytearray(decoder.cmd))
                 await receiver.wait_for_message(CHIP_VERSION_TIMEOUT)
-            except BaseException:
-                await self._stop_notify_after_error(client, characteristic)
-                raise
-            await self._stop_notify(client, characteristic)
         except (BleakError, TimeoutError) as err:
             self.logger.debug("Failed to read the SUB chip version: %r", err)
+            self._sub_chip_version_failed(key)
             return
+        finally:
+            await self._stop_notify_after_error(client, characteristic)
         result = decoder.decode_data(logger=self.logger, raw_data=receiver.message)
-        if result is not None:
-            version = result.get(AirthingsChip.SUB)
-            self._sub_chip_version = version if isinstance(version, str) else None
-            self._sub_chip_version_key = key
-            self._sub_chip_version_read_at = _now()
+        if result is None:
+            self._sub_chip_version_failed(key)
+            return
+        version = result.get(AirthingsChip.SUB)
+        self._cache_sub_chip_version(key, version if isinstance(version, str) else None)
+
+    def _sub_chip_version_failed(self, key: tuple[str | None, str | None]) -> None:
+        if key != self._sub_chip_version_failed_key:
+            self._sub_chip_version_failed_key = key
+            self._sub_chip_version_failures = 0
+        self._sub_chip_version_failures += 1
+        if self._sub_chip_version_failures >= SUB_CHIP_VERSION_MAX_FAILURES:
+            self.logger.debug(
+                "SUB chip version not read after %s attempts",
+                self._sub_chip_version_failures,
+            )
+            self._cache_sub_chip_version(key, None)
+
+    def _cache_sub_chip_version(
+        self, key: tuple[str | None, str | None], version: str | None
+    ) -> None:
+        self._sub_chip_version = version
+        self._sub_chip_version_key = key
+        self._sub_chip_version_read_at = _now()
+        self._sub_chip_version_failed_key = None
+        self._sub_chip_version_failures = 0
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
