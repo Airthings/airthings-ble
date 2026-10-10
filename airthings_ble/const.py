@@ -98,3 +98,13 @@ AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL: dict[str, AirthingsDeviceType] = {
     str(SERVICE_UUID_WAVE_MINI): AirthingsDeviceType.WAVE_MINI,
     str(SERVICE_UUID_WAVE_2): AirthingsDeviceType.WAVE_RADON,
 }
+
+# Flags word in bytes 4..5 (little endian) of the advertised manufacturer data
+WAVE_PLUS_AND_RADON_MODELS = (
+    AirthingsDeviceType.WAVE_PLUS,
+    AirthingsDeviceType.WAVE_RADON,
+)
+WAVE_MINI_MODELS = (AirthingsDeviceType.WAVE_MINI,)
+ADVERTISEMENT_FLAGS_UNPOPULATED = 0x5AA5
+ADVERTISEMENT_FLAGS_NO_HUB_SUPPORT = 0b11 << 14
+ADVERTISEMENT_FLAG_SMARTLINK = 1 << 12

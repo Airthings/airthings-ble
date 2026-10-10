@@ -6,7 +6,14 @@ from collections.abc import Iterable
 from dataclasses import dataclass
 
 from .connectivity_mode import AirthingsConnectivityMode
-from .const import AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL
+from .const import (
+    ADVERTISEMENT_FLAG_SMARTLINK,
+    ADVERTISEMENT_FLAGS_NO_HUB_SUPPORT,
+    ADVERTISEMENT_FLAGS_UNPOPULATED,
+    AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL,
+    WAVE_MINI_MODELS,
+    WAVE_PLUS_AND_RADON_MODELS,
+)
 from .device_type import AirthingsDeviceType
 
 _RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
@@ -14,10 +21,6 @@ _RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
     ("322", AirthingsDeviceType.WAVE_ENHANCE_US),
     ("325", AirthingsDeviceType.CORENTIUM_HOME_2),
 )
-_WAVE_PLUS_AND_RADON = (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
-_WAVE_MINI = (AirthingsDeviceType.WAVE_MINI,)
-_UNPOPULATED_FLAGS = 0x5AA5
-_SMARTLINK_FLAG = 1 << 12
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,15 +52,15 @@ def _connectivity_mode(
 ) -> AirthingsConnectivityMode | None:
     if flags is None:
         return None
-    if model in _WAVE_PLUS_AND_RADON:
-        if flags == _UNPOPULATED_FLAGS:
+    if model in WAVE_PLUS_AND_RADON_MODELS:
+        if flags == ADVERTISEMENT_FLAGS_UNPOPULATED:
             return None
-    elif model in _WAVE_MINI:
-        if flags >> 14:
+    elif model in WAVE_MINI_MODELS:
+        if flags & ADVERTISEMENT_FLAGS_NO_HUB_SUPPORT:
             return None
     else:
         return None
-    if flags & _SMARTLINK_FLAG:
+    if flags & ADVERTISEMENT_FLAG_SMARTLINK:
         return AirthingsConnectivityMode.SMARTLINK
     return AirthingsConnectivityMode.BLE
 
