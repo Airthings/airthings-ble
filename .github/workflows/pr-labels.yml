@@ -25,7 +25,7 @@ jobs:
           BODY: ${{ github.event.pull_request.body }}
         run: |
           managed="bug enhancement breaking dependencies nochangelog"
-          current_labels() { gh api "repos/$REPO/issues/$PR/labels" --jq '[.[].name]'; }
+          current_labels() { gh api "repos/$REPO/issues/$PR/labels?per_page=100" --jq '[.[].name]'; }
 
           checked=""
           while IFS= read -r line; do
@@ -52,7 +52,8 @@ jobs:
               sleep 10
               labels=$(current_labels)
             fi
-            if jq -e --arg managed "$managed" 'any(.[]; IN($managed | split(" ")[]))' <<< "$labels" > /dev/null; then
+            count=$(jq --arg managed "$managed" 'map(select(IN($managed | split(" ")[]))) | length' <<< "$labels")
+            if (( count == 1 )); then
               echo "No box checked under Type of change; keeping the existing release notes label"
               exit 0
             fi
@@ -63,13 +64,13 @@ jobs:
           wanted="${checked[0]}"
           while IFS= read -r label; do
             if [[ "$label" != "$wanted" && " $managed " == *" $label "* ]]; then
-              if ! error=$(gh api --method DELETE "repos/$REPO/issues/$PR/labels/$label" 2>&1 > /dev/null); then
-                [[ "$error" == *"HTTP 404"* ]] || { echo "$error"; exit 1; }
+              if error=$(gh api --method DELETE "repos/$REPO/issues/$PR/labels/$label" 2>&1 > /dev/null); then
+                echo "Removed $label"
+              elif [[ "$error" != *"HTTP 404"* ]]; then
+                echo "$error"
+                exit 1
               fi
-              echo "Removed $label"
             fi
           done < <(jq -r '.[]' <<< "$labels")
-          if ! jq -e --arg wanted "$wanted" 'index($wanted)' <<< "$labels" > /dev/null; then
-            gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$wanted" > /dev/null
-            echo "Added $wanted"
-          fi
+          gh api --method POST "repos/$REPO/issues/$PR/labels" -f "labels[]=$wanted" > /dev/null
+          echo "Set $wanted"
