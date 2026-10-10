@@ -1,5 +1,6 @@
 import pytest
 from airthings_ble import (
+    AirthingsAdvertisementData,
     AirthingsBatteryStatus,
     AirthingsConnectivityMode,
     AirthingsDeviceType,
@@ -393,3 +394,73 @@ def test_parse_advertisement_data_without_battery_status(
 
     assert result is not None
     assert result.battery_status is None
+
+
+@pytest.mark.parametrize(
+    ("manufacturer_data", "service_uuids", "expected"),
+    [
+        ("2097a4ae0900", [_WAVE_PLUS_UUID], True),
+        ("b6bdd5af4800", [_WAVE_RADON_UUID], True),
+        ("b6bdd5af4003", [_WAVE_RADON_UUID], False),
+        ("6648a5ae6010", [_WAVE_PLUS_UUID], False),
+        ("26540cae0000", [_WAVE_MINI_UUID], True),
+        ("8915b7c10000", [_SHARED_UUID], True),
+        (None, [_WAVE_PLUS_UUID], True),
+        ("6648a5aea55a", [_WAVE_PLUS_UUID], True),
+        ("6648a5ae60", [_WAVE_PLUS_UUID], True),
+    ],
+    ids=[
+        "wave_plus_ble",
+        "wave_radon_low_charge_still_full",
+        "wave_radon_stopped",
+        "wave_plus_smartlink",
+        "wave_mini_mode_not_advertised",
+        "corentium_home_2",
+        "uuid_only",
+        "flags_not_filled_in",
+        "flags_truncated",
+    ],
+)
+def test_parse_captured_advertisements_should_poll(
+    manufacturer_data: str | None, service_uuids: list[str], expected: bool
+) -> None:
+    """Test should_poll on manufacturer data captured from real devices."""
+    result = parse_advertisement_data(
+        manufacturer_data=(
+            bytes.fromhex(manufacturer_data) if manufacturer_data else None
+        ),
+        service_uuids=service_uuids,
+    )
+
+    assert result is not None
+    assert result.should_poll is expected
+
+
+@pytest.mark.parametrize(
+    ("connectivity_mode", "battery_status", "expected"),
+    [
+        (None, None, True),
+        (None, AirthingsBatteryStatus.STOPPED, False),
+        (AirthingsConnectivityMode.BLE, None, True),
+        (AirthingsConnectivityMode.SMARTLINK, AirthingsBatteryStatus.STOPPED, False),
+        (AirthingsConnectivityMode.BLE, AirthingsBatteryStatus.FULL, True),
+        (AirthingsConnectivityMode.BLE, AirthingsBatteryStatus.LOW, True),
+        (AirthingsConnectivityMode.BLE, AirthingsBatteryStatus.LIMITED, True),
+        (AirthingsConnectivityMode.BLE, AirthingsBatteryStatus.STOPPED, False),
+        (AirthingsConnectivityMode.SMARTLINK, AirthingsBatteryStatus.FULL, False),
+        (AirthingsConnectivityMode.SMARTLINK, None, False),
+    ],
+)
+def test_should_poll(
+    connectivity_mode: AirthingsConnectivityMode | None,
+    battery_status: AirthingsBatteryStatus | None,
+    expected: bool,
+) -> None:
+    """Test only SmartLink and a stopped battery stop polling."""
+    data = AirthingsAdvertisementData(
+        model=AirthingsDeviceType.WAVE_PLUS,
+        connectivity_mode=connectivity_mode,
+        battery_status=battery_status,
+    )
+
+    assert data.should_poll is expected
