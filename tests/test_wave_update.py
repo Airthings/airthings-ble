@@ -29,6 +29,7 @@ from airthings_ble.const import (
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    SUB_CHIP_VERSION_MAX_AGE,
 )
 
 from bleak import BleakError
@@ -667,10 +668,7 @@ async def test_rejected_wave_command_response_gives_no_battery(
     assert message in caplog.text
     assert "battery" not in device.sensors
     assert device.sensors["co2"] == 797.0
-    assert device.chip_versions == {
-        AirthingsChip.BLE: "1.5.3",
-        AirthingsChip.SUB: "2.5.1",
-    }
+    assert device.chip_versions == {AirthingsChip.BLE: "1.5.3"}
 
 
 @pytest.mark.asyncio
@@ -709,17 +707,37 @@ class _NoBatteryCommandDecode(CommandDecode):
 
 
 def _wave_plus_client(
-    firmware: str = "G-BLE-1.5.3-master+0", **kwargs: Any
+    firmware: str = "G-BLE-1.5.3-master+0",
+    command: str = _WAVE_PLUS_COMMAND,
+    **kwargs: Any,
 ) -> FakeClient:
     return _wave_client(
         "2930",
         CHAR_UUID_WAVE_PLUS_DATA,
         _WAVE_PLUS_DATA,
         COMMAND_UUID_WAVE_PLUS,
-        _WAVE_PLUS_COMMAND,
+        command,
         firmware=firmware,
         **kwargs,
     )
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.fixture
+def clock(monkeypatch: pytest.MonkeyPatch) -> _Clock:
+    fake_clock = _Clock()
+    monkeypatch.setattr("airthings_ble.parser._now", fake_clock)
+    return fake_clock
+
+
+_UPDATED_SUB_CHIP_VERSION = bytes.fromhex("720003000000")
 
 
 @pytest.mark.asyncio
@@ -742,37 +760,6 @@ async def test_sub_chip_version_is_read_once(
     assert first.chip_versions == _WAVE_PLUS_CHIP_VERSIONS
     assert second.chip_versions == _WAVE_PLUS_CHIP_VERSIONS
     assert not second_client.notifying
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("response", "sub_versions"),
-    [
-        pytest.param("720003000000", {AirthingsChip.SUB: "3.0.0"}, id="read"),
-        pytest.param("720103000000", {}, id="rejected"),
-    ],
-)
-async def test_sub_chip_version_is_read_again_after_firmware_change(
-    monkeypatch: pytest.MonkeyPatch,
-    response: str,
-    sub_versions: dict[AirthingsChip, str],
-) -> None:
-    """Test a new firmware revision replaces the cached SUB chip version."""
-    updated_client = _wave_plus_client(
-        "G-BLE-1.6.0-master+0", sub_chip_version_response=bytes.fromhex(response)
-    )
-    use_clients(monkeypatch, _wave_plus_client(), updated_client)
-    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
-
-    await data.update_device(ble_device())
-    device = await data.update_device(ble_device())
-
-    assert updated_client.writes == [_SELF_CHECK_REQUEST, SUB_CHIP_VERSION_REQUEST]
-    assert device.chip_versions == {
-        AirthingsChip.BLE: "1.6.0",
-        AirthingsChip.MSP: "2.2.0",
-        **sub_versions,
-    }
 
 
 @pytest.mark.asyncio
@@ -913,56 +900,6 @@ class _StopNotifyFailsAfterSubChipVersion(FakeClient):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(
-    "response",
-    [
-        pytest.param("7201", id="error_reply"),
-        pytest.param("720102050100", id="bad_status"),
-        pytest.param("7200ff050100", id="version_not_set"),
-        pytest.param("720000000000", id="all_zero"),
-        pytest.param("720030303031", id="ascii_0001"),
-    ],
-)
-async def test_unsupported_sub_chip_version_is_not_asked_again(
-    monkeypatch: pytest.MonkeyPatch,
-    caplog: pytest.LogCaptureFixture,
-    response: str,
-) -> None:
-    """Test an unsupported SUB chip version is cached until the firmware changes."""
-    unsupported = bytes.fromhex(response)
-    first_client = _wave_plus_client(sub_chip_version_response=unsupported)
-    second_client = _wave_plus_client(sub_chip_version_response=unsupported)
-    updated_client = _wave_plus_client("G-BLE-1.6.0-master+0")
-    use_clients(monkeypatch, first_client, second_client, updated_client)
-    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
-
-    first = await data.update_device(ble_device())
-    second = await data.update_device(ble_device())
-    updated = await data.update_device(ble_device())
-
-    assert first_client.writes == [_SELF_CHECK_REQUEST, SUB_CHIP_VERSION_REQUEST]
-    assert second_client.writes == [_SELF_CHECK_REQUEST]
-    assert updated_client.writes == [_SELF_CHECK_REQUEST, SUB_CHIP_VERSION_REQUEST]
-    assert first.sensors[BATTERY] == 100
-    assert first.chip_versions == {
-        AirthingsChip.BLE: "1.5.3",
-        AirthingsChip.MSP: "2.2.0",
-    }
-    assert second.chip_versions == first.chip_versions
-    assert updated.chip_versions == {
-        AirthingsChip.BLE: "1.6.0",
-        AirthingsChip.MSP: "2.2.0",
-        AirthingsChip.SUB: "2.5.1",
-    }
-    unsupported_logs = [
-        record
-        for record in caplog.records
-        if "SUB chip version not supported" in record.getMessage()
-    ]
-    assert [record.levelno for record in unsupported_logs] == [logging.DEBUG]
-
-
-@pytest.mark.asyncio
 async def test_sub_chip_version_after_a_late_self_check_reply(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -1004,3 +941,138 @@ async def test_sub_chip_version_without_message_is_retried(
     assert AirthingsChip.SUB not in first.chip_versions
     assert retry_client.writes == [_SELF_CHECK_REQUEST, SUB_CHIP_VERSION_REQUEST]
     assert retried.chip_versions == _WAVE_PLUS_CHIP_VERSIONS
+
+
+@pytest.mark.asyncio
+async def test_sub_chip_version_is_read_again_after_max_age(
+    monkeypatch: pytest.MonkeyPatch, clock: _Clock
+) -> None:
+    """Test a SUB-only firmware update is picked up once the cache is too old."""
+    clients = [
+        _wave_plus_client(),
+        _wave_plus_client(sub_chip_version_response=_UPDATED_SUB_CHIP_VERSION),
+        _wave_plus_client(sub_chip_version_response=_UPDATED_SUB_CHIP_VERSION),
+    ]
+    use_clients(monkeypatch, *clients)
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    first = await data.update_device(ble_device())
+    clock.now += SUB_CHIP_VERSION_MAX_AGE - 1
+    cached = await data.update_device(ble_device())
+    clock.now += 1
+    updated = await data.update_device(ble_device())
+
+    assert [SUB_CHIP_VERSION_REQUEST in client.writes for client in clients] == [
+        True,
+        False,
+        True,
+    ]
+    assert first.chip_versions == _WAVE_PLUS_CHIP_VERSIONS
+    assert cached.chip_versions == _WAVE_PLUS_CHIP_VERSIONS
+    assert updated.chip_versions == {
+        **_WAVE_PLUS_CHIP_VERSIONS,
+        AirthingsChip.SUB: "3.0.0",
+    }
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("firmware", "command", "chip_versions"),
+    [
+        pytest.param(
+            "G-BLE-1.6.0-master+0",
+            _WAVE_PLUS_COMMAND,
+            {AirthingsChip.BLE: "1.6.0", AirthingsChip.MSP: "2.2.0"},
+            id="ble_change",
+        ),
+        pytest.param(
+            "G-BLE-1.5.3-master+0",
+            _wave_plus_self_check("4085"),
+            {AirthingsChip.BLE: "1.5.3", AirthingsChip.MSP: "2.5.1"},
+            id="msp_change",
+        ),
+    ],
+)
+@pytest.mark.parametrize(
+    ("response", "sub_versions"),
+    [
+        pytest.param(
+            _UPDATED_SUB_CHIP_VERSION, {AirthingsChip.SUB: "3.0.0"}, id="read"
+        ),
+        pytest.param(bytes.fromhex("720103000000"), {}, id="unsupported"),
+    ],
+)
+async def test_sub_chip_version_is_read_again_after_chip_change(
+    monkeypatch: pytest.MonkeyPatch,
+    clock: _Clock,
+    firmware: str,
+    command: str,
+    chip_versions: dict[AirthingsChip, str],
+    response: bytes,
+    sub_versions: dict[AirthingsChip, str],
+) -> None:
+    """Test a new BLE or MSP version triggers a new SUB chip version read."""
+    updated_client = _wave_plus_client(
+        firmware, command, sub_chip_version_response=response
+    )
+    use_clients(monkeypatch, _wave_plus_client(), updated_client)
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    await data.update_device(ble_device())
+    device = await data.update_device(ble_device())
+
+    assert updated_client.writes == [_SELF_CHECK_REQUEST, SUB_CHIP_VERSION_REQUEST]
+    assert device.chip_versions == {**chip_versions, **sub_versions}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "response",
+    [
+        pytest.param("7201", id="error_reply"),
+        pytest.param("720102050100", id="bad_status"),
+        pytest.param("7200ff050100", id="version_not_set"),
+        pytest.param("720000000000", id="all_zero"),
+        pytest.param("720030303031", id="ascii_0001"),
+    ],
+)
+async def test_unsupported_sub_chip_version_is_cached(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+    clock: _Clock,
+    response: str,
+) -> None:
+    """Test an unsupported SUB chip version is asked again only after the max age."""
+    unsupported = bytes.fromhex(response)
+    clients = [
+        _wave_plus_client(sub_chip_version_response=unsupported),
+        _wave_plus_client(sub_chip_version_response=unsupported),
+        _wave_plus_client(),
+    ]
+    use_clients(monkeypatch, *clients)
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    first = await data.update_device(ble_device())
+    clock.now += SUB_CHIP_VERSION_MAX_AGE - 1
+    second = await data.update_device(ble_device())
+    clock.now += 1
+    updated = await data.update_device(ble_device())
+
+    assert [SUB_CHIP_VERSION_REQUEST in client.writes for client in clients] == [
+        True,
+        False,
+        True,
+    ]
+    assert first.sensors[BATTERY] == 100
+    assert first.chip_versions == {
+        AirthingsChip.BLE: "1.5.3",
+        AirthingsChip.MSP: "2.2.0",
+    }
+    assert second.chip_versions == first.chip_versions
+    assert updated.chip_versions == _WAVE_PLUS_CHIP_VERSIONS
+    unsupported_logs = [
+        record
+        for record in caplog.records
+        if "SUB chip version not supported" in record.getMessage()
+    ]
+    assert [record.levelno for record in unsupported_logs] == [logging.DEBUG]

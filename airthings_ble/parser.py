@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import dataclasses
 import re
+import time
 from collections import namedtuple
 from functools import partial
 from logging import Logger
@@ -85,6 +86,7 @@ from .const import (
     RADON_YEAR_AVG,
     RADON_YEAR_LEVEL,
     STOP_NOTIFY_TIMEOUT,
+    SUB_CHIP_VERSION_MAX_AGE,
     TEMPERATURE,
     TEMPERATURE_MAX,
     TEMPERATURE_MIN,
@@ -135,6 +137,10 @@ class DisconnectedError(Exception):
 
 class UnsupportedDeviceError(Exception):
     """Unsupported device."""
+
+
+def _now() -> float:
+    return time.monotonic()
 
 
 def short_address(address: str) -> str:
@@ -202,7 +208,8 @@ class AirthingsBluetoothDeviceData:
         self.device_info = AirthingsDeviceInfo()
         self._self_check_versions: dict[AirthingsChip, str] = {}
         self._sub_chip_version: str | None = None
-        self._sub_chip_version_sw_version: str | None = None
+        self._sub_chip_version_key: tuple[str | None, str | None] | None = None
+        self._sub_chip_version_read_at = 0.0
         self.max_attempts = max_attempts
         self._unread_device_info: set[str] = set()
         self._warned_outdated_firmware = False
@@ -291,20 +298,28 @@ class AirthingsBluetoothDeviceData:
         versions = dict(self._self_check_versions)
         if (
             self._sub_chip_version
-            and self._sub_chip_version_sw_version == self.device_info.sw_version
+            and self._sub_chip_version_key == self._sub_chip_version_cache_key()
         ):
             versions[AirthingsChip.SUB] = self._sub_chip_version
         if ble := ble_version_from_revision(self.device_info.sw_version):
             versions[AirthingsChip.BLE] = ble
         return versions
 
+    def _sub_chip_version_cache_key(self) -> tuple[str | None, str | None]:
+        return (
+            ble_version_from_revision(self.device_info.sw_version),
+            self._self_check_versions.get(AirthingsChip.MSP),
+        )
+
     async def _read_sub_chip_version(
         self, client: BleakClient, characteristic: BleakGATTCharacteristic
     ) -> None:
-        sw_version = self.device_info.sw_version
+        if not supports_sub_chip_version(self.device_info.sw_version):
+            return
+        key = self._sub_chip_version_cache_key()
         if (
-            self._sub_chip_version_sw_version == sw_version
-            or not supports_sub_chip_version(sw_version)
+            key == self._sub_chip_version_key
+            and _now() - self._sub_chip_version_read_at < SUB_CHIP_VERSION_MAX_AGE
         ):
             return
         decoder = SubChipVersionCommandDecode()
@@ -325,7 +340,8 @@ class AirthingsBluetoothDeviceData:
         if result is not None:
             version = result.get(AirthingsChip.SUB)
             self._sub_chip_version = version if isinstance(version, str) else None
-            self._sub_chip_version_sw_version = sw_version
+            self._sub_chip_version_key = key
+            self._sub_chip_version_read_at = _now()
 
     async def _get_service_characteristics(
         self, client: BleakClient, device: AirthingsDevice
@@ -402,9 +418,6 @@ class AirthingsBluetoothDeviceData:
                 if not command_data_receiver.complete:
                     continue
 
-                if uuid_str in _SUB_CHIP_VERSION_COMMAND_UUIDS:
-                    await self._read_sub_chip_version(client, characteristic)
-
                 command_sensor_data = decoder.decode_data(
                     logger=self.logger, raw_data=command_data_receiver.message
                 )
@@ -417,6 +430,8 @@ class AirthingsBluetoothDeviceData:
                     for chip in AirthingsChip
                     if isinstance(version := command_sensor_data.get(chip), str)
                 }
+                if uuid_str in _SUB_CHIP_VERSION_COMMAND_UUIDS:
+                    await self._read_sub_chip_version(client, characteristic)
 
     async def _atom_sensor_data(
         self,
