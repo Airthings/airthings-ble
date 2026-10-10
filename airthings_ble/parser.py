@@ -134,12 +134,6 @@ def _version(value: float | str | None) -> str | None:
     return value if isinstance(value, str) else None
 
 
-def _reported_version(
-    decoded: dict[str, float | str | None], key: str, known: str | None
-) -> str | None:
-    return _version(decoded[key]) if key in decoded else known
-
-
 def short_address(address: str) -> str:
     """Convert a Bluetooth address to a short address."""
     return address.replace("-", "").replace(":", "")[-6:].upper()
@@ -203,7 +197,7 @@ class AirthingsBluetoothDeviceData:
         self.logger = logger
         self.is_metric = is_metric
         self.device_info = AirthingsDeviceInfo()
-        self._chip_versions = AirthingsChipVersions()
+        self._self_check_versions = AirthingsChipVersions()
         self.max_attempts = max_attempts
         self._unread_device_info: set[str] = set()
         self._warned_outdated_firmware = False
@@ -288,31 +282,13 @@ class AirthingsBluetoothDeviceData:
             name = field.name
             setattr(device, name, getattr(device_info, name))
 
-        if ble := self._revision_ble_version():
-            self._chip_versions = dataclasses.replace(self._chip_versions, ble=ble)
-        device.chip_versions = self._chip_versions
-
-    def _revision_ble_version(self) -> str | None:
-        """BLE version from the firmware revision read in the current sync."""
-        if "firmware_rev" in self._unread_device_info:
-            return None
-        return ble_version_from_revision(self.device_info.sw_version)
-
-    def _self_check_chip_versions(
-        self, decoded: dict[str, float | str | None]
-    ) -> AirthingsChipVersions:
-        known = self._chip_versions
-        ble = known.ble
-        if BLE_VERSION in decoded:
-            self_check_ble = _version(decoded[BLE_VERSION])
-            if "firmware_rev" in self._unread_device_info:
-                ble = self_check_ble or known.ble
-            else:
-                ble = self._revision_ble_version() or self_check_ble
+    def _chip_versions(self) -> AirthingsChipVersions:
+        self_check = self._self_check_versions
         return AirthingsChipVersions(
-            ble=ble,
-            msp=_reported_version(decoded, MSP_VERSION, known.msp),
-            sub=_reported_version(decoded, SUB_VERSION, known.sub),
+            ble=ble_version_from_revision(self.device_info.sw_version)
+            or self_check.ble,
+            msp=self_check.msp,
+            sub=self_check.sub,
         )
 
     async def _get_service_characteristics(
@@ -397,10 +373,11 @@ class AirthingsBluetoothDeviceData:
                     continue
                 if (bat_data := command_sensor_data.get(BATTERY)) is not None:
                     sensors[BATTERY] = device.model.battery_percentage(float(bat_data))
-                self._chip_versions = self._self_check_chip_versions(
-                    command_sensor_data
+                self._self_check_versions = AirthingsChipVersions(
+                    ble=_version(command_sensor_data.get(BLE_VERSION)),
+                    msp=_version(command_sensor_data.get(MSP_VERSION)),
+                    sub=_version(command_sensor_data.get(SUB_VERSION)),
                 )
-                device.chip_versions = self._chip_versions
 
     async def _atom_sensor_data(
         self,
@@ -648,4 +625,5 @@ class AirthingsBluetoothDeviceData:
         finally:
             await client.disconnect()
 
+        device.chip_versions = self._chip_versions()
         return device

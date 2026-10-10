@@ -413,35 +413,33 @@ async def test_self_check_clears_unset_sub_version(
     assert second.chip_versions == AirthingsChipVersions(ble="1.5.3")
 
 
+def _wave_plus_self_check(msp_version: str) -> str:
+    return f"6d00600c04000100{msp_version}11ff00000000c04c20001f3560007006B80B0900"
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
-    ("ble_raw", "ble_version"),
+    ("msp_raw", "msp_version"),
     [
-        pytest.param("00000502", "2.5.0", id="self_check_version"),
-        pytest.param("ffffffff", "2.4.0", id="cached_version"),
+        pytest.param("4085", "2.5.1", id="new_version"),
+        pytest.param("ffff", None, id="not_reported"),
     ],
 )
-async def test_unread_firmware_revision_prefers_self_check_ble_version(
-    monkeypatch: pytest.MonkeyPatch, ble_raw: str, ble_version: str
+async def test_self_check_replaces_msp_version(
+    monkeypatch: pytest.MonkeyPatch, msp_raw: str, msp_version: str | None
 ) -> None:
-    """Test a stale firmware revision does not override the self-check BLE version."""
+    """Test a successful self-check replaces the earlier MSP version."""
     use_clients(
         monkeypatch,
-        _wave_client(
-            "2920",
-            CHAR_UUID_WAVEMINI_DATA,
-            _WAVE_MINI_DATA,
-            COMMAND_UUID_WAVE_MINI,
-            _wave_mini_self_check("07090402", "00020202"),
-            firmware="M-BLE-2.4.0-master+0",
-        ),
-        _wave_client(
-            "2920",
-            CHAR_UUID_WAVEMINI_DATA,
-            _WAVE_MINI_DATA,
-            COMMAND_UUID_WAVE_MINI,
-            _wave_mini_self_check(ble_raw, "00020202"),
-            failing={CHAR_UUID_FIRMWARE_REV},
+        *(
+            _wave_client(
+                "2930",
+                CHAR_UUID_WAVE_PLUS_DATA,
+                _WAVE_PLUS_DATA,
+                COMMAND_UUID_WAVE_PLUS,
+                _wave_plus_self_check(msp),
+            )
+            for msp in ("0082", msp_raw)
         ),
     )
     data = AirthingsBluetoothDeviceData(logger=_LOGGER)
@@ -449,9 +447,92 @@ async def test_unread_firmware_revision_prefers_self_check_ble_version(
     first = await data.update_device(ble_device())
     second = await data.update_device(ble_device())
 
-    assert first.chip_versions == AirthingsChipVersions(ble="2.4.0", sub="2.2.2")
-    assert second.sw_version == "M-BLE-2.4.0-master+0"
-    assert second.chip_versions == AirthingsChipVersions(ble=ble_version, sub="2.2.2")
+    assert first.chip_versions == AirthingsChipVersions(ble="1.5.3", msp="2.2.0")
+    assert second.chip_versions == AirthingsChipVersions(ble="1.5.3", msp=msp_version)
+
+
+@pytest.mark.asyncio
+async def test_zero_firmware_revision_clears_ble_version(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test a 0.0.0 firmware revision clears the BLE version of a Wave Plus."""
+    use_clients(
+        monkeypatch,
+        *(
+            _wave_client(
+                "2930",
+                CHAR_UUID_WAVE_PLUS_DATA,
+                _WAVE_PLUS_DATA,
+                COMMAND_UUID_WAVE_PLUS,
+                _WAVE_PLUS_COMMAND,
+                firmware=firmware,
+            )
+            for firmware in ("G-BLE-2.4.0", "G-BLE-0.0.0")
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    first = await data.update_device(ble_device())
+    second = await data.update_device(ble_device())
+
+    assert first.chip_versions == AirthingsChipVersions(ble="2.4.0", msp="2.2.0")
+    assert second.chip_versions == AirthingsChipVersions(msp="2.2.0")
+
+
+@pytest.mark.asyncio
+async def test_firmware_revision_ble_version_wins_every_sync(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test the firmware revision BLE version beats the self-check on every sync."""
+    use_clients(
+        monkeypatch,
+        *(
+            _wave_client(
+                "2920",
+                CHAR_UUID_WAVEMINI_DATA,
+                _WAVE_MINI_DATA,
+                COMMAND_UUID_WAVE_MINI,
+                _wave_mini_self_check("07090402", "00020202"),
+                firmware="M-BLE-2.4.0-master+0",
+                failing=failing,
+            )
+            for failing in (set(), set(), {CHAR_UUID_FIRMWARE_REV}, set())
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    for _ in range(4):
+        device = await data.update_device(ble_device())
+
+        assert device.sw_version == "M-BLE-2.4.0-master+0"
+        assert device.chip_versions == AirthingsChipVersions(ble="2.4.0", sub="2.2.2")
+
+
+@pytest.mark.asyncio
+@pytest.mark.command_timeout
+async def test_first_sync_without_revision_or_self_check(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Test no chip versions are reported when nothing could be read."""
+    monkeypatch.setattr("airthings_ble.parser.COMMAND_TIMEOUT", 0.01)
+    use_clients(
+        monkeypatch,
+        _wave_client(
+            "2920",
+            CHAR_UUID_WAVEMINI_DATA,
+            _WAVE_MINI_DATA,
+            COMMAND_UUID_WAVE_MINI,
+            _WAVE_MINI_COMMAND,
+            failing={CHAR_UUID_FIRMWARE_REV},
+            silent_commands=True,
+        ),
+    )
+    data = AirthingsBluetoothDeviceData(logger=_LOGGER)
+
+    device = await data.update_device(ble_device())
+
+    assert device.sw_version == ""
+    assert device.chip_versions == AirthingsChipVersions()
 
 
 @pytest.mark.asyncio
