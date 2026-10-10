@@ -33,21 +33,21 @@ jobs:
           }
           fail() {
             local ids text
+            echo "::error::$1"
             ids=$(bot_comments)
-            text="$marker"$'\n'"$1 Check exactly one box under **Type of change** in the description, and keep the heading and option text unchanged. The release notes label is then set automatically."
+            text="$marker"$'\n'"$1 Check exactly one box under **Type of change** in the description, and keep the heading and option text unchanged. Once you do, the release notes label is set automatically."
             if [[ -n "$ids" ]]; then
               gh api --method PATCH "repos/$REPO/issues/comments/${ids%%$'\n'*}" -f body="$text" > /dev/null
             else
               gh api --method POST "repos/$REPO/issues/$PR/comments" -f body="$text" > /dev/null
             fi
-            echo "::error::$1"
             exit 1
           }
           pass() {
             local ids id
-            ids=$(bot_comments)
+            ids=$(bot_comments) || return 0
             for id in $ids; do
-              gh api --method DELETE "repos/$REPO/issues/comments/$id" > /dev/null
+              gh api --method DELETE "repos/$REPO/issues/comments/$id" > /dev/null || echo "::warning::Could not delete comment $id"
             done
           }
 
