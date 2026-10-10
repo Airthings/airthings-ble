@@ -22,13 +22,20 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           REPO: ${{ github.repository }}
           PR: ${{ github.event.pull_request.number }}
-          BODY: ${{ github.event.pull_request.body }}
         run: |
           managed="bug enhancement breaking dependencies nochangelog"
           current_labels() { gh api "repos/$REPO/issues/$PR/labels?per_page=100" --jq '[.[].name]'; }
 
+          body=$(gh api "repos/$REPO/pulls/$PR" --jq '.body // ""')
+
           checked=""
+          in_section=false
           while IFS= read -r line; do
+            if [[ "$line" =~ ^#{1,6}[[:space:]] ]]; then
+              [[ "$line" =~ ^##[[:space:]]+Type\ of\ change[[:space:]]*$ ]] && in_section=true || in_section=false
+              continue
+            fi
+            $in_section || continue
             [[ "$line" =~ ^[[:space:]]*[-*][[:space:]]+\[[xX]\][[:space:]]+(.*[^[:space:]])[[:space:]]*$ ]] || continue
             case "${BASH_REMATCH[1]}" in
               "Bugfix") checked+=" bug" ;;
@@ -37,7 +44,7 @@ jobs:
               "Dependency upgrade") checked+=" dependencies" ;;
               "Code quality, tests, CI or documentation") checked+=" nochangelog" ;;
             esac
-          done < <(printf '%s\n' "$BODY" | tr -d '\r' | perl -0pe 's/<!--.*?-->//gs')
+          done < <(printf '%s\n' "$body" | tr -d '\r' | perl -0pe 's/<!--.*?-->//gs')
           read -ra checked <<< "$checked"
 
           if (( ${#checked[@]} > 1 )); then
