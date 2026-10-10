@@ -126,3 +126,34 @@ def test_atom_without_response(caplog: pytest.LogCaptureFixture) -> None:
 
     assert decoder.decode_data(_LOGGER, None) is None
     assert "No data received" in caplog.text
+
+
+@pytest.mark.parametrize(
+    ("decoder", "response", "expected"),
+    [
+        (
+            WaveRadonAndPlusCommandDecode(),
+            "6d001e331400020080840cff00000000404d1800c7340b00f804310a0900",
+            {MSP_VERSION: "2.4.2"},
+        ),
+        (
+            WaveRadonAndPlusCommandDecode(),
+            "6d00d3600200014f008501ff00000000c04e1800133439002f000a0b1900",
+            {MSP_VERSION: "2.5.0"},
+        ),
+        (
+            WaveMiniCommandDecode(),
+            "6d006d750200000201020304090a2c008833000202024000410076120380ffffffff",
+            {BLE_VERSION: "2.1.2", SUB_VERSION: "2.2.2"},
+        ),
+    ],
+    ids=["wave_plus", "wave_radon", "wave_mini"],
+)
+def test_captured_self_check_chip_versions(
+    decoder: CommandDecode, response: str, expected: dict[str, str]
+) -> None:
+    """Test chip versions in self-check responses captured from real devices."""
+    result = decoder.decode_data(_LOGGER, bytearray.fromhex(response))
+
+    assert result is not None
+    assert {key: result[key] for key in expected} == expected
