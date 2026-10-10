@@ -31,8 +31,8 @@ jobs:
           checked=""
           in_section=false
           while IFS= read -r line; do
-            if [[ "$line" =~ ^#{1,6}[[:space:]] ]]; then
-              [[ "$line" =~ ^##[[:space:]]+Type\ of\ change[[:space:]]*$ ]] && in_section=true || in_section=false
+            if [[ "$line" =~ ^[[:space:]]{0,3}#{1,6}([[:space:]]|$) ]]; then
+              [[ "$line" =~ ^[[:space:]]{0,3}##[[:space:]]+Type\ of\ change[[:space:]#]*$ ]] && in_section=true || in_section=false
               continue
             fi
             $in_section || continue
@@ -64,7 +64,7 @@ jobs:
               echo "No box checked under Type of change; keeping the existing release notes label"
               exit 0
             fi
-            echo "::error::Check one box under Type of change, and keep the text of the options unchanged"
+            echo "::error::Check one box under the Type of change heading, and keep the heading and option text unchanged"
             exit 1
           fi
 
