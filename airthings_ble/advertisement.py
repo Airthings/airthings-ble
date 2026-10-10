@@ -38,6 +38,19 @@ class AirthingsAdvertisementData:
     connectivity_mode: AirthingsConnectivityMode | None = None
     battery_status: AirthingsBatteryStatus | None = None
 
+    @property
+    def should_poll(self) -> bool:
+        """Return whether the device should be polled over BLE right now.
+
+        False when it is connected to an Airthings hub (SmartLink), or when its
+        battery status is STOPPED and it does not accept connections. An unknown
+        status does not prevent polling.
+        """
+        return (
+            self.connectivity_mode is not AirthingsConnectivityMode.SMARTLINK
+            and self.battery_status is not AirthingsBatteryStatus.STOPPED
+        )
+
 
 def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
     if manufacturer_data is None or len(manufacturer_data) < 4:
@@ -118,8 +131,8 @@ def parse_advertisement_data(
     that it is connected to an Airthings hub, BLE when it advertises that it is
     not, and None when the advertisement does not say: other models, a model
     identified only by service UUID, flags the device has not filled in yet, or
-    data too short to carry them. None means unknown, not BLE. A SmartLink
-    device should not be polled over BLE.
+    data too short to carry them. None means unknown, not BLE. `should_poll`
+    tells whether to poll the device over BLE.
 
     `battery_status` is the battery status a Wave Plus or Wave Radon advertises,
     and None in the same cases as `connectivity_mode`. A device advertising
