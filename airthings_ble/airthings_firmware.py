@@ -1,6 +1,40 @@
 """Airthings firmware version handling."""
 
 import re
+from enum import Enum
+
+_BLE_REVISION = re.compile(r"^[A-Z]-BLE-(\d+)\.(\d+)\.(\d+)(?:[-+]|$)")
+_FIRST_BLE_VERSION_WITH_SUB_CHIP_VERSION = (1, 3, 0)
+
+
+class AirthingsChip(str, Enum):
+    """Chip in an Airthings device that runs its own firmware."""
+
+    BLE = "BLE"
+    MSP = "MSP"
+    SUB = "SUB"
+
+
+def _ble_version(revision: str) -> tuple[int, ...] | None:
+    if not (match_obj := _BLE_REVISION.match(revision)):
+        return None
+    parts = tuple(int(part) for part in match_obj.groups())
+    if any(part > 0xFF for part in parts) or not any(parts):
+        return None
+    return parts
+
+
+def ble_version_from_revision(revision: str) -> str | None:
+    """Extract the BLE chip version from a firmware revision string."""
+    if (version := _ble_version(revision)) is None:
+        return None
+    return ".".join(str(part) for part in version)
+
+
+def supports_sub_chip_version(revision: str) -> bool:
+    """Check if the BLE firmware in the revision can report the SUB chip version."""
+    version = _ble_version(revision)
+    return version is not None and version >= _FIRST_BLE_VERSION_WITH_SUB_CHIP_VERSION
 
 
 class AirthingsFirmwareVersion:

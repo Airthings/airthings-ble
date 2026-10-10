@@ -6,6 +6,7 @@ from logging import Logger
 from typing import Any, Optional
 
 
+from airthings_ble.airthings_firmware import AirthingsChip
 from airthings_ble.atom.request import AtomRequest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
@@ -14,7 +15,36 @@ from airthings_ble.const import (
     COMMAND_UUID_WAVE_2,
     COMMAND_UUID_WAVE_MINI,
     COMMAND_UUID_WAVE_PLUS,
+    UINT16_NO_VALUE,
 )
+
+_WAVE_PLUS_DEVICE_TYPE = 2
+_WAVE_PLUS_DATE_CODED_MSP_VERSIONS = (0x0798, 0x1E98, 0x03C8, 0x04C8)
+
+
+def _dotted_version(major: int, minor: int, patch: int) -> str | None:
+    if major == minor == patch == 0:
+        return None
+    return f"{major}.{minor}.{patch}"
+
+
+def _msp_version(device_type: int, raw: int) -> str | None:
+    """Decode the 16-bit MSP version of a Wave Plus or Wave Radon."""
+    if raw == UINT16_NO_VALUE:
+        return None
+    if (
+        device_type == _WAVE_PLUS_DEVICE_TYPE
+        and raw in _WAVE_PLUS_DATE_CODED_MSP_VERSIONS
+    ):
+        return f"{2010 + (raw & 0x0F)}-{(raw >> 4) & 0x0F:02d}-{raw >> 8:02d}"
+    return _dotted_version(raw >> 14, (raw >> 8) & 0x3F, (raw >> 6) & 0x03)
+
+
+def _semantic_version(raw: int) -> str | None:
+    """Decode a 32-bit major.minor.patch.build version."""
+    if raw == 0xFFFFFFFF:
+        return None
+    return _dotted_version(raw >> 24, (raw >> 16) & 0xFF, (raw >> 8) & 0xFF)
 
 
 class CommandDecode:
@@ -78,11 +108,12 @@ class WaveRadonAndPlusCommandDecode(CommandDecode):
     def decode_data(
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
+        """Decoder returns dict with battery and chip versions"""
 
         if val := self.validate_data(logger, raw_data):
-            res = {}
+            res: dict[str, float | str | None] = {}
             res[BATTERY] = val[13] / 1000.0
+            res[AirthingsChip.MSP] = _msp_version(device_type=val[1], raw=val[3])
             return res
 
         return None
@@ -98,15 +129,52 @@ class WaveMiniCommandDecode(CommandDecode):
     def decode_data(
         self, logger: Logger, raw_data: bytearray | None
     ) -> dict[str, float | str | None] | None:
-        """Decoder returns dict with battery"""
+        """Decoder returns dict with battery and chip versions"""
 
         if val := self.validate_data(logger, raw_data):
-            res = {}
+            res: dict[str, float | str | None] = {}
             res[BATTERY] = val[11] / 1000.0
-
+            res[AirthingsChip.BLE] = _semantic_version(val[1])
+            res[AirthingsChip.SUB] = _semantic_version(val[8])
             return res
 
         return None
+
+
+class SubChipVersionCommandDecode(CommandDecode):
+    """Decoder for the Wave Plus and Wave Radon SUB chip version response"""
+
+    cmd = bytes([0x72, 0x01]) + bytes(7)
+    _RESPONSE_SIZE = 6
+    _UNRELEASED_VERSION = (0x30, 0x30, 0x30, 0x31)
+
+    def decode_data(
+        self, logger: Logger, raw_data: bytearray | None
+    ) -> dict[str, float | str | None] | None:
+        """Decoder returns dict with the SUB chip version.
+
+        The dict is empty when the device cannot report a SUB chip version,
+        and None is returned for an error status that may pass.
+        """
+        data = raw_data or bytearray()
+        if len(data) == self._RESPONSE_SIZE:
+            _, status, major, minor, patch, build = data
+            version = _dotted_version(major, minor, patch)
+            if (
+                version is not None
+                and 0xFF not in (major, minor)
+                and (major, minor, patch, build) != self._UNRELEASED_VERSION
+            ):
+                if status == 0:
+                    return {AirthingsChip.SUB: version}
+                logger.debug("SUB chip version error status: %s", data.hex())
+                return None
+        logger.debug("SUB chip version not supported: %s", data.hex())
+        return {}
+
+    def make_data_receiver(self) -> "NotificationReceiver":
+        """Creates a receiver for the first notification with the command byte."""
+        return CommandNotificationReceiver(self.cmd[0:1])
 
 
 class AtomCommandDecode(CommandDecode):
@@ -195,6 +263,22 @@ class NotificationReceiver:
                 await self._future
             finally:
                 timer_handle.cancel()
+
+
+class CommandNotificationReceiver(NotificationReceiver):
+    """Receiver for the first notification that starts with the command byte.
+
+    Notifications for other commands, such as a late reply to an earlier
+    command, are ignored.
+    """
+
+    def __init__(self, command: bytes) -> None:
+        super().__init__(message_size=1)
+        self._command = command
+
+    def __call__(self, sender: Any, data: bytearray) -> None:
+        if data[0:1] == self._command:
+            super().__call__(sender, data)
 
 
 class AtomNotificationReceiver(NotificationReceiver):

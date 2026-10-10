@@ -1,6 +1,7 @@
 import logging
 
 import pytest
+from airthings_ble import AirthingsChip
 from airthings_ble.command_decode import WaveMiniCommandDecode
 from airthings_ble.const import (
     BATTERY,
@@ -24,7 +25,7 @@ def test_wave_mini_command_decode() -> None:
         raw_data=bytearray.fromhex(
             "6d0064000000c800000001020304f4015802bc02000020038403b80b4c04b0040000"
         ),
-    ) == {BATTERY: 3.0}
+    ) == {BATTERY: 3.0, AirthingsChip.BLE: None, AirthingsChip.SUB: "0.0.2"}
 
 
 def test_wave_mini_sensor_data() -> None:
