@@ -2,7 +2,7 @@
 
 import struct
 from datetime import datetime
-from typing import Callable, Optional, Tuple
+from typing import Callable, Tuple
 
 from .const import (
     ACCELEROMETER,
@@ -55,8 +55,8 @@ def _decode_attr(
     name: str,
     format_type: str,
     scale: float,
-    max_value: Optional[float] = None,
-    min_value: Optional[float] = None,
+    max_value: float | None = None,
+    min_value: float | None = None,
 ) -> Callable[[bytearray], dict[str, float | None | str]]:
     """same as base decoder, but expects only one value.. for real"""
 
@@ -196,14 +196,14 @@ def _decode_wave_illum_accel(
 
 def validate_value(
     value: float, max_value: float, min_value: float = 0
-) -> Optional[float]:
+) -> float | None:
     """Validate if the given 'value' is within the specified range [min, max]"""
     if min_value <= value <= max_value:
         return value
     return None
 
 
-def illuminance_converter(value: float) -> Optional[int]:
+def illuminance_converter(value: float) -> int | None:
     """Convert illuminance from a 8-bit value to percentage."""
     if (validated := validate_value(value, max_value=255)) is not None:
         return int(validated / 255 * PERCENTAGE_MAX)

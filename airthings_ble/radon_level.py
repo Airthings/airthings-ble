@@ -1,15 +1,14 @@
 """Airthings radon level definitions and utilities."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
 class AirthingsRadonLevel:
     """Airthings radon level definition."""
 
-    min_value: Optional[float]
-    max_value: Optional[float]
+    min_value: float | None
+    max_value: float | None
     name: str
 
 
