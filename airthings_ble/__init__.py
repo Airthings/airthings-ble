@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+from .advertisement import (
+    AirthingsAdvertisementData,
+    parse_advertisement_data,
+)
 from .connectivity_mode import AirthingsConnectivityMode
 from .device_type import AirthingsDeviceType
 from .parser import (
@@ -14,10 +18,12 @@ from .parser import (
 __version__ = "1.3.0rc1"
 
 __all__ = [
+    "AirthingsAdvertisementData",
     "AirthingsBluetoothDeviceData",
     "AirthingsConnectivityMode",
     "AirthingsDevice",
     "AirthingsDeviceType",
     "DisconnectedError",
     "UnsupportedDeviceError",
+    "parse_advertisement_data",
 ]

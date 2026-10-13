@@ -2,6 +2,8 @@
 
 from uuid import UUID
 
+from .device_type import AirthingsDeviceType
+
 MFCT_ID = 820
 
 UPDATE_TIMEOUT = 15
@@ -25,6 +27,11 @@ CHAR_UUID_ILLUMINANCE_ACCELEROMETER = UUID("b42e1348-ade7-11e4-89d3-123b93f75cba
 CHAR_UUID_WAVE_PLUS_DATA = UUID("b42e2a68-ade7-11e4-89d3-123b93f75cba")
 CHAR_UUID_WAVE_2_DATA = UUID("b42e4dcc-ade7-11e4-89d3-123b93f75cba")
 CHAR_UUID_WAVEMINI_DATA = UUID("b42e3b98-ade7-11e4-89d3-123b93f75cba")
+
+SERVICE_UUID_WAVE_GEN_1 = UUID("b42e1f6e-ade7-11e4-89d3-123b93f75cba")
+SERVICE_UUID_WAVE_PLUS = UUID("b42e1c08-ade7-11e4-89d3-123b93f75cba")
+SERVICE_UUID_WAVE_MINI = UUID("b42e3882-ade7-11e4-89d3-123b93f75cba")
+SERVICE_UUID_WAVE_2 = UUID("b42e4a8e-ade7-11e4-89d3-123b93f75cba")
 
 COMMAND_UUID_WAVE_2 = UUID("b42e50d8-ade7-11e4-89d3-123b93f75cba")
 COMMAND_UUID_WAVE_PLUS = UUID("b42e2d06-ade7-11e4-89d3-123b93f75cba")
@@ -84,3 +91,10 @@ RADON_MONTH_LEVEL = "radon_month_level"
 RADON_YEAR_AVG = "radon_year_avg"
 RADON_YEAR_LEVEL = "radon_year_level"
 VOC = "voc"
+
+AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL: dict[str, AirthingsDeviceType] = {
+    str(SERVICE_UUID_WAVE_GEN_1): AirthingsDeviceType.WAVE_GEN_1,
+    str(SERVICE_UUID_WAVE_PLUS): AirthingsDeviceType.WAVE_PLUS,
+    str(SERVICE_UUID_WAVE_MINI): AirthingsDeviceType.WAVE_MINI,
+    str(SERVICE_UUID_WAVE_2): AirthingsDeviceType.WAVE_RADON,
+}
