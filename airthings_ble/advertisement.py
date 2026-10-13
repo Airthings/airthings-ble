@@ -8,6 +8,12 @@ from dataclasses import dataclass
 from .const import AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL
 from .device_type import AirthingsDeviceType
 
+_RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
+    ("321", AirthingsDeviceType.WAVE_ENHANCE_EU),
+    ("322", AirthingsDeviceType.WAVE_ENHANCE_US),
+    ("325", AirthingsDeviceType.CORENTIUM_HOME_2),
+)
+
 
 @dataclass(frozen=True, slots=True)
 class AirthingsAdvertisementData:
@@ -24,6 +30,15 @@ def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
     if len(serial_number) != 10:
         return None
     return serial_number
+
+
+def _model_from_serial_number(serial_number: str) -> AirthingsDeviceType | None:
+    if model := AirthingsDeviceType.from_model_code(serial_number[:4]):
+        return model
+    for prefix, model in _RANGE_PREFIXES:
+        if serial_number.startswith(prefix):
+            return model
+    return None
 
 
 def _model_from_service_uuids(
@@ -44,7 +59,8 @@ def parse_advertisement_data(
     """Identify a supported Airthings device from its advertisement, without connecting.
 
     `manufacturer_data` is the payload for the Airthings company id (820). The
-    model comes from the model code in the serial number, or else from a service
+    model comes from the serial number (the exact model code, or the whole
+    serial range for Wave Enhance and Corentium Home 2), or else from a service
     UUID unique to one model; `serial_number` is the advertised serial, if any.
     Returns None for everything else, including other Airthings products, so
     callers can skip the advertisement without connecting. None says nothing
@@ -52,7 +68,7 @@ def parse_advertisement_data(
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
-        model := AirthingsDeviceType.from_model_code(serial_number[:4])
+        model := _model_from_serial_number(serial_number)
     ):
         return AirthingsAdvertisementData(model=model, serial_number=serial_number)
     if model := _model_from_service_uuids(service_uuids):
