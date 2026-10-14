@@ -5,7 +5,12 @@ from __future__ import annotations
 from collections.abc import Iterable
 from dataclasses import dataclass
 
-from .const import AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL
+from .connectivity_mode import AirthingsConnectivityMode
+from .const import (
+    ADVERTISEMENT_FLAG_SMARTLINK,
+    ADVERTISEMENT_FLAGS_UNPOPULATED,
+    AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL,
+)
 from .device_type import AirthingsDeviceType
 
 _RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
@@ -21,6 +26,7 @@ class AirthingsAdvertisementData:
 
     model: AirthingsDeviceType
     serial_number: str | None = None
+    connectivity_mode: AirthingsConnectivityMode | None = None
 
 
 def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
@@ -30,6 +36,26 @@ def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
     if len(serial_number) != 10:
         return None
     return serial_number
+
+
+def _flags(manufacturer_data: bytes | bytearray | None) -> int | None:
+    if manufacturer_data is None or len(manufacturer_data) < 6:
+        return None
+    return int.from_bytes(manufacturer_data[4:6], "little")
+
+
+def _connectivity_mode(
+    model: AirthingsDeviceType, flags: int | None
+) -> AirthingsConnectivityMode | None:
+    if (
+        model not in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
+        or flags is None
+        or flags == ADVERTISEMENT_FLAGS_UNPOPULATED
+    ):
+        return None
+    if flags & ADVERTISEMENT_FLAG_SMARTLINK:
+        return AirthingsConnectivityMode.SMARTLINK
+    return AirthingsConnectivityMode.BLE
 
 
 def _model_from_serial_number(serial_number: str) -> AirthingsDeviceType | None:
@@ -65,12 +91,23 @@ def parse_advertisement_data(
     Returns None for everything else, including other Airthings products, so
     callers can skip the advertisement without connecting. None says nothing
     about later advertisements from the same address.
+
+    `connectivity_mode` is SMARTLINK when a Wave Plus or Wave Radon advertises
+    that it is connected to an Airthings hub, BLE when it advertises that it is
+    not, and None when the advertisement does not say: other models, a model
+    identified only by service UUID, flags the device has not filled in yet, or
+    data too short to carry them. None means unknown, not BLE. A SmartLink
+    device should not be polled over BLE.
     """
     serial_number = _serial_number(manufacturer_data)
     if serial_number is not None and (
         model := _model_from_serial_number(serial_number)
     ):
-        return AirthingsAdvertisementData(model=model, serial_number=serial_number)
+        return AirthingsAdvertisementData(
+            model=model,
+            serial_number=serial_number,
+            connectivity_mode=_connectivity_mode(model, _flags(manufacturer_data)),
+        )
     if model := _model_from_service_uuids(service_uuids):
         return AirthingsAdvertisementData(model=model, serial_number=serial_number)
     return None
