@@ -142,6 +142,18 @@ def test_empty_response() -> None:
             "Invalid CBOR data",
         ),
         (
+            bytes.fromhex(
+                "0345123481A2006D32393939392F302F3331303132" "02C8C482028203A1044178"
+            ),
+            "Invalid CBOR data",
+        ),
+        (
+            bytes.fromhex(
+                "0345123481A2006D32393939392F302F3331303132" "024AC8C482028203A1044178"
+            ),
+            "Invalid CBOR data",
+        ),
+        (
             bytes.fromhex("0345123481A2006A31372F302F33313130300204"),
             "Response path does not match request path",
         ),
