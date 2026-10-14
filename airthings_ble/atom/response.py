@@ -31,7 +31,7 @@ class AtomResponse:
     @staticmethod
     def _loads(data: bytes | bytearray) -> object:
         try:
-            return cbor2.loads(data)
+            return cbor2.loads(bytes(data))
         except (cbor2.CBORError, TypeError) as err:
             raise ValueError("Invalid CBOR data") from err
 

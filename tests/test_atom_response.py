@@ -1,5 +1,7 @@
 import logging
+from unittest.mock import patch
 
+import cbor2
 import pytest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
@@ -224,6 +226,34 @@ def test_atom_response_latest_values_as_map() -> None:
     )
 
     assert response.parse() == {"TMP": 29424}
+
+
+@pytest.mark.parametrize("buffer_type", [bytes, bytearray])
+def test_atom_response_decodes_from_bytes(
+    buffer_type: type[bytes | bytearray],
+) -> None:
+    """Test the CBOR payload is passed to cbor2 as bytes."""
+    loads = cbor2.loads
+    received: list[type] = []
+
+    def bytes_only_loads(data: object) -> object:
+        received.append(type(data))
+        if not isinstance(data, bytes):
+            raise TypeError("argument 'data' is not an instance of 'bytes'")
+        return loads(data)
+
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=buffer_type.fromhex(
+            "0345123481A2006D32393939392F302F333130313202A163544D501972F0"
+        ),
+        random_bytes=bytes.fromhex("1234"),
+        path=AtomRequestPath.LATEST_VALUES,
+    )
+
+    with patch("airthings_ble.atom.response.cbor2.loads", bytes_only_loads):
+        assert response.parse() == {"TMP": 29424}
+    assert received == [bytes]
 
 
 def test_atom_response_connectivity_mode_not_an_integer() -> None:
