@@ -1012,7 +1012,7 @@ async def test_sub_chip_version_is_read_again_after_max_age(
         pytest.param(
             _UPDATED_SUB_CHIP_VERSION, {AirthingsChip.SUB: "3.0.0"}, id="read"
         ),
-        pytest.param(bytes.fromhex("720103000000"), {}, id="unsupported"),
+        pytest.param(bytes.fromhex("7200ff050100"), {}, id="unsupported"),
     ],
 )
 async def test_sub_chip_version_is_read_again_after_chip_change(
