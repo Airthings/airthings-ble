@@ -3,7 +3,7 @@
 import re
 from enum import Enum
 
-_CHIP_REVISION = re.compile(r"^[A-Z]-(BLE|SUB)-(\d+(?:\.\d+){1,3})(?:[-+]|$)")
+_CHIP_REVISION = re.compile(r"^[A-Z]-(BLE|SUB)-(\d+(?:\.\d+){1,3})(?:[-+]|\Z)")
 _FIRST_BLE_VERSION_WITH_SUB_CHIP_VERSION = (1, 3, 0)
 
 
@@ -16,7 +16,7 @@ class AirthingsChip(str, Enum):
 
 
 def _chip_version(revision: str, chip: str) -> tuple[int, ...] | None:
-    match_obj = _CHIP_REVISION.match(revision)
+    match_obj = _CHIP_REVISION.match(revision.rstrip("\x00 \t\r\n"))
     if match_obj is None or match_obj.group(1) != chip:
         return None
     parts = tuple(int(part) for part in match_obj.group(2).split("."))
