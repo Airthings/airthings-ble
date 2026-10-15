@@ -785,6 +785,10 @@ async def test_sub_chip_version_is_read_once(
     [
         pytest.param("G-BLE-1.2.9-master+0", False, id="ble_1_2_9"),
         pytest.param("G-BLE-1.3.0-master+0", True, id="ble_1_3_0"),
+        pytest.param("G-BLE-1.3-master+0", True, id="ble_1_3"),
+        pytest.param("G-BLE-1.2-master+0", False, id="ble_1_2"),
+        pytest.param("G-BLE-1.2.9.9-master+0", False, id="ble_1_2_9_9"),
+        pytest.param("G-BLE-1.3.0.1-master+0", True, id="ble_1_3_0_1"),
         pytest.param("2.4.9", False, id="no_ble_version"),
     ],
 )
