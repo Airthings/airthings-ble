@@ -1,6 +1,7 @@
 from airthings_ble.airthings_firmware import (
     AirthingsFirmwareVersion,
     ble_version_from_revision,
+    sub_version_from_revision,
 )
 from pytest import mark
 
@@ -93,3 +94,24 @@ def test_airthings_firmware_invalid_required_version() -> None:
 )
 def test_ble_version_from_revision(revision: str, version: str | None) -> None:
     assert ble_version_from_revision(revision) == version
+
+
+@mark.parametrize(
+    ("revision", "version"),
+    [
+        ("T-SUB-3.0.3-master+0", "3.0.3"),
+        ("R-SUB-2.1.1", "2.1.1"),
+        ("R-SUB-1.3.5-beta+1", "1.3.5"),
+        ("T-SUB-1.0.0+5", "1.0.0"),
+        ("T-SUB-1.256.3-master+0", None),
+        ("R-SUB-0.0.0", None),
+        ("G-BLE-2.4.0-master+0", None),
+        ("M-BLE-2.1.2", None),
+        ("G-MSP-1.0.0", None),
+        ("T-SUB-1.0.0.1", None),
+        ("COR9001B.1701052", None),
+        ("", None),
+    ],
+)
+def test_sub_version_from_revision(revision: str, version: str | None) -> None:
+    assert sub_version_from_revision(revision) == version

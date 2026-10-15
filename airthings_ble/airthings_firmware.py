@@ -3,7 +3,7 @@
 import re
 from enum import Enum
 
-_BLE_REVISION = re.compile(r"^[A-Z]-BLE-(\d+)\.(\d+)\.(\d+)(?:[-+]|$)")
+_CHIP_REVISION = re.compile(r"^[A-Z]-(BLE|SUB)-(\d+)\.(\d+)\.(\d+)(?:[-+]|$)")
 _FIRST_BLE_VERSION_WITH_SUB_CHIP_VERSION = (1, 3, 0)
 
 
@@ -15,18 +15,30 @@ class AirthingsChip(str, Enum):
     SUB = "SUB"
 
 
-def _ble_version(revision: str) -> tuple[int, ...] | None:
-    if not (match_obj := _BLE_REVISION.match(revision)):
+def _chip_version(revision: str, chip: str) -> tuple[int, ...] | None:
+    match_obj = _CHIP_REVISION.match(revision)
+    if match_obj is None or match_obj.group(1) != chip:
         return None
-    parts = tuple(int(part) for part in match_obj.groups())
+    parts = tuple(int(part) for part in match_obj.groups()[1:])
     if any(part > 0xFF for part in parts) or not any(parts):
         return None
     return parts
 
 
+def _ble_version(revision: str) -> tuple[int, ...] | None:
+    return _chip_version(revision, "BLE")
+
+
 def ble_version_from_revision(revision: str) -> str | None:
     """Extract the BLE chip version from a firmware revision string."""
     if (version := _ble_version(revision)) is None:
+        return None
+    return ".".join(str(part) for part in version)
+
+
+def sub_version_from_revision(revision: str) -> str | None:
+    """Extract the SUB chip version from a firmware revision string."""
+    if (version := _chip_version(revision, "SUB")) is None:
         return None
     return ".".join(str(part) for part in version)
 

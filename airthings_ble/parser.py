@@ -21,6 +21,7 @@ from airthings_ble.airthings_firmware import (
     AirthingsChip,
     AirthingsFirmwareVersion,
     ble_version_from_revision,
+    sub_version_from_revision,
     supports_sub_chip_version,
 )
 from airthings_ble.atom.request_path import AtomRequestPath
@@ -315,6 +316,8 @@ class AirthingsBluetoothDeviceData:
             versions[AirthingsChip.SUB] = cached.version
         if ble := ble_version_from_revision(self.device_info.sw_version):
             versions[AirthingsChip.BLE] = ble
+        if sub := sub_version_from_revision(self.device_info.sw_version):
+            versions[AirthingsChip.SUB] = sub
         return versions
 
     def _sub_chip_version_cache_key(self) -> _ChipVersionsKey:
