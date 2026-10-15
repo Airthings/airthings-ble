@@ -3,7 +3,7 @@
 import asyncio
 import struct
 from logging import Logger
-from typing import Any, Optional
+from typing import Any
 
 from airthings_ble.airthings_firmware import AirthingsChip
 from airthings_ble.atom.request import AtomRequest
@@ -62,9 +62,7 @@ class CommandDecode:
         logger.debug("Command decoder not implemented")
         return {}
 
-    def validate_data(
-        self, logger: Logger, raw_data: bytearray | None
-    ) -> Optional[Any]:
+    def validate_data(self, logger: Logger, raw_data: bytearray | None) -> Any | None:
         """Validate data. Make sure the data is for the command."""
         if raw_data is None:
             logger.debug("Validate data: No data received")

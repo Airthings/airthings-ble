@@ -1,15 +1,14 @@
 """Airthings radon level definitions and utilities."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 
 @dataclass(frozen=True)
 class AirthingsRadonLevel:
     """Airthings radon level definition."""
 
-    min_value: Optional[float]
-    max_value: Optional[float]
+    min_value: float | None
+    max_value: float | None
     name: str
 
 
@@ -30,9 +29,9 @@ def _in_range(value: float, min_value: float | None, max_value: float | None) ->
     )
 
 
-def get_radon_level(value: float) -> str:
+def get_radon_level(value: float) -> str | None:
     """Get radon level string based on value."""
     for level in LEVELS:
         if _in_range(value, level.min_value, level.max_value):
             return level.name
-    return "unknown"
+    return None

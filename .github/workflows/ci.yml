@@ -54,5 +54,8 @@ jobs:
       - name: Check code style
         run: poetry run pylint airthings_ble
 
+      - name: Lint with ruff
+        run: poetry run ruff check airthings_ble tests
+
       - name: Check types
         run: poetry run mypy airthings_ble
