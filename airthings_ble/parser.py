@@ -201,6 +201,17 @@ class AirthingsDevice(AirthingsDeviceInfo):
 
         return f"Airthings {self.model.product_name}"
 
+    @property
+    def firmware_version(self) -> str:
+        """Return the chip versions as `<chip>-<version>`, else the revision."""
+        if not self.chip_versions:
+            return self.sw_version
+        return ", ".join(
+            f"{chip.value}-{self.chip_versions[chip]}"
+            for chip in AirthingsChip
+            if chip in self.chip_versions
+        )
+
 
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-branches
