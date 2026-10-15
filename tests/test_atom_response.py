@@ -1,5 +1,7 @@
 import logging
+from unittest.mock import patch
 
+import cbor2
 import pytest
 from airthings_ble.atom.request_path import AtomRequestPath
 from airthings_ble.atom.response import AtomResponse
@@ -142,6 +144,18 @@ def test_empty_response() -> None:
             "Invalid CBOR data",
         ),
         (
+            bytes.fromhex(
+                "0345123481A2006D32393939392F302F3331303132" "02C8C482028203A1044178"
+            ),
+            "Invalid CBOR data",
+        ),
+        (
+            bytes.fromhex(
+                "0345123481A2006D32393939392F302F3331303132" "024AC8C482028203A1044178"
+            ),
+            "Invalid CBOR data",
+        ),
+        (
             bytes.fromhex("0345123481A2006A31372F302F33313130300204"),
             "Response path does not match request path",
         ),
@@ -177,18 +191,27 @@ def test_invalid_responses(response: bytes, exception: str) -> None:
         atom_response.parse()
 
 
-def test_atom_response_connectivity_mode_not_configured() -> None:
-    """Test connectivity mode 0 is reported as not configured."""
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param(
+            "00", AirthingsConnectivityMode.NOT_CONFIGURED.value, id="not_configured"
+        ),
+        pytest.param("01", AirthingsConnectivityMode.SMARTLINK.value, id="smartlink"),
+        pytest.param("04", AirthingsConnectivityMode.BLE.value, id="ble"),
+        pytest.param("02", None, id="unknown"),
+    ],
+)
+def test_atom_response_connectivity_mode(value: str, expected: str | None) -> None:
+    """Test the connectivity mode value maps to a mode, or None when unknown."""
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex("03455F9381A2006A31372F302F33313130300200"),
+        response=bytes.fromhex(f"03455F9381A2006A31372F302F333131303002{value}"),
         random_bytes=bytes.fromhex("5F93"),
         path=AtomRequestPath.CONNECTIVITY_MODE,
     )
 
-    assert response.parse() == {
-        "connectivity_mode": AirthingsConnectivityMode.NOT_CONFIGURED.value
-    }
+    assert response.parse() == {"connectivity_mode": expected}
 
 
 @pytest.mark.parametrize("payload", [b"", b"\x81"])
@@ -212,6 +235,34 @@ def test_atom_response_latest_values_as_map() -> None:
     )
 
     assert response.parse() == {"TMP": 29424}
+
+
+@pytest.mark.parametrize("buffer_type", [bytes, bytearray])
+def test_atom_response_decodes_from_bytes(
+    buffer_type: type[bytes | bytearray],
+) -> None:
+    """Test the CBOR payload is passed to cbor2 as bytes."""
+    loads = cbor2.loads
+    received: list[type] = []
+
+    def bytes_only_loads(data: object) -> object:
+        received.append(type(data))
+        if not isinstance(data, bytes):
+            raise TypeError("argument 'data' is not an instance of 'bytes'")
+        return loads(data)
+
+    response = AtomResponse(
+        logger=_LOGGER,
+        response=buffer_type.fromhex(
+            "0345123481A2006D32393939392F302F333130313202A163544D501972F0"
+        ),
+        random_bytes=bytes.fromhex("1234"),
+        path=AtomRequestPath.LATEST_VALUES,
+    )
+
+    with patch("airthings_ble.atom.response.cbor2.loads", bytes_only_loads):
+        assert response.parse() == {"TMP": 29424}
+    assert received == [bytes]
 
 
 def test_atom_response_connectivity_mode_not_an_integer() -> None:

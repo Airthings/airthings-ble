@@ -1,0 +1,155 @@
+"""Passive parsing of Airthings BLE advertisements."""
+
+from __future__ import annotations
+
+from collections.abc import Iterable
+from dataclasses import dataclass
+
+from .battery_status import AirthingsBatteryStatus
+from .connectivity_mode import AirthingsConnectivityMode
+from .const import (
+    ADVERTISEMENT_BATTERY_STATUS_MASK,
+    ADVERTISEMENT_BATTERY_STATUS_SHIFT,
+    ADVERTISEMENT_FLAG_SMARTLINK,
+    ADVERTISEMENT_FLAGS_UNPOPULATED,
+    AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL,
+)
+from .device_type import AirthingsDeviceType
+
+_RANGE_PREFIXES: tuple[tuple[str, AirthingsDeviceType], ...] = (
+    ("321", AirthingsDeviceType.WAVE_ENHANCE_EU),
+    ("322", AirthingsDeviceType.WAVE_ENHANCE_US),
+    ("325", AirthingsDeviceType.CORENTIUM_HOME_2),
+)
+_BATTERY_STATUSES = (
+    AirthingsBatteryStatus.FULL,
+    AirthingsBatteryStatus.LOW,
+    AirthingsBatteryStatus.LIMITED,
+    AirthingsBatteryStatus.STOPPED,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class AirthingsAdvertisementData:
+    """A supported Airthings device identified from its advertisement."""
+
+    model: AirthingsDeviceType
+    serial_number: str | None = None
+    connectivity_mode: AirthingsConnectivityMode | None = None
+    battery_status: AirthingsBatteryStatus | None = None
+
+    @property
+    def should_poll(self) -> bool:
+        """Return whether the device should be polled over BLE right now.
+
+        False when it is connected to an Airthings hub (SmartLink), or when its
+        battery status is STOPPED. An unknown mode or status does not prevent
+        polling.
+        """
+        return (
+            self.connectivity_mode is not AirthingsConnectivityMode.SMARTLINK
+            and self.battery_status is not AirthingsBatteryStatus.STOPPED
+        )
+
+
+def _serial_number(manufacturer_data: bytes | bytearray | None) -> str | None:
+    if manufacturer_data is None or len(manufacturer_data) < 4:
+        return None
+    serial_number = str(int.from_bytes(manufacturer_data[0:4], "little"))
+    if len(serial_number) != 10:
+        return None
+    return serial_number
+
+
+def _flags(
+    model: AirthingsDeviceType, manufacturer_data: bytes | bytearray | None
+) -> int | None:
+    if (
+        model not in (AirthingsDeviceType.WAVE_PLUS, AirthingsDeviceType.WAVE_RADON)
+        or manufacturer_data is None
+        or len(manufacturer_data) < 6
+    ):
+        return None
+    flags = int.from_bytes(manufacturer_data[4:6], "little")
+    if flags == ADVERTISEMENT_FLAGS_UNPOPULATED:
+        return None
+    return flags
+
+
+def _connectivity_mode(flags: int | None) -> AirthingsConnectivityMode | None:
+    if flags is None:
+        return None
+    if flags & ADVERTISEMENT_FLAG_SMARTLINK:
+        return AirthingsConnectivityMode.SMARTLINK
+    return AirthingsConnectivityMode.BLE
+
+
+def _battery_status(flags: int | None) -> AirthingsBatteryStatus | None:
+    if flags is None:
+        return None
+    return _BATTERY_STATUSES[
+        (flags >> ADVERTISEMENT_BATTERY_STATUS_SHIFT)
+        & ADVERTISEMENT_BATTERY_STATUS_MASK
+    ]
+
+
+def _model_from_serial_number(serial_number: str) -> AirthingsDeviceType | None:
+    if model := AirthingsDeviceType.from_model_code(serial_number[:4]):
+        return model
+    for prefix, model in _RANGE_PREFIXES:
+        if serial_number.startswith(prefix):
+            return model
+    return None
+
+
+def _model_from_service_uuids(
+    service_uuids: Iterable[str] | None,
+) -> AirthingsDeviceType | None:
+    models = {
+        AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL[uuid.lower()]
+        for uuid in service_uuids or ()
+        if uuid.lower() in AIRTHINGS_UNIQUE_SERVICE_UUID_TO_MODEL
+    }
+    return models.pop() if len(models) == 1 else None
+
+
+def parse_advertisement_data(
+    manufacturer_data: bytes | bytearray | None,
+    service_uuids: Iterable[str] | None = None,
+) -> AirthingsAdvertisementData | None:
+    """Identify a supported Airthings device from its advertisement, without connecting.
+
+    `manufacturer_data` is the payload for the Airthings company id (820). The
+    model comes from the serial number (the exact model code, or the whole
+    serial range for Wave Enhance and Corentium Home 2), or else from a service
+    UUID unique to one model; `serial_number` is the advertised serial, if any.
+    Returns None for everything else, including other Airthings products, so
+    callers can skip the advertisement without connecting. None says nothing
+    about later advertisements from the same address.
+
+    `connectivity_mode` is SMARTLINK when a Wave Plus or Wave Radon advertises
+    that it is connected to an Airthings hub, BLE when it advertises that it is
+    not, and None when the advertisement does not say: other models, a model
+    identified only by service UUID, flags the device has not filled in yet, or
+    data too short to carry them. None means unknown, not BLE. `should_poll`
+    tells whether to poll the device over BLE.
+
+    `battery_status` is the battery status a Wave Plus or Wave Radon advertises,
+    and None in the same cases as `connectivity_mode`. A device advertising
+    STOPPED has been seen refusing BLE connections. The status is coarse: FULL
+    has been seen down to a few percent, so it is not a battery level.
+    """
+    serial_number = _serial_number(manufacturer_data)
+    if serial_number is not None and (
+        model := _model_from_serial_number(serial_number)
+    ):
+        flags = _flags(model, manufacturer_data)
+        return AirthingsAdvertisementData(
+            model=model,
+            serial_number=serial_number,
+            connectivity_mode=_connectivity_mode(flags),
+            battery_status=_battery_status(flags),
+        )
+    if model := _model_from_service_uuids(service_uuids):
+        return AirthingsAdvertisementData(model=model, serial_number=serial_number)
+    return None

@@ -27,7 +27,7 @@ python = ">=3.12,<4.0"
 bleak = ">=3.0.2"
 bleak-retry-connector = ">=4.7.1"
 async-interrupt = ">=1.2.2"
-cbor2 = ">=6.1.5"
+cbor2 = ">=5.9.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^9.0.0"

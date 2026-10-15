@@ -31,8 +31,8 @@ class AtomResponse:
     @staticmethod
     def _loads(data: bytes | bytearray) -> object:
         try:
-            return cbor2.loads(data)
-        except cbor2.CBORError as err:
+            return cbor2.loads(bytes(data))
+        except (cbor2.CBORError, TypeError) as err:
             raise ValueError("Invalid CBOR data") from err
 
     def parse(self) -> dict[str, float | str | None] | None:
@@ -89,11 +89,8 @@ class AtomResponse:
                 and isinstance(data, int)
                 and not isinstance(data, bool)
             ):
-                return {
-                    CONNECTIVITY_MODE: AirthingsConnectivityMode.from_atom_int(
-                        data
-                    ).value
-                }
+                mode = AirthingsConnectivityMode.from_atom_int(data)
+                return {CONNECTIVITY_MODE: mode.value if mode else None}
 
             if self.path == AtomRequestPath.LATEST_VALUES:
                 if isinstance(data, bytes):

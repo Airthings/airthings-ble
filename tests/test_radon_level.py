@@ -13,4 +13,4 @@ def test_radon_level() -> None:
     assert get_radon_level(300) == "poor"
     assert get_radon_level(1000) == "poor"
 
-    assert get_radon_level(-10) == "unknown"
+    assert get_radon_level(-10) is None
