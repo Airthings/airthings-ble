@@ -1,7 +1,11 @@
 import logging
 
 import pytest
-from airthings_ble import AirthingsBluetoothDeviceData
+from airthings_ble import (
+    AirthingsBluetoothDeviceData,
+    AirthingsChip,
+    AirthingsDevice,
+)
 from airthings_ble.const import CHAR_UUID_DEVICE_NAME, CHAR_UUID_SERIAL_NUMBER_STRING
 from airthings_ble.parser import short_address
 
@@ -61,3 +65,10 @@ async def test_serial_number_placeholder_is_ignored(
 def test_short_address(address: str) -> None:
     """Test the short address is the last three bytes in upper case."""
     assert short_address(address) == "DDEEFF"
+
+
+def test_chip_versions_do_not_affect_equality() -> None:
+    """Test devices that differ only in chip versions compare equal."""
+    assert AirthingsDevice(
+        chip_versions={AirthingsChip.BLE: "2.4.0", AirthingsChip.MSP: "2.2.0"}
+    ) == AirthingsDevice(chip_versions={})
