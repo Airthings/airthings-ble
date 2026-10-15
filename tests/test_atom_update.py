@@ -83,6 +83,7 @@ async def test_wave_enhance_update(
     assert device.firmware.need_firmware_upgrade is False
     assert device.sensors == _WAVE_ENHANCE_SENSORS
     assert device.chip_versions == {AirthingsChip.SUB: "3.0.3"}
+    assert device.firmware_version == "SUB-3.0.3"
 
 
 @pytest.mark.asyncio
@@ -126,6 +127,7 @@ async def test_corentium_home_2_update(
         "radon_year_level": "poor",
     }
     assert device.chip_versions == {AirthingsChip.SUB: "1.3.5"}
+    assert device.firmware_version == "SUB-1.3.5"
 
 
 @pytest.mark.asyncio

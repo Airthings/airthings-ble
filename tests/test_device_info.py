@@ -99,6 +99,18 @@ def test_chip_versions_do_not_affect_equality() -> None:
             "SUB-3.0.3",
             id="wave_enhance",
         ),
+        pytest.param(
+            "G-BLE-2.2.3-master+0",
+            {AirthingsChip.BLE: "2.2.3", AirthingsChip.MSP: "2.4.2"},
+            "BLE-2.2.3, MSP-2.4.2",
+            id="wave_plus_without_sub",
+        ),
+        pytest.param(
+            "G-BLE-2.2.3-master+0",
+            {AirthingsChip.BLE: "2.2.3"},
+            "BLE-2.2.3",
+            id="ble_only",
+        ),
         pytest.param("COR9001B.1701052", {}, "COR9001B.1701052", id="wave_gen_1"),
         pytest.param("", {}, "", id="unknown"),
     ],
