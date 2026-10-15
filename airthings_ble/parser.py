@@ -21,6 +21,7 @@ from airthings_ble.airthings_firmware import (
     AirthingsChip,
     AirthingsFirmwareVersion,
     ble_version_from_revision,
+    sub_version_from_revision,
     supports_sub_chip_version,
 )
 from airthings_ble.atom.request_path import AtomRequestPath
@@ -200,6 +201,17 @@ class AirthingsDevice(AirthingsDeviceInfo):
 
         return f"Airthings {self.model.product_name}"
 
+    @property
+    def firmware_version(self) -> str:
+        """Return the chip versions as `<chip>-<version>`, else the revision."""
+        if not self.chip_versions:
+            return self.sw_version
+        return ", ".join(
+            f"{chip.value}-{self.chip_versions[chip]}"
+            for chip in AirthingsChip
+            if chip in self.chip_versions
+        )
+
 
 # pylint: disable=too-many-locals
 # pylint: disable=too-many-branches
@@ -315,6 +327,8 @@ class AirthingsBluetoothDeviceData:
             versions[AirthingsChip.SUB] = cached.version
         if ble := ble_version_from_revision(self.device_info.sw_version):
             versions[AirthingsChip.BLE] = ble
+        if sub := sub_version_from_revision(self.device_info.sw_version):
+            versions[AirthingsChip.SUB] = sub
         return versions
 
     def _sub_chip_version_cache_key(self) -> _ChipVersionsKey:
