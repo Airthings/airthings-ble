@@ -9,10 +9,9 @@ class AirthingsConnectivityMode(str, Enum):
     NOT_CONFIGURED = "Not configured"
     BLE = "Bluetooth"
     SMARTLINK = "SmartLink"
-    UNKNOWN = "unknown"
 
     @classmethod
-    def from_atom_int(cls, value: int) -> "AirthingsConnectivityMode":
+    def from_atom_int(cls, value: int) -> "AirthingsConnectivityMode | None":
         """Get connectivity mode from integer value."""
         if value == 0:
             return cls.NOT_CONFIGURED
@@ -20,4 +19,4 @@ class AirthingsConnectivityMode(str, Enum):
             return cls.SMARTLINK
         if value == 4:
             return cls.BLE
-        return cls.UNKNOWN
+        return None

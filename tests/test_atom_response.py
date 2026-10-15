@@ -191,18 +191,27 @@ def test_invalid_responses(response: bytes, exception: str) -> None:
         atom_response.parse()
 
 
-def test_atom_response_connectivity_mode_not_configured() -> None:
-    """Test connectivity mode 0 is reported as not configured."""
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    [
+        pytest.param(
+            "00", AirthingsConnectivityMode.NOT_CONFIGURED.value, id="not_configured"
+        ),
+        pytest.param("01", AirthingsConnectivityMode.SMARTLINK.value, id="smartlink"),
+        pytest.param("04", AirthingsConnectivityMode.BLE.value, id="ble"),
+        pytest.param("02", None, id="unknown"),
+    ],
+)
+def test_atom_response_connectivity_mode(value: str, expected: str | None) -> None:
+    """Test the connectivity mode value maps to a mode, or None when unknown."""
     response = AtomResponse(
         logger=_LOGGER,
-        response=bytes.fromhex("03455F9381A2006A31372F302F33313130300200"),
+        response=bytes.fromhex(f"03455F9381A2006A31372F302F333131303002{value}"),
         random_bytes=bytes.fromhex("5F93"),
         path=AtomRequestPath.CONNECTIVITY_MODE,
     )
 
-    assert response.parse() == {
-        "connectivity_mode": AirthingsConnectivityMode.NOT_CONFIGURED.value
-    }
+    assert response.parse() == {"connectivity_mode": expected}
 
 
 @pytest.mark.parametrize("payload", [b"", b"\x81"])
