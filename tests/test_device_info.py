@@ -72,3 +72,55 @@ def test_chip_versions_do_not_affect_equality() -> None:
     assert AirthingsDevice(
         chip_versions={AirthingsChip.BLE: "2.4.0", AirthingsChip.MSP: "2.2.0"}
     ) == AirthingsDevice(chip_versions={})
+
+
+@pytest.mark.parametrize(
+    ("sw_version", "chip_versions", "firmware_version"),
+    [
+        pytest.param(
+            "G-BLE-2.2.3-master+0",
+            {
+                AirthingsChip.SUB: "2.3.1",
+                AirthingsChip.BLE: "2.2.3",
+                AirthingsChip.MSP: "2.4.2",
+            },
+            "BLE-2.2.3, MSP-2.4.2, SUB-2.3.1",
+            id="wave_plus",
+        ),
+        pytest.param(
+            "M-BLE-2.1.2",
+            {AirthingsChip.BLE: "2.1.2", AirthingsChip.SUB: "2.2.2"},
+            "BLE-2.1.2, SUB-2.2.2",
+            id="wave_mini",
+        ),
+        pytest.param(
+            "T-SUB-3.0.3-master+0",
+            {AirthingsChip.SUB: "3.0.3"},
+            "SUB-3.0.3",
+            id="wave_enhance",
+        ),
+        pytest.param(
+            "G-BLE-2.2.3-master+0",
+            {AirthingsChip.BLE: "2.2.3", AirthingsChip.MSP: "2.4.2"},
+            "BLE-2.2.3, MSP-2.4.2",
+            id="wave_plus_without_sub",
+        ),
+        pytest.param(
+            "G-BLE-2.2.3-master+0",
+            {AirthingsChip.BLE: "2.2.3"},
+            "BLE-2.2.3",
+            id="ble_only",
+        ),
+        pytest.param("COR9001B.1701052", {}, "COR9001B.1701052", id="wave_gen_1"),
+        pytest.param("", {}, "", id="unknown"),
+    ],
+)
+def test_firmware_version(
+    sw_version: str,
+    chip_versions: dict[AirthingsChip, str],
+    firmware_version: str,
+) -> None:
+    """Test the firmware version lists the chip versions, else the revision."""
+    device = AirthingsDevice(sw_version=sw_version, chip_versions=chip_versions)
+
+    assert device.firmware_version == firmware_version

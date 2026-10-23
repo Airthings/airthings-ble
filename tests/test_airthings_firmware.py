@@ -1,6 +1,7 @@
 from airthings_ble.airthings_firmware import (
     AirthingsFirmwareVersion,
     ble_version_from_revision,
+    sub_version_from_revision,
 )
 from pytest import mark
 
@@ -86,10 +87,49 @@ def test_airthings_firmware_invalid_required_version() -> None:
         ("M-BLE-0.0.0+5", None),
         ("T-SUB-2.6.0-master+0", None),
         ("G-MSP-1.0.0", None),
-        ("G-BLE-1.0.0.1", None),
+        ("G-BLE-1.0.0.1", "1.0.0.1"),
+        ("G-BLE-2.4", "2.4"),
+        ("G-BLE-2.2.3\x00\x00", "2.2.3"),
+        ("G-BLE-2.4-beta+1", "2.4"),
+        ("G-BLE-2", None),
+        ("G-BLE-1.2.3.4.5", None),
+        ("G-BLE-0.0", None),
+        ("G-BLE-0.0.0.0", None),
+        ("G-BLE-1.256.0", None),
         ("1.0.0", None),
         ("", None),
     ],
 )
 def test_ble_version_from_revision(revision: str, version: str | None) -> None:
     assert ble_version_from_revision(revision) == version
+
+
+@mark.parametrize(
+    ("revision", "version"),
+    [
+        ("T-SUB-3.0.3-master+0", "3.0.3"),
+        ("R-SUB-2.1.1", "2.1.1"),
+        ("R-SUB-1.3.5-beta+1", "1.3.5"),
+        ("T-SUB-1.0.0+5", "1.0.0"),
+        ("T-SUB-1.256.3-master+0", None),
+        ("R-SUB-0.0.0", None),
+        ("T-SUB-0.0.0.0", None),
+        ("G-BLE-2.4.0-master+0", None),
+        ("M-BLE-2.1.2", None),
+        ("G-MSP-1.0.0", None),
+        ("T-SUB-1.0.0.1", "1.0.0.1"),
+        ("R-SUB-2.1", "2.1"),
+        ("T-SUB-1.2\n", "1.2"),
+        ("R-SUB-2.1.1\x00", "2.1.1"),
+        ("T-SUB-3.0.3 ", "3.0.3"),
+        ("T-SUB-1.2\nX", None),
+        ("T-SUB-3.0.3.1-master+0", "3.0.3.1"),
+        ("T-SUB-3", None),
+        ("T-SUB-1.2.3.4.5", None),
+        ("T-SUB-1.2.3.256", None),
+        ("COR9001B.1701052", None),
+        ("", None),
+    ],
+)
+def test_sub_version_from_revision(revision: str, version: str | None) -> None:
+    assert sub_version_from_revision(revision) == version
