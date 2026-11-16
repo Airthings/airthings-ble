@@ -17,7 +17,7 @@ from .parser import (
     UnsupportedDeviceError,
 )
 
-__version__ = "1.3.0rc1"
+__version__ = "1.4.1rc1"
 
 __all__ = [
     "AirthingsAdvertisementData",
